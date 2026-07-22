@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" role="img" viewBox="0 0 800 450">
+  <title>Fraction numerator and denominator labels</title>
+  <rect width="800" height="450" fill="#F8FAFC"/>
+  <rect x="235" y="80" width="330" height="290" rx="28" fill="#FFFFFF" stroke="#BFDBFE" stroke-width="4"/>
+  <text x="400" y="180" fill="#2563EB" font-family="Arial, sans-serif" font-size="92" font-weight="800" text-anchor="middle">3</text>
+  <line x1="310" y1="220" x2="490" y2="220" stroke="#0F172A" stroke-width="8" stroke-linecap="round"/>
+  <text x="400" y="320" fill="#7C3AED" font-family="Arial, sans-serif" font-size="92" font-weight="800" text-anchor="middle">5</text>
+  <path d="M520 150h110" stroke="#2563EB" stroke-width="5" stroke-linecap="round"/>
+  <path d="M520 300h110" stroke="#7C3AED" stroke-width="5" stroke-linecap="round"/>
+  <text x="645" y="158" fill="#1E3A8A" font-family="Arial, sans-serif" font-size="24" font-weight="700">Numerator</text>
+  <text x="645" y="308" fill="#4C1D95" font-family="Arial, sans-serif" font-size="24" font-weight="700">Denominator</text>
+</svg>

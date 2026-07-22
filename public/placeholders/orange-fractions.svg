@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" role="img" viewBox="0 0 800 450">
+  <title>Orange divided into four equal pieces</title>
+  <rect width="800" height="450" fill="#F8FAFC"/>
+  <circle cx="400" cy="225" r="145" fill="#F59E0B"/>
+  <path d="M400 80a145 145 0 0 1 145 145H400Z" fill="#FDBA74"/>
+  <path d="M400 225h145a145 145 0 0 1-145 145Z" fill="#FB923C"/>
+  <path d="M400 225v145a145 145 0 0 1-145-145Z" fill="#FED7AA"/>
+  <path d="M400 225H255A145 145 0 0 1 400 80Z" fill="#FFEDD5"/>
+  <path d="M400 80v290M255 225h290" stroke="#FFFFFF" stroke-width="8"/>
+  <circle cx="400" cy="225" r="145" fill="none" stroke="#EA580C" stroke-width="8"/>
+  <text x="400" y="415" fill="#0F172A" font-family="Arial, sans-serif" font-size="28" font-weight="700" text-anchor="middle">1 out of 4 equal parts</text>
+</svg>
