@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpenCheck, GraduationCap, LayoutDashboard, Library, PlayCircle, Settings2, ShieldCheck, SquarePen } from "lucide-react";
+import { BookOpenCheck, GraduationCap, LayoutDashboard, Library, PlayCircle, Settings2, SquarePen } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { SkulKidLogo } from "@/components/shared/skulkid-logo";
 import { cn } from "@/lib/utils";
 
 const navItems: Array<{ href: string; label: string; shortLabel: string; icon: LucideIcon; match: "exact" | "prefix" }> = [
@@ -22,8 +23,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       <header className="sticky top-0 z-30 border-b border-slate-200 bg-slate-950 px-4 py-3 text-white shadow-lg lg:hidden">
         <div className="flex min-h-12 items-center justify-between">
           <Link href="/admin" className="flex items-center gap-3 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white">
-            <span className="grid size-11 place-items-center rounded-2xl bg-violet-600"><ShieldCheck className="size-6" aria-hidden="true" /></span>
-            <span><span className="block font-black">SkulKid</span><span className="block text-xs font-bold text-slate-300">Admin Workspace</span></span>
+            <span><span className="inline-flex rounded-xl bg-white px-2 py-1"><SkulKidLogo className="w-28" priority /></span><span className="mt-1 block text-xs font-bold text-slate-300">Admin Workspace</span></span>
           </Link>
           <span className="rounded-full bg-amber-300 px-3 py-1 text-xs font-black text-amber-950">Development preview</span>
         </div>
@@ -32,8 +32,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       <aside className="sticky top-0 hidden h-screen border-r border-slate-800 bg-slate-950 text-white lg:block">
         <div className="flex h-full flex-col p-5">
           <Link href="/admin" className="flex min-h-14 items-center gap-3 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white">
-            <span className="grid size-12 place-items-center rounded-2xl bg-violet-600 shadow-lg"><ShieldCheck className="size-6" aria-hidden="true" /></span>
-            <span><span className="block text-lg font-black">SkulKid</span><span className="block text-xs font-bold text-slate-400">Admin Workspace</span></span>
+            <span><span className="inline-flex rounded-xl bg-white px-2 py-1 shadow-lg"><SkulKidLogo className="w-36" priority /></span><span className="mt-1 block text-xs font-bold text-slate-400">Admin Workspace</span></span>
           </Link>
           <div className="mt-6 rounded-2xl border border-amber-300/30 bg-amber-300/10 p-4"><p className="text-xs font-black uppercase tracking-wide text-amber-300">Development preview</p><p className="mt-2 text-sm leading-6 text-slate-300">Authentication and administrator roles are required before production use.</p></div>
           <nav aria-label="Admin navigation" className="mt-6 grid gap-1.5">

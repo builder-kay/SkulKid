@@ -131,9 +131,9 @@ Question blocks support local preview interaction only. No progress is persisted
 
 ## AI Curriculum Studio
 
-Set `OPENAI_API_KEY` on the server and optionally set `OPENAI_CURRICULUM_MODEL` (defaults to `gpt-5.6-terra`). The Studio accepts PDF, TXT and Markdown curriculum files up to 10 MB, requests schema-constrained content from the OpenAI Responses API, converts it into SkulKid lesson versions and runs publishing validation. Generated content always remains a draft for educator review.
+Set `GEMINI_API_KEY` on the server and optionally set `GEMINI_MODEL` (defaults to `gemini-3.5-flash`). The Studio accepts PDF, TXT and Markdown curriculum files up to 10 MB, requests schema-constrained content from the Google Gemini API, converts it into SkulKid lesson versions and runs publishing validation. Generated content always remains a draft for educator review.
 
-Do not expose the admin route publicly until authentication and administrator role checks are implemented. Never use a `NEXT_PUBLIC_` environment variable for the OpenAI key.
+Do not expose the admin route publicly until authentication and administrator role checks are implemented. Never use a `NEXT_PUBLIC_` environment variable for the Gemini key.
 
 ## Domain Overview
 

@@ -162,6 +162,8 @@ export type VideoBlock = BaseLessonBlock & {
   provider: "youtube" | "vimeo" | "tiktok";
   title: string;
   caption?: string;
+  participationPrompt?: string;
+  participationXp?: number;
 };
 
 export type WorkedExampleBlock = BaseLessonBlock & {

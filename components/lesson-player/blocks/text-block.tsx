@@ -10,7 +10,7 @@ export function TextBlockComponent({ block }: TextBlockProps) {
   return (
     <LessonBlockShell block={block}>
       <div className="space-y-3">
-        <h2 className="text-xl font-bold text-text-primary">{block.heading}</h2>
+        <h2 className="text-2xl font-black text-text-primary sm:text-3xl">{block.heading}</h2>
         <FormattedText text={block.content} />
       </div>
     </LessonBlockShell>

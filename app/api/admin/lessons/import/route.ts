@@ -2,21 +2,22 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { supportedCurriculumSubjectSchema } from "@/domains/curriculum-ai/schemas/generated-course";
 import { importLessonFile, LessonImportError } from "@/domains/curriculum-ai/services/lesson-importer";
+import { resolveGeminiModel } from "@/domains/curriculum-ai/services/gemini";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
 const supportedTypes = new Set(["application/pdf", "text/plain", "text/markdown"]);
-const metadataSchema = z.object({ mode: z.enum(["lesson", "quiz"]), subject: supportedCurriculumSubjectSchema, grade: z.number().int().min(1).max(12) });
+const metadataSchema = z.object({ mode: z.enum(["lesson", "quiz"]), subject: supportedCurriculumSubjectSchema, grade: z.number().int().min(1).max(12), questionCount: z.number().int().min(1).max(10) });
 
 export function GET() {
-  return NextResponse.json({ configured: Boolean(process.env.OPENAI_API_KEY), model: process.env.OPENAI_LESSON_MODEL ?? process.env.OPENAI_CURRICULUM_MODEL ?? "gpt-5.6-sol" });
+  return NextResponse.json({ configured: Boolean(process.env.GEMINI_API_KEY), model: resolveGeminiModel(process.env.GEMINI_LESSON_MODEL ?? process.env.GEMINI_MODEL) });
 }
 
 export async function POST(request: Request) {
   try {
     const form = await request.formData();
     const file = form.get("file");
-    const metadata = metadataSchema.safeParse({ mode: form.get("mode"), subject: form.get("subject"), grade: Number(form.get("grade")) });
+    const metadata = metadataSchema.safeParse({ mode: form.get("mode"), subject: form.get("subject"), grade: Number(form.get("grade")), questionCount: Number(form.get("questionCount")) });
     if (!(file instanceof File)) return NextResponse.json({ error: "Choose a lesson or quiz file." }, { status: 400 });
     if (!metadata.success) return NextResponse.json({ error: "Choose a valid import type, subject and grade." }, { status: 400 });
     if (!supportedTypes.has(file.type)) return NextResponse.json({ error: "Supported formats are PDF, TXT and Markdown." }, { status: 415 });

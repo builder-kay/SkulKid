@@ -7,14 +7,14 @@ Curriculum Studio converts an educator-provided curriculum PDF or text file into
 ## Processing boundary
 
 1. The browser uploads a validated file to a server-only route.
-2. The server sends the source and generation contract to the OpenAI Responses API.
+2. The server sends the source and generation contract to the Google Gemini API.
 3. Structured Outputs constrain the result to the generated-course JSON schema.
 4. Zod validates the response again at the application boundary.
 5. The materialiser creates stable curriculum entities and lesson blocks.
 6. Existing publishing validation checks every lesson version.
 7. The administrator reviews and downloads the draft.
 
-The API key is read only from `OPENAI_API_KEY` on the server. It must never use a `NEXT_PUBLIC_` name or be sent to the browser.
+The API key is read only from `GEMINI_API_KEY` on the server. It must never use a `NEXT_PUBLIC_` name or be sent to the browser.
 
 ## Subject rules
 
@@ -31,8 +31,11 @@ Curriculum uploads should not contain pupil personal data. Production must add a
 ## Configuration
 
 ```env
-OPENAI_API_KEY=...
-OPENAI_CURRICULUM_MODEL=gpt-5.6-terra
+GEMINI_API_KEY=...
+GEMINI_MODEL=gemini-3.5-flash
+# Optional task-specific overrides:
+GEMINI_CURRICULUM_MODEL=gemini-3.5-flash
+GEMINI_LESSON_MODEL=gemini-3.5-flash
 ```
 
 The current prototype does not persist drafts because Phase 1 has no administrator identity. The Prisma provenance model is ready for the authenticated workflow.

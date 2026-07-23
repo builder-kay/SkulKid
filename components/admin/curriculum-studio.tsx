@@ -69,7 +69,7 @@ export function CurriculumStudio() {
         </div>
       </header>
 
-      {configured === false ? <div role="alert" className="mt-6 flex gap-3 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-950"><TriangleAlert className="mt-0.5 size-5 shrink-0" aria-hidden="true" /><div><p className="font-bold">OpenAI is not configured</p><p className="mt-1">Add <code>OPENAI_API_KEY</code> to the server environment and restart SkulKid. The key must never be placed in browser code.</p></div></div> : null}
+      {configured === false ? <div role="alert" className="mt-6 flex gap-3 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-950"><TriangleAlert className="mt-0.5 size-5 shrink-0" aria-hidden="true" /><div><p className="font-bold">Gemini is not configured</p><p className="mt-1">Add <code>GEMINI_API_KEY</code> to the server environment and restart SkulKid. The key must never be placed in browser code.</p></div></div> : null}
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[24rem_1fr]">
         <SkulKidCard className="p-5 sm:p-6">

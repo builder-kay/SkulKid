@@ -6,7 +6,7 @@ import type { LessonBlock as DomainLessonBlock } from "@/domains/curriculum/type
 import { normaliseOrder, readAdminLessons, readLessonOrder, type AdminLessonRecord } from "@/lib/admin/lesson-library";
 import type { Lesson, LessonBlock } from "@/types/lesson";
 
-const subjectIds = { mathematics: "subject-mathematics", "english-language": "subject-english", science: "subject-science" } as const;
+const subjectIds = { mathematics: "subject-mathematics", "english-language": "subject-english-language", science: "subject-science" } as const;
 
 export function publishedLessonsFromRecords(records: AdminLessonRecord[]): Lesson[] {
   const published = records.filter((record) => record.status === "published");
@@ -67,7 +67,7 @@ function toLegacyBlock(block: DomainLessonBlock): LessonBlock {
     case "lesson_intro": return { id: block.id, type: "introduction", order: block.order, title: block.title, content: block.shortDescription, objective: block.objectives.join(" ") };
     case "text": return { id: block.id, type: "text", order: block.order, heading: block.heading, content: block.body };
     case "image": return { id: block.id, type: "image", order: block.order, imageUrl: block.source, altText: block.altText, caption: block.caption ?? "" };
-    case "video": return { id: block.id, type: "video", order: block.order, videoUrl: block.source, title: block.title, caption: block.caption };
+    case "video": return { id: block.id, type: "video", order: block.order, videoUrl: block.source, title: block.title, caption: block.caption, participationPrompt: block.participationPrompt, participationXp: block.participationXp };
     case "worked_example": return { id: block.id, type: "example", order: block.order, title: block.title, content: `${block.problem} ${block.orderedSteps.join(" ")}`, explanation: block.explanation };
     case "tip": return { id: block.id, type: "tip", order: block.order, title: block.title, content: block.body };
     case "checkpoint": return { id: block.id, type: "tip", order: block.order, title: "Checkpoint", content: block.prompt };

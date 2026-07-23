@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import {
   ArrowRight,
   Flame,
@@ -13,6 +12,7 @@ import {
 import { CourseCard } from "@/components/student/course-card";
 import { GamificationArena } from "@/components/gamification/gamification-arena";
 import { StudentShell } from "@/components/student/student-shell";
+import { CharacterAvatar } from "@/components/student/character-avatar";
 import { SkulKidCard } from "@/components/shared/skulkid-card";
 import { subjects } from "@/data/subjects";
 import { sampleStudentProgress } from "@/data/sample-student-progress";
@@ -51,7 +51,7 @@ export function StudentDashboard() {
               className="grid size-16 shrink-0 place-items-center overflow-hidden rounded-full border-4 border-white bg-gradient-to-br from-blue-100 to-violet-100 text-2xl font-black text-primary shadow-[0_8px_24px_rgba(37,99,235,0.2)] sm:size-20"
               role="img"
             >
-              {profile.avatarUrl ? <Image alt="" className="size-full object-cover" height={80} src={profile.avatarUrl} unoptimized width={80} /> : profile.displayName.charAt(0).toUpperCase()}
+              <CharacterAvatar avatar={profile.avatar} className="size-full" label={`${profile.displayName}'s avatar`} />
             </div>
           </div>
         </header>

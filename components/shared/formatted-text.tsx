@@ -2,7 +2,12 @@ import type { ReactNode } from "react";
 import { Lightbulb } from "lucide-react";
 
 export function FormattedText({ text }: { text: string }) {
-  const lines = text.split(/\r?\n/);
+  const normalised = text
+    .replace(/\s+(?=##{2,3}\s)/g, "\n")
+    .replace(/\s+(?=\[tip\])/g, "\n")
+    .replace(/\[\/tip\]\s*/g, "[/tip]\n")
+    .replace(/\s+(?=\d+[.)]\s)/g, "\n");
+  const lines = normalised.split(/\r?\n/);
   const content: ReactNode[] = [];
   let list: string[] = [];
   let listType: "bullet" | "number" | null = null;

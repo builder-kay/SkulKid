@@ -2,16 +2,19 @@
 
 import { Crown, Flame, Medal, Shield, Sparkles, Star, Trophy, Users, Zap } from "lucide-react";
 import { StudentShell } from "@/components/student/student-shell";
+import { CharacterAvatar } from "@/components/student/character-avatar";
 import { platformLearners, type LeaderboardLearner } from "@/data/leaderboard";
 import { getStudentLevel } from "@/lib/gamification/calculate-level";
 import { useStudentGame } from "@/lib/gamification/student-game";
-import { useStudentProfile } from "@/lib/student/student-profile";
+import { useStudentProfile, type AvatarConfig } from "@/lib/student/student-profile";
+
+type RankedLearner = LeaderboardLearner & { rank: number; customAvatar?: AvatarConfig };
 
 export function LeaderboardPage() {
   const { state } = useStudentGame();
   const { profile } = useStudentProfile();
   const level = getStudentLevel(state.xp).level;
-  const current: LeaderboardLearner = { id: "student-preview-1", name: profile.displayName, xp: state.xp, stars: state.stars, streak: state.streak, level, avatar: initials(profile.displayName), colour: "from-blue-600 to-violet-600" };
+  const current: LeaderboardLearner & { customAvatar: AvatarConfig } = { id: "student-preview-1", name: profile.displayName, xp: state.xp, stars: state.stars, streak: state.streak, level, avatar: initials(profile.displayName), colour: "from-blue-600 to-violet-600", customAvatar: profile.avatar };
   const ranked = [...platformLearners, current].sort((a, b) => b.xp - a.xp || b.stars - a.stars).map((learner, index) => ({ ...learner, rank: index + 1 }));
   const currentRank = ranked.find((learner) => learner.id === current.id)?.rank ?? ranked.length;
   const podium = [ranked[3], ranked[1], ranked[0], ranked[2], ranked[4]];
@@ -25,14 +28,14 @@ export function LeaderboardPage() {
   </main></StudentShell>;
 }
 
-function PodiumLearner({ learner, visualIndex }: { learner: LeaderboardLearner & { rank: number }; visualIndex: number }) {
+function PodiumLearner({ learner, visualIndex }: { learner: RankedLearner; visualIndex: number }) {
   const first = learner.rank === 1; const heights = ["h-24", "h-36", "h-48", "h-30", "h-20"];
-  return <article className="text-center"><div className={`relative mx-auto grid place-items-center rounded-full bg-gradient-to-br font-black text-white shadow-xl ring-4 ring-white ${learner.colour} ${first ? "size-24 text-2xl" : "size-18 text-lg"}`}>{first ? <Crown className="size-10 text-amber-200" /> : learner.avatar}<span className={`absolute -bottom-2 rounded-full px-2 py-0.5 text-xs font-black text-white ${first ? "bg-amber-500" : "bg-violet-700"}`}>#{learner.rank}</span></div><p className="mt-4 truncate text-sm font-black">{learner.name}</p><p className="text-xs font-bold text-violet-700">{learner.xp} XP</p><div className={`mt-3 flex ${heights[visualIndex]} flex-col items-center justify-start rounded-t-2xl bg-gradient-to-b ${first ? "from-amber-300 to-amber-500" : "from-violet-300 to-violet-500"} pt-3 text-white shadow-inner`}><span className="text-2xl font-black">{learner.rank}</span><span className="mt-1 flex items-center gap-1 text-xs font-bold"><Star className="size-3 fill-current" />{learner.stars}</span></div></article>;
+  return <article className="text-center"><div className={`relative mx-auto grid place-items-center overflow-visible rounded-full bg-gradient-to-br font-black text-white shadow-xl ring-4 ring-white ${learner.colour} ${first ? "size-24 text-2xl" : "size-18 text-lg"}`}>{learner.customAvatar ? <CharacterAvatar avatar={learner.customAvatar} className="size-full" label={`${learner.name}'s avatar`} /> : first ? <Crown className="size-10 text-amber-200" /> : learner.avatar}<span className={`absolute -bottom-2 rounded-full px-2 py-0.5 text-xs font-black text-white ${first ? "bg-amber-500" : "bg-violet-700"}`}>#{learner.rank}</span></div><p className="mt-4 truncate text-sm font-black">{learner.name}</p><p className="text-xs font-bold text-violet-700">{learner.xp} XP</p><div className={`mt-3 flex ${heights[visualIndex]} flex-col items-center justify-start rounded-t-2xl bg-gradient-to-b ${first ? "from-amber-300 to-amber-500" : "from-violet-300 to-violet-500"} pt-3 text-white shadow-inner`}><span className="text-2xl font-black">{learner.rank}</span><span className="mt-1 flex items-center gap-1 text-xs font-bold"><Star className="size-3 fill-current" />{learner.stars}</span></div></article>;
 }
 
-function RankingRow({ learner, current }: { learner: LeaderboardLearner & { rank: number }; current: boolean }) {
+function RankingRow({ learner, current }: { learner: RankedLearner; current: boolean }) {
   const rankIcon = learner.rank === 1 ? <Crown className="size-5 text-amber-500" /> : learner.rank <= 3 ? <Medal className="size-5 text-violet-600" /> : <span className="font-black text-muted">{learner.rank}</span>;
-  return <article className={`grid grid-cols-[2.5rem_1fr_auto] items-center gap-3 px-4 py-4 sm:grid-cols-[3rem_1fr_repeat(4,minmax(4rem,auto))] sm:px-6 ${current ? "bg-blue-50 ring-1 ring-inset ring-blue-200" : "hover:bg-slate-50"}`}><div className="grid size-9 place-items-center">{rankIcon}</div><div className="flex min-w-0 items-center gap-3"><span className={`grid size-11 shrink-0 place-items-center rounded-full bg-gradient-to-br font-black text-white ${learner.colour}`}>{learner.avatar}</span><div className="min-w-0"><p className="truncate font-black">{learner.name}{current ? " (you)" : ""}</p><p className="text-xs text-muted">Level {learner.level}</p></div></div><Metric className="hidden sm:flex" icon={Star} value={learner.stars} label="Stars" /><Metric className="hidden sm:flex" icon={Flame} value={learner.streak} label="Streak" /><Metric className="hidden sm:flex" icon={Trophy} value={learner.level} label="Level" /><div className="rounded-xl bg-violet-50 px-3 py-2 text-right"><p className="font-black text-violet-800">{learner.xp}</p><p className="text-[10px] font-bold uppercase text-violet-600">XP</p></div></article>;
+  return <article className={`grid grid-cols-[2.5rem_1fr_auto] items-center gap-3 px-4 py-4 sm:grid-cols-[3rem_1fr_repeat(4,minmax(4rem,auto))] sm:px-6 ${current ? "bg-blue-50 ring-1 ring-inset ring-blue-200" : "hover:bg-slate-50"}`}><div className="grid size-9 place-items-center">{rankIcon}</div><div className="flex min-w-0 items-center gap-3"><span className={`grid size-11 shrink-0 place-items-center overflow-hidden rounded-full bg-gradient-to-br font-black text-white ${learner.colour}`}>{learner.customAvatar ? <CharacterAvatar avatar={learner.customAvatar} className="size-11" label={`${learner.name}'s avatar`} /> : learner.avatar}</span><div className="min-w-0"><p className="truncate font-black">{learner.name}{current ? " (you)" : ""}</p><p className="text-xs text-muted">Level {learner.level}</p></div></div><Metric className="hidden sm:flex" icon={Star} value={learner.stars} label="Stars" /><Metric className="hidden sm:flex" icon={Flame} value={learner.streak} label="Streak" /><Metric className="hidden sm:flex" icon={Trophy} value={learner.level} label="Level" /><div className="rounded-xl bg-violet-50 px-3 py-2 text-right"><p className="font-black text-violet-800">{learner.xp}</p><p className="text-[10px] font-bold uppercase text-violet-600">XP</p></div></article>;
 }
 
 function HeaderMetric({ icon: Icon, value, label }: { icon: React.ElementType; value: string | number; label: string }) { return <div className="min-w-20 rounded-2xl bg-white/10 p-3 text-center"><Icon className="mx-auto size-5 text-amber-300" /><p className="mt-1 text-xl font-black">{value}</p><p className="text-[10px] font-bold uppercase text-indigo-100">{label}</p></div>; }

@@ -19,7 +19,8 @@ export const importedLessonSchema = z.object({
   exampleAnswer: z.string(),
   trueFalseStatement: z.string(),
   trueFalseAnswer: z.boolean(),
-  summaryPoints: z.array(z.string()).min(2).max(4)
+  summaryPoints: z.array(z.string()).min(2).max(4),
+  questions: z.array(generatedChallengeSchema).min(1).max(10)
 });
 
 export const importedQuizSchema = z.object({
@@ -42,7 +43,7 @@ const challengeJsonSchema = {
 
 export const importedLessonJsonSchema = {
   type: "object", additionalProperties: false,
-  required: ["unit", "chapter", "topic", "title", "description", "curriculumReference", "objectives", "estimatedMinutes", "difficulty", "teachingHeading", "teachingText", "exampleTitle", "exampleProblem", "exampleSteps", "exampleAnswer", "trueFalseStatement", "trueFalseAnswer", "summaryPoints"],
+  required: ["unit", "chapter", "topic", "title", "description", "curriculumReference", "objectives", "estimatedMinutes", "difficulty", "teachingHeading", "teachingText", "exampleTitle", "exampleProblem", "exampleSteps", "exampleAnswer", "trueFalseStatement", "trueFalseAnswer", "summaryPoints", "questions"],
   properties: {
     unit: { type: "string" }, chapter: { type: "string" }, topic: { type: "string" }, title: { type: "string" },
     description: { type: "string" }, curriculumReference: { type: "string" },
@@ -52,7 +53,11 @@ export const importedLessonJsonSchema = {
     teachingHeading: { type: "string" }, teachingText: { type: "string" }, exampleTitle: { type: "string" },
     exampleProblem: { type: "string" }, exampleSteps: { type: "array", items: { type: "string" }, minItems: 2, maxItems: 5 },
     exampleAnswer: { type: "string" }, trueFalseStatement: { type: "string" }, trueFalseAnswer: { type: "boolean" },
-    summaryPoints: { type: "array", items: { type: "string" }, minItems: 2, maxItems: 4 }
+    summaryPoints: { type: "array", items: { type: "string" }, minItems: 2, maxItems: 4 },
+    questions: { type: "array", minItems: 1, maxItems: 10, items: {
+      type: "object", additionalProperties: false, required: ["prompt", "options", "correctOptionIndex", "hint", "explanation"],
+      properties: { prompt: { type: "string" }, options: { type: "array", items: { type: "string" }, minItems: 3, maxItems: 3 }, correctOptionIndex: { type: "integer", minimum: 0, maximum: 2 }, hint: { type: "string" }, explanation: { type: "string" } }
+    } }
   }
 } as const;
 

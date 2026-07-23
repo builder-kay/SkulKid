@@ -7,20 +7,22 @@ import { SummaryBlockComponent } from "@/components/lesson-player/blocks/summary
 import { TextBlockComponent } from "@/components/lesson-player/blocks/text-block";
 import { TipBlockComponent } from "@/components/lesson-player/blocks/tip-block";
 import { TrueFalseBlockComponent } from "@/components/lesson-player/blocks/true-false-block";
-import { EmbeddedVideo } from "@/components/shared/embedded-video";
+import { VideoParticipationBlock } from "@/components/lesson-player/blocks/video-participation-block";
 import type { LessonBlock } from "@/types/lesson";
 
 export type BlockRendererProps = {
   block: LessonBlock;
   previewMode?: boolean;
   onAnswer?: (blockId: string, correct: boolean, attempts: number) => void;
+  completedVideoPromptIds?: string[];
+  onVideoPromptComplete?: (blockId: string, xp: number) => void;
 };
 
 function assertNever(value: never): never {
   throw new Error(`Unsupported lesson block: ${JSON.stringify(value)}`);
 }
 
-export function BlockRenderer({ block, previewMode = false, onAnswer }: BlockRendererProps) {
+export function BlockRenderer({ block, previewMode = false, onAnswer, completedVideoPromptIds = [], onVideoPromptComplete }: BlockRendererProps) {
   switch (block.type) {
     case "introduction":
       return <IntroductionBlockComponent block={block} />;
@@ -29,7 +31,7 @@ export function BlockRenderer({ block, previewMode = false, onAnswer }: BlockRen
     case "image":
       return <ImageBlockComponent block={block} />;
     case "video":
-      return <EmbeddedVideo url={block.videoUrl} title={block.title} caption={block.caption} />;
+      return <VideoParticipationBlock block={block} completed={completedVideoPromptIds.includes(block.id)} onComplete={onVideoPromptComplete} />;
     case "example":
       return <ExampleBlockComponent block={block} />;
     case "tip":

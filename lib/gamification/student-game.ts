@@ -9,10 +9,10 @@ export const DAILY_LEARNING_XP_GOAL = 30;
 export type QuizAnswerResult = { blockId: string; correct: boolean; attempts: number };
 type QuizRecord = { bestScore: number; stars: number; passed: boolean; rewardedQuestionIds: string[]; perfectBonusClaimed: boolean };
 export type GameHistoryEvent = { id: string; type: "joined" | "lesson" | "quiz" | "gift" | "streak" | "achievement"; title: string; detail: string; xp: number; stars: number; rank: number; createdAt: string };
-export type GameState = { xp: number; stars: number; streak: number; completedLessonIds: string[]; claimedDailyReward: string | null; surpriseCount: number; lastReward: { title: string; detail: string; xp: number; stars: number } | null; dailyLearningDate: string | null; dailyLearningXp: number; lastStreakDate: string | null; quizRecords: Record<string, QuizRecord>; history: GameHistoryEvent[] };
+export type GameState = { xp: number; avatarPoints: number; unlockedAvatarAssetIds: string[]; stars: number; streak: number; completedLessonIds: string[]; completedVideoPromptIds: string[]; claimedDailyReward: string | null; surpriseCount: number; lastReward: { title: string; detail: string; xp: number; stars: number } | null; dailyLearningDate: string | null; dailyLearningXp: number; lastStreakDate: string | null; quizRecords: Record<string, QuizRecord>; history: GameHistoryEvent[] };
 export type Achievement = { id: string; name: string; description: string; icon: string; earned: boolean };
 
-const initialState: GameState = { xp: 0, stars: 0, streak: 0, completedLessonIds: [], claimedDailyReward: null, surpriseCount: 0, lastReward: null, dailyLearningDate: null, dailyLearningXp: 0, lastStreakDate: null, quizRecords: {}, history: [] };
+const initialState: GameState = { xp: 0, avatarPoints: 0, unlockedAvatarAssetIds: [], stars: 0, streak: 0, completedLessonIds: [], completedVideoPromptIds: [], claimedDailyReward: null, surpriseCount: 0, lastReward: null, dailyLearningDate: null, dailyLearningXp: 0, lastStreakDate: null, quizRecords: {}, history: [] };
 
 function localDate(date = new Date()) { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`; }
 function dayDifference(from: string, to: string) { return Math.round((new Date(`${to}T12:00:00`).getTime() - new Date(`${from}T12:00:00`).getTime()) / 86400000); }
@@ -20,7 +20,11 @@ function dayDifference(from: string, to: string) { return Math.round((new Date(`
 export function readGameState(): GameState {
   if (typeof window === "undefined") return initialState;
   try {
-    const state = { ...initialState, ...JSON.parse(localStorage.getItem(storageKey) ?? "{}") } as GameState;
+    const saved = JSON.parse(localStorage.getItem(storageKey) ?? "{}") as Partial<GameState>;
+    const state = { ...initialState, ...saved } as GameState;
+    if (!Array.isArray(state.completedVideoPromptIds)) state.completedVideoPromptIds = [];
+    if (!Array.isArray(state.unlockedAvatarAssetIds)) state.unlockedAvatarAssetIds = [];
+    if (typeof saved.avatarPoints !== "number") state.avatarPoints = state.xp;
     if (!state.history.length) state.history = [{ id: "history-joined", type: "joined", title: "Joined SkulKid", detail: state.xp || state.stars ? "Earlier progress was imported when achievement history was introduced." : "Your learning adventure begins here.", xp: state.xp, stars: state.stars, rank: rankForXp(state.xp), createdAt: new Date().toISOString() }];
     if (state.lastStreakDate && dayDifference(state.lastStreakDate, localDate()) > 1) return { ...state, streak: 0 };
     return state;
@@ -38,7 +42,7 @@ function addLearningXp(state: GameState, earnedXp: number): GameState {
     streak = lastStreakDate && dayDifference(lastStreakDate, today) === 1 ? streak + 1 : 1;
     lastStreakDate = today;
   }
-  return { ...state, xp: state.xp + earnedXp, dailyLearningDate: today, dailyLearningXp: dailyXp, streak, lastStreakDate };
+  return { ...state, xp: state.xp + earnedXp, avatarPoints: state.avatarPoints + earnedXp, dailyLearningDate: today, dailyLearningXp: dailyXp, streak, lastStreakDate };
 }
 
 export function achievementsFor(state: GameState): Achievement[] {
@@ -81,13 +85,29 @@ export function useStudentGame() {
     save(next); return { state: next, score, passed, earnedStars, earnedXp: totalXp };
   }, []);
 
+  const completeVideoPrompt = useCallback((blockId: string, xp: number) => {
+    const current = readGameState();
+    if (current.completedVideoPromptIds.includes(blockId)) return current;
+    const rewardXp = Math.min(50, Math.max(1, Math.round(xp)));
+    let next = addLearningXp({ ...current, completedVideoPromptIds: [...current.completedVideoPromptIds, blockId], lastReward: { title: "Video participation bonus!", detail: "You reflected on what you watched.", xp: rewardXp, stars: 0 } }, rewardXp);
+    next = withHistory(next, { type: "lesson", title: "Video participation completed", detail: `Earned ${rewardXp} XP for a video quick check.`, xp: rewardXp, stars: 0 });
+    save(next); return next;
+  }, []);
+
+  const redeemAvatarAsset = useCallback((assetId: string, cost: number) => {
+    const current = readGameState();
+    if (current.unlockedAvatarAssetIds.includes(assetId) || cost < 0 || current.avatarPoints < cost) return { state: current, redeemed: false };
+    const next = withHistory({ ...current, avatarPoints: current.avatarPoints - cost, unlockedAvatarAssetIds: [...current.unlockedAvatarAssetIds, assetId] }, { type: "achievement", title: "Avatar item unlocked", detail: `Redeemed ${cost} Avatar Points for ${assetId}.`, xp: 0, stars: 0 });
+    save(next); return { state: next, redeemed: true };
+  }, []);
+
   const claimDailyReward = useCallback(() => {
     const current = readGameState(); const today = localDate();
     if (current.claimedDailyReward === today || current.dailyLearningDate !== today || current.dailyLearningXp < DAILY_LEARNING_XP_GOAL) return current;
     const roll = Math.random(); const rewardXp = roll < .05 ? 50 : roll < .25 ? 30 : roll < .65 ? 20 : 10;
-    const next = withHistory({ ...current, xp: current.xp + rewardXp, claimedDailyReward: today, lastReward: { title: "Daily gift opened!", detail: `You discovered ${rewardXp} bonus XP.`, xp: rewardXp, stars: 0 } }, { type: "gift", title: "Daily mystery gift opened", detail: `Discovered ${rewardXp} bonus XP.`, xp: rewardXp, stars: 0 }); save(next); return next;
+    const next = withHistory({ ...current, xp: current.xp + rewardXp, avatarPoints: current.avatarPoints + rewardXp, claimedDailyReward: today, lastReward: { title: "Daily gift opened!", detail: `You discovered ${rewardXp} bonus XP.`, xp: rewardXp, stars: 0 } }, { type: "gift", title: "Daily mystery gift opened", detail: `Discovered ${rewardXp} XP and Avatar Points.`, xp: rewardXp, stars: 0 }); save(next); return next;
   }, []);
 
   const today = localDate(); const dailyLearningXp = state.dailyLearningDate === today ? state.dailyLearningXp : 0;
-  return useMemo(() => ({ state, achievements: achievementsFor(state), completeLesson, submitQuiz, claimDailyReward, dailyLearningXp, dailyGiftUnlocked: dailyLearningXp >= DAILY_LEARNING_XP_GOAL }), [state, completeLesson, submitQuiz, claimDailyReward, dailyLearningXp]);
+  return useMemo(() => ({ state, achievements: achievementsFor(state), completeLesson, completeVideoPrompt, redeemAvatarAsset, submitQuiz, claimDailyReward, dailyLearningXp, dailyGiftUnlocked: dailyLearningXp >= DAILY_LEARNING_XP_GOAL }), [state, completeLesson, completeVideoPrompt, redeemAvatarAsset, submitQuiz, claimDailyReward, dailyLearningXp]);
 }

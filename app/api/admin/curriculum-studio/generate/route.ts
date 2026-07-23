@@ -3,6 +3,7 @@ import { z } from "zod";
 import { supportedCurriculumSubjectSchema } from "@/domains/curriculum-ai/schemas/generated-course";
 import { CurriculumGenerationError, generateCourseFromCurriculum } from "@/domains/curriculum-ai/services/course-generator";
 import { materialiseGeneratedCourse } from "@/domains/curriculum-ai/services/materialise-course";
+import { resolveGeminiModel } from "@/domains/curriculum-ai/services/gemini";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -17,8 +18,8 @@ const maximumBytes = 10 * 1024 * 1024;
 
 export function GET() {
   return NextResponse.json({
-    configured: Boolean(process.env.OPENAI_API_KEY),
-    model: process.env.OPENAI_CURRICULUM_MODEL ?? "gpt-5.6-terra",
+    configured: Boolean(process.env.GEMINI_API_KEY),
+    model: resolveGeminiModel(process.env.GEMINI_CURRICULUM_MODEL ?? process.env.GEMINI_MODEL),
     supportedSubjects: supportedCurriculumSubjectSchema.options
   });
 }

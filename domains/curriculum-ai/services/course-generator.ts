@@ -1,9 +1,9 @@
 import { createHash } from "node:crypto";
 import { generatedCourseJsonSchema, generatedCourseSchema } from "@/domains/curriculum-ai/schemas/generated-course";
 import type { GeneratedCourse, SupportedCurriculumSubject } from "@/domains/curriculum-ai/schemas/generated-course";
+import { generateStructuredWithGemini, GeminiRequestError, resolveGeminiModel } from "@/domains/curriculum-ai/services/gemini";
 
-const endpoint = "https://api.openai.com/v1/responses";
-const promptVersion = "skulkid-curriculum-v1";
+const promptVersion = "skulkid-gemini-curriculum-v1";
 
 export type GenerateCourseInput = {
   subject: SupportedCurriculumSubject;
@@ -29,46 +29,15 @@ export class CurriculumGenerationError extends Error {
 }
 
 export async function generateCourseFromCurriculum(input: GenerateCourseInput): Promise<GenerateCourseResult> {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) throw new CurriculumGenerationError("OPENAI_API_KEY is not configured on the server.", 503);
-
-  const model = process.env.OPENAI_CURRICULUM_MODEL ?? "gpt-5.6-terra";
+  const model = resolveGeminiModel(process.env.GEMINI_CURRICULUM_MODEL ?? process.env.GEMINI_MODEL);
   const sourceChecksum = createHash("sha256").update(input.bytes).digest("hex");
-  const fileContent = input.mimeType === "application/pdf"
-    ? { type: "input_file", filename: input.fileName, file_data: `data:application/pdf;base64,${Buffer.from(input.bytes).toString("base64")}` }
-    : { type: "input_text", text: new TextDecoder().decode(input.bytes) };
-
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model,
-      reasoning: { effort: "medium" },
-      input: [{
-        role: "user",
-        content: [
-          fileContent,
-          { type: "input_text", text: buildPrompt(input.subject, input.grades) }
-        ]
-      }],
-      text: {
-        format: { type: "json_schema", name: "skulkid_generated_course", strict: true, schema: generatedCourseJsonSchema },
-        verbosity: "medium"
-      }
-    })
-  });
-
-  if (!response.ok) {
-    const detail = await response.text();
-    throw new CurriculumGenerationError(`OpenAI generation failed (${response.status}): ${detail.slice(0, 500)}`, 502);
+  try {
+    const generated = await generateStructuredWithGemini({ model, prompt: buildPrompt(input.subject, input.grades), mimeType: input.mimeType, bytes: input.bytes, schema: generatedCourseJsonSchema });
+    return { course: generatedCourseSchema.parse(generated.data), responseId: generated.responseId, model, sourceChecksum, promptVersion };
+  } catch (error) {
+    if (error instanceof GeminiRequestError) throw new CurriculumGenerationError(error.message, error.status);
+    throw error;
   }
-
-  const payload = await response.json() as { id?: string; output_text?: string; output?: Array<{ content?: Array<{ type?: string; text?: string }> }> };
-  const outputText = payload.output_text ?? payload.output?.flatMap((item) => item.content ?? []).find((item) => item.type === "output_text")?.text;
-  if (!outputText) throw new CurriculumGenerationError("OpenAI returned no structured course content.", 502);
-
-  const parsedJson: unknown = JSON.parse(outputText);
-  return { course: generatedCourseSchema.parse(parsedJson), responseId: payload.id ?? "unknown", model, sourceChecksum, promptVersion };
 }
 
 function buildPrompt(subject: SupportedCurriculumSubject, grades: number[]) {

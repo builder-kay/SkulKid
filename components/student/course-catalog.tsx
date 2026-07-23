@@ -34,9 +34,9 @@ export function CourseCatalog() {
             </div>
             <Link
               className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-base font-semibold text-white shadow-sm transition hover:bg-primary-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-              href={firstAvailable ? `/courses/${firstAvailable.subject.slug}` : "/courses"}
+              href={`/courses/${firstAvailable?.subject.slug ?? subjects[0].slug}`}
             >
-              {firstAvailable ? "Start learning" : "Awaiting published lessons"}
+              {firstAvailable ? "Start learning" : "Browse courses"}
               <ArrowRight aria-hidden="true" className="size-5" />
             </Link>
           </div>

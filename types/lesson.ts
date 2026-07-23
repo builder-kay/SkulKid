@@ -38,6 +38,8 @@ export type VideoBlock = LessonBlockBase & {
   videoUrl: string;
   title: string;
   caption?: string;
+  participationPrompt?: string;
+  participationXp?: number;
 };
 
 export type ExampleBlock = LessonBlockBase & {

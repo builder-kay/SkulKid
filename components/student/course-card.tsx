@@ -1,8 +1,7 @@
 import Link from "next/link";
-import { ArrowRight, BookOpen, Clock, Lock, Sparkles } from "lucide-react";
+import { ArrowRight, BookOpen } from "lucide-react";
 import { XpBadge } from "@/components/gamification/xp-badge";
 import { ProgressBar } from "@/components/shared/progress-bar";
-import { SkulKidButton } from "@/components/shared/skulkid-button";
 import { SkulKidCard } from "@/components/shared/skulkid-card";
 import { cn } from "@/lib/utils";
 import type { CourseSummary } from "@/lib/lessons/course-summary";
@@ -28,12 +27,17 @@ export function CourseCard({ course, featured = false }: CourseCardProps) {
   const subject = course.subject;
 
   return (
-    <SkulKidCard
-      className={cn(
-        "group relative flex h-full flex-col gap-5 overflow-hidden p-5 transition hover:-translate-y-0.5 hover:shadow-[var(--shadow-card-hover)]",
-        featured && "border-blue-200"
-      )}
+    <Link
+      aria-label={`Open ${subject.name} course`}
+      className="group block h-full rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+      href={`/courses/${subject.slug}`}
     >
+      <SkulKidCard
+        className={cn(
+          "relative flex h-full flex-col gap-5 overflow-hidden p-5 transition group-hover:-translate-y-0.5 group-hover:shadow-[var(--shadow-card-hover)]",
+          featured && "border-blue-200"
+        )}
+      >
       <div className={cn("absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r", courseAccentStyles[subject.name])} />
       <div className="flex items-start justify-between gap-4">
         <div
@@ -44,14 +48,7 @@ export function CourseCard({ course, featured = false }: CourseCardProps) {
         >
           <BookOpen aria-hidden="true" className="size-6" />
         </div>
-        {course.isAvailable ? (
-          <XpBadge xp={course.totalXp} />
-        ) : (
-          <span className="inline-flex min-h-8 items-center gap-2 rounded-full bg-slate-100 px-3 text-sm font-bold text-muted">
-            <Lock aria-hidden="true" className="size-4" />
-            Soon
-          </span>
-        )}
+        <XpBadge xp={course.totalXp} />
       </div>
 
       <div className="space-y-2 pt-1">
@@ -59,46 +56,31 @@ export function CourseCard({ course, featured = false }: CourseCardProps) {
         <p className="min-h-14 leading-7 text-text-secondary">{subject.description}</p>
       </div>
 
-      {course.isAvailable ? (
-        <div className="space-y-4">
-          <ProgressBar label="Course progress" value={course.progressPercent} />
-          <div className="grid grid-cols-3 gap-2 text-sm">
-            <div className="rounded-xl bg-slate-50 p-3">
-              <p className="font-bold text-text-primary">{course.totalLessons}</p>
-              <p className="text-muted">Lessons</p>
-            </div>
-            <div className="rounded-xl bg-slate-50 p-3">
-              <p className="font-bold text-text-primary">{course.unlockedLessons}</p>
-              <p className="text-muted">Open</p>
-            </div>
-            <div className="rounded-xl bg-slate-50 p-3">
-              <p className="font-bold text-text-primary">{course.totalMinutes}</p>
-              <p className="text-muted">Minutes</p>
-            </div>
+      <div className="space-y-4">
+        <ProgressBar label="Course progress" value={course.progressPercent} />
+        <div className="grid grid-cols-3 gap-2 text-sm">
+          <div className="rounded-xl bg-slate-50 p-3">
+            <p className="font-bold text-text-primary">{course.totalLessons}</p>
+            <p className="text-muted">Lessons</p>
+          </div>
+          <div className="rounded-xl bg-slate-50 p-3">
+            <p className="font-bold text-text-primary">{course.unlockedLessons}</p>
+            <p className="text-muted">Open</p>
+          </div>
+          <div className="rounded-xl bg-slate-50 p-3">
+            <p className="font-bold text-text-primary">{course.totalMinutes}</p>
+            <p className="text-muted">Minutes</p>
           </div>
         </div>
-      ) : (
-        <div className="flex min-h-24 items-center gap-3 rounded-xl bg-slate-50 p-4 text-sm leading-6 text-text-secondary">
-          <Sparkles aria-hidden="true" className="size-5 shrink-0 text-muted" />
-          <p>Course path will be added after the Mathematics foundation is proven.</p>
-        </div>
-      )}
+      </div>
 
       <div className="mt-auto">
-        {course.isAvailable ? (
-          <SkulKidButton asChild className="w-full">
-            <Link href={`/courses/${subject.slug}`}>
-              Open course
-              <ArrowRight aria-hidden="true" className="size-4" />
-            </Link>
-          </SkulKidButton>
-        ) : (
-          <SkulKidButton className="w-full" disabled variant="outline">
-            <Clock aria-hidden="true" className="size-4" />
-            Coming soon
-          </SkulKidButton>
-        )}
+        <span className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 font-semibold text-white transition group-hover:bg-primary-dark">
+          Open course
+          <ArrowRight aria-hidden="true" className="size-4" />
+        </span>
       </div>
-    </SkulKidCard>
+      </SkulKidCard>
+    </Link>
   );
 }

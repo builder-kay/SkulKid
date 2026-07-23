@@ -1,20 +1,12 @@
 import Link from "next/link";
-import { ArrowRight, BookOpen, Calculator, FlaskConical, PlayCircle, Sparkles } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
-import { SkulKidCard } from "@/components/shared/skulkid-card";
+import { Sparkles } from "lucide-react";
+import { LiveAdminCurriculumSubjects } from "@/components/admin/live-admin-overview";
 import { OfficialCurriculumLibrary } from "@/components/admin/official-curriculum-library";
-import { subjects } from "@/data/subjects";
-import { sampleLessons } from "@/data/sample-lessons";
-
-const icons: Record<string, LucideIcon> = { mathematics: Calculator, "english-language": BookOpen, science: FlaskConical };
-const styles: Record<string, string> = { mathematics: "bg-blue-100 text-blue-800", "english-language": "bg-violet-100 text-violet-800", science: "bg-green-100 text-green-800" };
 
 export default function AdminCurriculumPage() {
   return <main className="mx-auto w-full max-w-7xl">
     <header className="flex flex-col gap-5 rounded-[2rem] border border-white bg-white p-6 shadow-[var(--shadow-card)] sm:p-8 lg:flex-row lg:items-end lg:justify-between"><div><p className="text-sm font-black uppercase tracking-wide text-violet-700">Curriculum inventory</p><h1 className="mt-2 text-3xl font-black sm:text-4xl">Subjects and learning paths</h1><p className="mt-3 max-w-2xl text-lg leading-8 text-text-secondary">Review what is currently connected to the student catalogue and open its published lesson experience.</p></div><Link href="/admin/curriculum-studio" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-violet-600 px-5 font-bold text-white hover:bg-violet-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-600 focus-visible:ring-offset-2"><Sparkles className="size-5" aria-hidden="true" />Generate a course</Link></header>
-    <section aria-label="Subjects" className="mt-6 grid gap-5 lg:grid-cols-3">{subjects.map((subject) => { const Icon = icons[subject.slug] ?? BookOpen; const lessons = sampleLessons.filter((lesson) => lesson.subjectId === subject.id); const topics = subject.units.reduce((total, unit) => total + unit.topics.length, 0); return <SkulKidCard key={subject.id} className="flex flex-col p-6"><div className="flex items-start justify-between gap-3"><span className={`grid size-12 place-items-center rounded-2xl ${styles[subject.slug]}`}><Icon className="size-6" aria-hidden="true" /></span><span className={`rounded-full px-3 py-1 text-xs font-black ${lessons.length ? "bg-green-100 text-green-900" : "bg-amber-100 text-amber-900"}`}>{lessons.length ? "Available" : "Needs content"}</span></div><h2 className="mt-5 text-2xl font-black">{subject.name}</h2><p className="mt-2 min-h-14 leading-7 text-text-secondary">{subject.description}</p><dl className="mt-5 grid grid-cols-3 gap-2 text-center"><Count label="Units" value={subject.units.length} /><Count label="Topics" value={topics} /><Count label="Lessons" value={lessons.length} /></dl><div className="mt-6 grid gap-2"><Link href={`/courses/${subject.slug}`} className="inline-flex min-h-11 items-center justify-between rounded-xl border border-slate-200 px-4 font-bold hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"><span className="flex items-center gap-2"><PlayCircle className="size-4" aria-hidden="true" />Student course</span><ArrowRight className="size-4" aria-hidden="true" /></Link><Link href={`/admin/curriculum-studio?subject=${subject.slug}`} className="inline-flex min-h-11 items-center justify-between rounded-xl bg-violet-50 px-4 font-bold text-violet-800 hover:bg-violet-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-600"><span className="flex items-center gap-2"><Sparkles className="size-4" aria-hidden="true" />Generate draft</span><ArrowRight className="size-4" aria-hidden="true" /></Link></div></SkulKidCard>; })}</section>
+    <LiveAdminCurriculumSubjects />
     <OfficialCurriculumLibrary />
   </main>;
 }
-
-function Count({ label, value }: { label: string; value: number }) { return <div className="rounded-xl bg-slate-50 p-3"><dt className="text-xs font-bold text-muted">{label}</dt><dd className="mt-1 text-xl font-black">{value}</dd></div>; }

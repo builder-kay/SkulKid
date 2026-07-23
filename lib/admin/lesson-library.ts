@@ -17,7 +17,7 @@ export type AdminLessonRecord = {
   estimatedMinutes: number;
   xp: number;
   questionCount: number;
-  format?: "text" | "video" | "blended";
+  format?: "text" | "video";
   prerequisiteLessonId?: string | null;
   gamification?: {
     passingScore: number;
@@ -31,6 +31,7 @@ export type AdminLessonRecord = {
   createdAt: string;
   updatedAt: string;
   fixture: unknown;
+  builderState?: unknown;
 };
 
 export function readAdminLessons(): AdminLessonRecord[] {

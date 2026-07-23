@@ -58,8 +58,8 @@ export function MultipleChoiceBlockComponent({ block, previewMode = false, onAns
               <button
                 aria-checked={selected}
                 className={cn(
-                  "flex min-h-12 w-full items-center gap-3 rounded-xl border bg-white px-4 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-                  selected ? "border-primary ring-2 ring-blue-100" : "border-slate-200",
+                    "flex min-h-14 w-full items-center gap-3 rounded-2xl border bg-white px-4 py-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-violet-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                  selected ? "border-violet-500 bg-violet-50 ring-2 ring-violet-100" : "border-slate-200",
                   correct && "border-green-500 bg-green-50",
                   incorrect && "border-red-500 bg-red-50"
                 )}
@@ -69,7 +69,7 @@ export function MultipleChoiceBlockComponent({ block, previewMode = false, onAns
                 role="radio"
                 type="button"
               >
-                <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-sm font-bold">
+                <span className={cn("flex size-9 shrink-0 items-center justify-center rounded-xl text-sm font-black", selected ? "bg-violet-600 text-white" : "bg-slate-100 text-slate-700")}>
                   {option.label}
                 </span>
                 <span className="font-semibold">{option.text}</span>
@@ -115,7 +115,7 @@ export function MultipleChoiceBlockComponent({ block, previewMode = false, onAns
         >
           <p>{block.explanation}</p>
           {previewMode && isCorrect && awardedXp !== null ? (
-            <p className="mt-1">Preview XP: +{awardedXp}</p>
+            <p className="mt-1 font-black">Challenge reward: +{awardedXp} XP</p>
           ) : null}
         </FeedbackPanel>
       ) : null}

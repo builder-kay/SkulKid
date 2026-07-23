@@ -96,7 +96,9 @@ export const videoBlockSchema = baseBlockSchema.extend({
   source: z.string().url(),
   provider: z.enum(["youtube", "vimeo", "tiktok"]),
   title: z.string().min(1),
-  caption: z.string().min(1).optional()
+  caption: z.string().min(1).optional(),
+  participationPrompt: z.string().min(5).optional(),
+  participationXp: z.number().int().min(1).max(50).optional()
 });
 
 export const workedExampleBlockSchema = baseBlockSchema.extend({

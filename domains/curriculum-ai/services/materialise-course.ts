@@ -13,9 +13,12 @@ export type MaterialiseOptions = {
   maximumAttempts?: number;
   maximumLessonRedos?: number;
   includeTrueFalse?: boolean;
-  video?: { url: string; title: string; caption?: string };
+  video?: { url: string; title: string; caption?: string; participationPrompt?: string; participationXp?: number };
+  videos?: Array<{ url: string; title: string; caption?: string; participationPrompt?: string; participationXp?: number }>;
+  contentSections?: Array<{ heading: string; body: string; imageUrl?: string; imageAlt?: string; imageCaption?: string; videoUrl?: string; videoTitle?: string; videoCaption?: string }>;
   includeText?: boolean;
   includeWorkedExample?: boolean;
+  includeAssessment?: boolean;
   additionalChallenges?: Array<{
     prompt: string;
     options: [string, string, string];
@@ -66,13 +69,23 @@ export function materialiseGeneratedCourse(course: GeneratedCourse, importKey: s
           shuffleOptions: false
         };
         const challenges = [generatedLesson.challenge, ...(options.additionalChallenges ?? [])];
-        const videoEmbed = options.video ? resolveVideoEmbed(options.video.url) : null;
         let nextContentOrder = 2;
-        const textOrder = options.includeText === false ? null : nextContentOrder++;
-        const videoOrder = videoEmbed ? nextContentOrder++ : null;
+        const contentBlocks: LessonBlock[] = [];
+        if (options.contentSections?.length) {
+          options.contentSections.forEach((section, index) => {
+            if (section.body.trim()) contentBlocks.push({ id: `${versionId}-section-${index + 1}`, type: "text", order: nextContentOrder++, required: true, estimatedSeconds: 120, heading: section.heading.trim() || `Section ${index + 1}`, body: section.body });
+            if (section.imageUrl?.trim()) contentBlocks.push({ id: `${versionId}-section-${index + 1}-image`, type: "image", order: nextContentOrder++, required: false, estimatedSeconds: 30, source: section.imageUrl.trim(), altText: section.imageAlt?.trim() || "Lesson illustration", caption: section.imageCaption?.trim() || undefined, decorative: false });
+            const embed = section.videoUrl ? resolveVideoEmbed(section.videoUrl) : null;
+            if (embed && section.videoUrl) contentBlocks.push({ id: `${versionId}-section-${index + 1}-video`, type: "video", order: nextContentOrder++, required: false, estimatedSeconds: 300, source: section.videoUrl, provider: embed.provider, title: section.videoTitle?.trim() || section.heading || `Section ${index + 1} video`, caption: section.videoCaption?.trim() || undefined });
+          });
+        } else {
+          if (options.includeText !== false) contentBlocks.push({ id: `${versionId}-teach`, type: "text", order: nextContentOrder++, required: true, estimatedSeconds: 120, heading: generatedLesson.teachingHeading, body: generatedLesson.teachingText });
+          const videoInputs = options.videos ?? (options.video ? [options.video] : []);
+          videoInputs.forEach((video, index) => { const embed = resolveVideoEmbed(video.url); if (embed) contentBlocks.push({ id: `${versionId}-video-${index + 1}`, type: "video", order: nextContentOrder++, required: true, estimatedSeconds: 300, source: video.url, provider: embed.provider, title: video.title, caption: video.caption || undefined, participationPrompt: video.participationPrompt?.trim() || undefined, participationXp: video.participationPrompt?.trim() ? (video.participationXp ?? 5) : undefined }); });
+        }
         const exampleOrder = options.includeWorkedExample === false ? null : nextContentOrder++;
         const assessmentStart = nextContentOrder;
-        const assessmentBlocks: LessonBlock[] = challenges.map((challenge, challengeIndex) => ({
+        const assessmentBlocks: LessonBlock[] = options.includeAssessment === false ? [] : challenges.map((challenge, challengeIndex) => ({
           id: `${versionId}-question-${challengeIndex + 1}`,
           type: "multiple_choice",
           order: assessmentStart + challengeIndex,
@@ -87,8 +100,7 @@ export function materialiseGeneratedCourse(course: GeneratedCourse, importKey: s
         }));
         const blocks: LessonBlock[] = [
           { id: `${versionId}-intro`, type: "lesson_intro", order: 1, required: true, estimatedSeconds: 45, title: generatedLesson.title, shortDescription: generatedLesson.description, objectives: generatedLesson.objectives, estimatedMinutes: generatedLesson.estimatedMinutes, rewardPreview: { xp: options.baseXpReward ?? 100, starsAvailable: 3 } },
-          ...(textOrder ? [{ id: `${versionId}-teach`, type: "text" as const, order: textOrder, required: true, estimatedSeconds: 120, heading: generatedLesson.teachingHeading, body: generatedLesson.teachingText }] : []),
-          ...(videoEmbed && options.video && videoOrder ? [{ id: `${versionId}-video`, type: "video" as const, order: videoOrder, required: true, estimatedSeconds: 300, source: options.video.url, provider: videoEmbed.provider, title: options.video.title, caption: options.video.caption || undefined }] : []),
+          ...contentBlocks,
           ...(exampleOrder ? [{ id: `${versionId}-example`, type: "worked_example" as const, order: exampleOrder, required: true, estimatedSeconds: 120, title: generatedLesson.exampleTitle, problem: generatedLesson.exampleProblem, orderedSteps: generatedLesson.exampleSteps, finalAnswer: generatedLesson.exampleAnswer, explanation: generatedLesson.challenge.explanation }] : []),
           ...assessmentBlocks,
           ...(options.includeTrueFalse === false ? [] : [{ id: `${versionId}-check`, type: "true_false" as const, order: assessmentStart + assessmentBlocks.length, required: true, estimatedSeconds: 60, prompt: "Final checkpoint", statement: generatedLesson.trueFalseStatement, correctAnswer: generatedLesson.trueFalseAnswer, ...feedback }]),
@@ -103,7 +115,8 @@ export function materialiseGeneratedCourse(course: GeneratedCourse, importKey: s
     subjects: [{ id: subjectId, name: subjectName(course.subject), slug: `${course.subject}-${importKey.slice(0, 8)}`, description: course.sourceSummary, icon: course.subject === "mathematics" ? "calculator" : course.subject === "science" ? "flask-conical" : "book-open", colourToken: `subject-${course.subject.replace("-language", "")}`, gradeLevels: [...new Set(course.units.map((unit) => unit.grade))], order: 1, status: "active", createdAt: timestamp, updatedAt: timestamp }],
     units, topics, lessons, lessonVersions
   });
-  const issues = lessonVersions.flatMap((version) => validateLessonForPublishing(version, lessons).issues);
+  const issues = lessonVersions.flatMap((version) => validateLessonForPublishing(version, lessons).issues)
+    .filter((issue) => options.includeAssessment !== false || issue.code !== "MISSING_ASSESSMENT");
   return { fixture, issues };
 }
 

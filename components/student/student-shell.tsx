@@ -1,18 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { useEffect, useState } from "react";
-import { Award, BookOpen, GraduationCap, LayoutDashboard, Trophy, UserRound, X } from "lucide-react";
+import { Award, BookOpen, BookOpenCheck, LayoutDashboard, Trophy, UserRound, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { GamificationArena } from "@/components/gamification/gamification-arena";
+import { CharacterAvatar } from "@/components/student/character-avatar";
 import { ProgressBar } from "@/components/shared/progress-bar";
+import { SkulKidLogo } from "@/components/shared/skulkid-logo";
 import { getStudentLevel } from "@/lib/gamification/calculate-level";
 import { cn } from "@/lib/utils";
 import { useStudentGame } from "@/lib/gamification/student-game";
 import { useStudentProfile } from "@/lib/student/student-profile";
 
-export type StudentNavItem = "dashboard" | "courses" | "mathematics" | "preview" | "leaderboard" | "achievements" | "profile";
+export type StudentNavItem = "dashboard" | "courses" | "curriculum" | "mathematics" | "preview" | "leaderboard" | "achievements" | "profile";
 
 export type StudentShellProps = {
   activeItem: StudentNavItem;
@@ -28,9 +29,10 @@ const navItems: Array<{
 }> = [
   { id: "dashboard", href: "/dashboard", label: "Dashboard", mobileLabel: "Home", icon: LayoutDashboard },
   { id: "courses", href: "/courses", label: "Courses", mobileLabel: "Courses", icon: BookOpen },
+  { id: "curriculum", href: "/curriculum", label: "My Curriculum", mobileLabel: "Curriculum", icon: BookOpenCheck },
   { id: "leaderboard", href: "/leaderboard", label: "Leaderboard", mobileLabel: "League", icon: Trophy },
   { id: "achievements", href: "/achievements", label: "Rewards & Achievements", mobileLabel: "Rewards", icon: Award }
-  ,{ id: "profile", href: "/profile", label: "My Profile", mobileLabel: "Profile", icon: UserRound }
+  ,{ id: "profile", href: "/profile", label: "My Avatar", mobileLabel: "Avatar", icon: UserRound }
 ];
 
 export function StudentShell({ activeItem, children }: StudentShellProps) {
@@ -58,11 +60,8 @@ export function StudentShell({ activeItem, children }: StudentShellProps) {
             className="flex min-w-0 items-center gap-3 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             href="/dashboard"
           >
-            <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-primary text-white shadow-sm">
-              <GraduationCap aria-hidden="true" className="size-6" />
-            </span>
             <span className="min-w-0">
-              <span className="block truncate text-base font-black text-text-primary">SkulKid</span>
+              <SkulKidLogo className="w-28" priority />
               <span className="block truncate text-xs font-bold text-muted">
                 {profile.displayName}
               </span>
@@ -120,19 +119,16 @@ export function StudentShell({ activeItem, children }: StudentShellProps) {
             className="flex min-h-14 items-center gap-3 rounded-2xl px-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             href="/dashboard"
           >
-            <span className="flex size-12 items-center justify-center rounded-2xl bg-primary text-white shadow-sm">
-              <GraduationCap aria-hidden="true" className="size-6" />
-            </span>
             <span>
-              <span className="block text-lg font-black text-text-primary">SkulKid</span>
+              <SkulKidLogo className="w-40" priority />
               <span className="block text-xs font-bold text-muted">Student Space</span>
             </span>
           </Link>
 
           <div className="hidden rounded-3xl border border-slate-200 bg-slate-50 p-4 lg:block">
             <div className="flex items-center gap-3">
-              <div className="grid size-11 place-items-center rounded-2xl bg-white text-lg font-black text-primary shadow-sm">
-                {profile.avatarUrl ? <Image alt="Student profile" className="rounded-2xl object-cover" height={44} src={profile.avatarUrl} unoptimized width={44} /> : profile.displayName.charAt(0)}
+              <div className="grid size-11 place-items-center overflow-hidden rounded-2xl bg-white text-lg font-black text-primary shadow-sm">
+                <CharacterAvatar avatar={profile.avatar} className="size-11 rounded-2xl" label={`${profile.displayName}'s avatar`} />
               </div>
               <div>
                 <p className="font-bold text-text-primary">{profile.displayName}</p>
@@ -164,8 +160,8 @@ export function StudentShell({ activeItem, children }: StudentShellProps) {
         aria-label="Mobile student navigation"
         className="fixed inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-40 rounded-[1.6rem] border border-white/90 bg-white/95 p-2 shadow-[0_18px_50px_rgba(15,23,42,0.18)] backdrop-blur lg:hidden"
       >
-        <div className="grid grid-cols-4 gap-1">
-          {navItems.filter((item) => ["dashboard", "courses", "leaderboard", "profile"].includes(item.id)).map((item) => (
+        <div className="grid grid-cols-5 gap-1">
+          {navItems.filter((item) => ["dashboard", "courses", "curriculum", "leaderboard", "profile"].includes(item.id)).map((item) => (
             <MobileNavLink active={activeItem === item.id} item={item} key={item.id} />
           ))}
         </div>
