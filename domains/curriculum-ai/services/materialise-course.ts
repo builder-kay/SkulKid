@@ -13,8 +13,8 @@ export type MaterialiseOptions = {
   maximumAttempts?: number;
   maximumLessonRedos?: number;
   includeTrueFalse?: boolean;
-  video?: { url: string; title: string; caption?: string; participationPrompt?: string; participationXp?: number };
-  videos?: Array<{ url: string; title: string; caption?: string; participationPrompt?: string; participationXp?: number }>;
+  video?: { url: string; title: string; caption?: string; participationPrompt?: string; participationOptions?: Array<{ id: string; label: string; text: string }>; participationCorrectOptionId?: string; participationExplanation?: string; participationXp?: number };
+  videos?: Array<{ url: string; title: string; caption?: string; participationPrompt?: string; participationOptions?: Array<{ id: string; label: string; text: string }>; participationCorrectOptionId?: string; participationExplanation?: string; participationXp?: number }>;
   contentSections?: Array<{ heading: string; body: string; imageUrl?: string; imageAlt?: string; imageCaption?: string; videoUrl?: string; videoTitle?: string; videoCaption?: string }>;
   includeText?: boolean;
   includeWorkedExample?: boolean;
@@ -81,7 +81,7 @@ export function materialiseGeneratedCourse(course: GeneratedCourse, importKey: s
         } else {
           if (options.includeText !== false) contentBlocks.push({ id: `${versionId}-teach`, type: "text", order: nextContentOrder++, required: true, estimatedSeconds: 120, heading: generatedLesson.teachingHeading, body: generatedLesson.teachingText });
           const videoInputs = options.videos ?? (options.video ? [options.video] : []);
-          videoInputs.forEach((video, index) => { const embed = resolveVideoEmbed(video.url); if (embed) contentBlocks.push({ id: `${versionId}-video-${index + 1}`, type: "video", order: nextContentOrder++, required: true, estimatedSeconds: 300, source: video.url, provider: embed.provider, title: video.title, caption: video.caption || undefined, participationPrompt: video.participationPrompt?.trim() || undefined, participationXp: video.participationPrompt?.trim() ? (video.participationXp ?? 5) : undefined }); });
+          videoInputs.forEach((video, index) => { const embed = resolveVideoEmbed(video.url); if (embed) contentBlocks.push({ id: `${versionId}-video-${index + 1}`, type: "video", order: nextContentOrder++, required: true, estimatedSeconds: 300, source: video.url, provider: embed.provider, title: video.title, caption: video.caption || undefined, participationPrompt: video.participationPrompt?.trim() || undefined, participationOptions: video.participationOptions, participationCorrectOptionId: video.participationCorrectOptionId, participationExplanation: video.participationExplanation?.trim() || undefined, participationXp: video.participationPrompt?.trim() && video.participationCorrectOptionId ? (video.participationXp ?? 5) : undefined }); });
         }
         const exampleOrder = options.includeWorkedExample === false ? null : nextContentOrder++;
         const assessmentStart = nextContentOrder;

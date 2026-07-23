@@ -1,5 +1,5 @@
-import { StudentDashboard } from "@/components/student/student-dashboard";
+import { LandingPage } from "@/components/marketing/landing-page";
 
 export default function HomePage() {
-  return <StudentDashboard />;
+  return <LandingPage />;
 }

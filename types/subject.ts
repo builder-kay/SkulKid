@@ -1,4 +1,4 @@
-export type SubjectName = "Mathematics" | "English Language" | "Science";
+export type SubjectName = string;
 
 export type Subject = {
   id: string;
@@ -6,6 +6,8 @@ export type Subject = {
   slug: string;
   description: string;
   color: string;
+  coverUrl?: string | null;
+  gradeLevels?: number[];
   units: Unit[];
 };
 

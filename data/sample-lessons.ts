@@ -66,7 +66,8 @@ function toLegacyBlock(block: DomainLessonBlock): LessonBlock {
         type: "text",
         order: block.order,
         heading: block.heading,
-        content: block.body
+        content: block.body,
+        emphasisTerms: block.emphasisTerms
       };
     case "image":
       return {
@@ -85,8 +86,9 @@ function toLegacyBlock(block: DomainLessonBlock): LessonBlock {
         type: "example",
         order: block.order,
         title: block.title,
-        content: `${block.problem} ${block.orderedSteps.join(" ")}`,
-        explanation: block.explanation
+        content: [block.problem, "", ...block.orderedSteps.map((step, index) => `${index + 1}. ${step}`)].join("\n"),
+        explanation: block.explanation,
+        finalAnswer: block.finalAnswer
       };
     case "tip":
       return {

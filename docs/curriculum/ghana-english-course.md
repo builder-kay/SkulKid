@@ -53,7 +53,7 @@ Examples use familiar Ghanaian names and settings sparingly and naturally. They 
 - Subject catalogue: `data/subjects.ts`
 - Student path: `/courses/english-language`
 - Lesson player: `/preview/lessons/[lessonId]`
-- Database population: `npm run prisma:seed`
+- Database population: run the SQL migrations in `supabase/migrations`
 
 ## Known next-stage enhancements
 

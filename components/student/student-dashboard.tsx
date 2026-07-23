@@ -4,7 +4,6 @@ import Link from "next/link";
 import {
   ArrowRight,
   Flame,
-  GraduationCap,
   Medal,
   Star,
   Trophy
@@ -14,13 +13,13 @@ import { GamificationArena } from "@/components/gamification/gamification-arena"
 import { StudentShell } from "@/components/student/student-shell";
 import { CharacterAvatar } from "@/components/student/character-avatar";
 import { SkulKidCard } from "@/components/shared/skulkid-card";
-import { subjects } from "@/data/subjects";
-import { sampleStudentProgress } from "@/data/sample-student-progress";
+import { usePublishedCourses } from "@/lib/courses/published-courses";
 import { getStudentLevel } from "@/lib/gamification/calculate-level";
 import { getCourseSummary } from "@/lib/lessons/course-summary";
 import { usePublishedLessons } from "@/lib/lessons/published-lessons";
 import { useStudentGame } from "@/lib/gamification/student-game";
 import { useStudentProfile } from "@/lib/student/student-profile";
+import { lessonProgressFromGameState } from "@/lib/student/lesson-progress";
 
 export function StudentDashboard() {
   const { state } = useStudentGame();
@@ -28,27 +27,24 @@ export function StudentDashboard() {
   const completedStars = state.stars;
   const studentLevel = getStudentLevel(state.xp);
   const lessons = usePublishedLessons();
-  const courseSummaries = subjects.map((subject) => getCourseSummary(subject, lessons, sampleStudentProgress));
+  const { courses } = usePublishedCourses();
+  const progress = lessonProgressFromGameState("current-student", state.completedLessonIds, state.quizRecords);
+  const courseSummaries = courses.map((subject) => getCourseSummary(subject, lessons, progress));
   return (
     <StudentShell activeItem="dashboard">
       <main className="mx-auto grid w-full max-w-7xl gap-5 lg:gap-6">
         <header className="rounded-[2rem] border border-white/90 bg-white/85 p-5 shadow-[var(--shadow-card)] backdrop-blur sm:p-6">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-center gap-4">
-              <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-primary text-white shadow-sm">
-              <GraduationCap aria-hidden="true" className="size-7" />
-              </div>
-              <div>
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
                 <p className="text-sm font-bold uppercase tracking-normal text-muted">SkulKid</p>
-                <h1 className="text-3xl font-bold text-text-primary sm:text-4xl">
+                <h1 className="truncate text-2xl font-bold text-text-primary sm:text-4xl">
                   Hi, {profile.displayName}
                 </h1>
-                <p className="mt-1 text-text-secondary">Your next small win is ready.</p>
-              </div>
+                <p className="mt-1 text-sm text-text-secondary sm:text-base">Your next small win is ready.</p>
             </div>
             <div
               aria-label={`${profile.displayName} profile photo`}
-              className="grid aspect-square size-20 shrink-0 place-items-center overflow-hidden rounded-3xl border-4 border-white bg-gradient-to-br from-blue-100 to-violet-100 text-2xl font-black text-primary shadow-[0_8px_24px_rgba(37,99,235,0.2)] sm:size-24"
+              className="grid aspect-square size-20 shrink-0 place-items-center overflow-hidden rounded-3xl border-4 border-white text-2xl font-black text-primary shadow-[0_8px_24px_rgba(37,99,235,0.2)] sm:size-24"
               role="img"
             >
               <CharacterAvatar avatar={profile.avatar} className="size-full rounded-[1.25rem]" label={`${profile.displayName}'s avatar`} />
@@ -110,7 +106,7 @@ export function StudentDashboard() {
         </section>
           </div>
 
-          <div className="hidden lg:block">
+          <div className="hidden lg:block xl:sticky xl:top-8 xl:self-start">
             <GamificationArena />
           </div>
         </div>

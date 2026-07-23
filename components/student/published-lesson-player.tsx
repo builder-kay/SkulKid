@@ -2,11 +2,15 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ArrowLeft, Brain, CheckCircle2, Clock, Crown, Eye, Flame, Gift, Map, RotateCcw, Sparkles, Star, Target, Trophy, X, Zap, type LucideIcon } from "lucide-react";
+import { Brain, CheckCircle2, Clock, Crown, Eye, Flame, Gift, Map as MapIcon, RotateCcw, Sparkles, Star, Target, Trophy, X, Zap, type LucideIcon } from "lucide-react";
 import { BlockRenderer } from "@/components/lesson-player/block-renderer";
 import { XpBadge } from "@/components/gamification/xp-badge";
+import { StudentShell } from "@/components/student/student-shell";
+import type { StudentNavItem } from "@/components/student/student-shell";
+import { StudentPageNav } from "@/components/student/student-page-nav";
 import { SkulKidCard } from "@/components/shared/skulkid-card";
-import { usePublishedLessons } from "@/lib/lessons/published-lessons";
+import { subjects } from "@/data/subjects";
+import { usePublishedLesson } from "@/lib/lessons/published-lessons";
 import { useStudentGame, type QuizAnswerResult } from "@/lib/gamification/student-game";
 import type { LessonBlock } from "@/types/lesson";
 
@@ -20,8 +24,42 @@ export function PublishedLessonPlayer({ lessonId }: { lessonId: string }) {
     document.addEventListener("keydown", closeOnEscape);
     return () => document.removeEventListener("keydown", closeOnEscape);
   }, [quizOpen]);
-  const lesson = usePublishedLessons().find((candidate) => candidate.id === lessonId);
-  if (!lesson) return <main className="mx-auto min-h-screen w-full max-w-3xl px-5 py-12"><SkulKidCard className="p-8 text-center"><h1 className="text-3xl font-bold">Lesson unavailable</h1><p className="mt-3 text-text-secondary">This lesson has not been published or is no longer available.</p><Link className="mt-6 inline-flex min-h-11 items-center rounded-xl bg-primary px-5 font-bold text-white" href="/courses">View courses</Link></SkulKidCard></main>;
+  const { lesson, loading } = usePublishedLesson(lessonId);
+  const subject = subjects.find((candidate) => candidate.id === lesson?.subjectId);
+  const courseHref = subject ? `/courses/${subject.slug}` : "/courses";
+  const activeItem: StudentNavItem = subject?.slug === "mathematics" ? "mathematics" : "courses";
+  const unit = subject?.units.find((candidate) => candidate.id === lesson?.unitId);
+
+  if (loading) {
+    return <StudentShell activeItem="courses"><main className="mx-auto grid min-h-72 w-full max-w-3xl place-items-center"><div className="text-center"><span className="mx-auto block size-10 animate-spin rounded-full border-4 border-violet-100 border-t-violet-700" /><p className="mt-4 font-bold text-muted">Preparing your lesson…</p></div></main></StudentShell>;
+  }
+
+  if (!lesson) {
+    return (
+      <StudentShell activeItem="courses">
+        <main className="mx-auto w-full max-w-3xl space-y-5">
+          <StudentPageNav
+            backHref="/courses"
+            backLabel="Back to courses"
+            crumbs={[
+              { label: "Home", href: "/dashboard" },
+              { label: "Courses", href: "/courses" },
+              { label: "Lesson" }
+            ]}
+          />
+          <SkulKidCard className="p-8 text-center">
+            <h1 className="text-3xl font-bold">Lesson unavailable</h1>
+            <p className="mt-3 text-text-secondary">This lesson has not been published or is no longer available.</p>
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+              <Link className="inline-flex min-h-11 items-center rounded-xl bg-primary px-5 font-bold text-white" href="/courses">View courses</Link>
+              <Link className="inline-flex min-h-11 items-center rounded-xl border border-slate-200 bg-white px-5 font-bold text-slate-700" href="/dashboard">Go to dashboard</Link>
+            </div>
+          </SkulKidCard>
+        </main>
+      </StudentShell>
+    );
+  }
+
   const blocks = [...lesson.blocks].sort((a, b) => a.order - b.order);
   const completed = state.completedLessonIds.includes(lesson.id);
   const questionBlocks = blocks.filter((block) => ["multiple_choice", "true_false", "fill_blank"].includes(block.type));
@@ -29,25 +67,44 @@ export function PublishedLessonPlayer({ lessonId }: { lessonId: string }) {
   const missionProgress = completed ? 100 : 25;
   const journeyBlocks = blocks.filter((block) => block.type !== "introduction" && !["multiple_choice", "true_false", "fill_blank"].includes(block.type));
   const quizPassed = quizResult?.passed || state.quizRecords[lesson.id]?.passed || false;
-  return <main className="mx-auto min-h-screen w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
-    <Link className="mb-5 inline-flex min-h-11 items-center gap-2 rounded-xl border border-white bg-white/90 px-4 text-sm font-black text-slate-700 shadow-sm backdrop-blur transition hover:-translate-x-1 hover:text-primary" href={`/courses/${lesson.subjectId.replace("subject-", "")}`}><ArrowLeft className="size-4" />Back to course</Link>
-    <section className="relative mb-6 overflow-hidden rounded-[2.25rem] bg-gradient-to-br from-slate-950 via-violet-900 to-blue-700 p-6 text-white shadow-[0_30px_80px_rgba(49,46,129,.3)] sm:p-9 lg:p-11">
-      <div className="pointer-events-none absolute -right-16 -top-20 size-72 rounded-full bg-cyan-300/20 blur-3xl" /><div className="pointer-events-none absolute -bottom-28 left-1/3 size-72 rounded-full bg-fuchsia-400/20 blur-3xl" />
-      <div className="relative grid gap-8 lg:grid-cols-[1fr_18rem] lg:items-end">
-        <div><div className="flex flex-wrap gap-2"><span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-xs font-black uppercase tracking-wider ring-1 ring-white/20"><Sparkles className="size-4 text-amber-300" />Learning mission</span><span className="rounded-full bg-blue-300/20 px-3 py-1.5 text-xs font-black uppercase tracking-wider text-blue-100 ring-1 ring-blue-200/20">{lesson.difficulty}</span></div><h1 className="mt-5 max-w-3xl text-4xl font-black leading-tight sm:text-5xl lg:text-6xl">{lesson.title}</h1><p className="mt-4 max-w-3xl text-base leading-8 text-blue-100 sm:text-lg">{lesson.description}</p><div className="mt-6 flex gap-3 rounded-2xl bg-white/10 p-4 ring-1 ring-white/15"><Target className="mt-1 size-5 shrink-0 text-amber-300" /><div><p className="text-xs font-black uppercase tracking-wider text-blue-200">Your mission</p><p className="mt-1 leading-7 text-white">{lesson.objective}</p></div></div></div>
-        <div className="rounded-3xl bg-white/10 p-5 ring-1 ring-white/15 backdrop-blur"><div className="flex items-center justify-between"><p className="text-sm font-black">Mission reward</p><XpBadge xp={lesson.xpReward} /></div><div className="mt-5 grid grid-cols-2 gap-2"><MissionFact icon={Clock} value={`${lesson.estimatedMinutes} min`} label="Mission time" /><MissionFact icon={Map} value={`${journeyBlocks.length}`} label="Stages" /></div><div className="mt-4"><div className="flex justify-between text-xs font-black"><span>Mission progress</span><span>{missionProgress}%</span></div><div className="mt-2 h-2.5 overflow-hidden rounded-full bg-white/15"><div className="h-full rounded-full bg-gradient-to-r from-amber-300 to-emerald-300 transition-all duration-500" style={{ width: `${missionProgress}%` }} /></div></div></div>
-      </div>
-    </section>
-    <div className="mb-5 flex items-center gap-3 px-1"><span className="grid size-11 place-items-center rounded-2xl bg-violet-100 text-violet-700"><Map className="size-5" /></span><div><p className="text-xs font-black uppercase tracking-wider text-violet-700">Mission path</p><h2 className="text-2xl font-black">Learn, practise, conquer</h2></div></div>
-    <div className="relative grid gap-5 before:absolute before:bottom-8 before:left-[1.35rem] before:top-8 before:hidden before:w-1 before:rounded-full before:bg-gradient-to-b before:from-violet-200 before:via-fuchsia-200 before:to-emerald-200 sm:pl-14 sm:before:block">{journeyBlocks.map((block, index) => <div className="relative" key={block.id}><span className="absolute -left-14 top-7 z-10 hidden size-11 place-items-center rounded-full border-4 border-slate-100 bg-white text-sm font-black text-violet-700 shadow-md sm:grid">{index + 1}</span><BlockRenderer block={block} completedVideoPromptIds={state.completedVideoPromptIds} onVideoPromptComplete={completeVideoPrompt} previewMode /></div>)}</div>
-    {hasQuiz ? <><SkulKidCard className="relative mt-7 overflow-hidden border-violet-200 bg-gradient-to-br from-violet-700 via-fuchsia-700 to-blue-700 p-7 text-center text-white shadow-[0_24px_65px_rgba(109,40,217,.25)]"><Trophy className="mx-auto size-12 text-amber-300" /><p className="mt-3 text-xs font-black uppercase tracking-[.2em] text-violet-200">{completed ? "Reward claimed" : "Lesson complete"}</p><h2 className="mt-1 text-3xl font-black">{completed ? "Quiz completed" : "Ready for the final challenge?"}</h2><p className="mx-auto mt-2 max-w-xl text-violet-100">{completed ? "Your result and lesson reward have been recorded." : `Take a ${questionBlocks.length}-question quiz to test what you learned and unlock your reward.`}</p><button className="mt-5 inline-flex min-h-12 items-center gap-2 rounded-xl bg-amber-300 px-7 font-black text-slate-950 shadow-lg disabled:cursor-not-allowed disabled:bg-white/20 disabled:text-white/60 disabled:shadow-none" disabled={completed} onClick={() => setQuizOpen(true)} type="button"><Sparkles className="size-5" />{completed ? "Quiz completed" : "Take quiz"}</button></SkulKidCard><QuizModal masteryScore={lesson.masteryScore ?? 80} onClaim={(results) => { setQuizResult(submitQuiz(lesson.id, results, lesson.passingScore ?? 70, lesson.masteryScore ?? 80)); completeLesson(lesson.id, lesson.xpReward); setQuizOpen(false); }} onClose={() => setQuizOpen(false)} open={quizOpen && !completed} passingScore={lesson.passingScore ?? 70} questions={questionBlocks} title={lesson.title} /></> : null}
-    {!hasQuiz || quizPassed || completed ? <SkulKidCard className="mt-6 overflow-hidden border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-amber-50 p-6 text-center">
-      {completed ? <><CheckCircle2 className="mx-auto size-12 text-emerald-600" /><h2 className="mt-3 text-2xl font-black">Achievement recorded!</h2><p className="mt-2 text-text-secondary">This lesson is complete. Your XP and badge progress have been updated.</p><Link className="mt-5 inline-flex min-h-11 items-center rounded-xl bg-primary px-5 font-black text-white" href="/dashboard">See my rewards</Link></> : <><Trophy className="mx-auto size-12 text-amber-500" /><h2 className="mt-3 text-2xl font-black">Ready to finish?</h2><p className="mt-2 text-text-secondary">Complete the lesson to earn {lesson.xpReward} XP. {hasQuiz ? "Quiz stars are based on your score." : "A mystery bonus may be hiding too."}</p><button className="mt-5 inline-flex min-h-12 items-center gap-2 rounded-xl bg-emerald-600 px-6 font-black text-white shadow-sm transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50" disabled={hasQuiz && !quizPassed} onClick={() => completeLesson(lesson.id, lesson.xpReward)}><Gift className="size-5" />{hasQuiz && !quizPassed ? "Pass the quiz to complete" : "Complete lesson & reveal reward"}</button></>}
-    </SkulKidCard> : null}
-    {state.lastReward && completed ? <div aria-live="polite" className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-center"><p className="font-black text-amber-950">{state.lastReward.title}</p><p className="mt-1 text-sm text-amber-900">{state.lastReward.detail} +{state.lastReward.xp} XP · +{state.lastReward.stars} stars</p></div> : null}
-  </main>;
-}
 
+  return (
+    <StudentShell activeItem={activeItem}>
+      <main className="mx-auto w-full max-w-6xl space-y-5">
+        <StudentPageNav
+          backHref={courseHref}
+          backLabel="Back to mission path"
+          crumbs={[
+            { label: "Home", href: "/dashboard" },
+            { label: "Courses", href: "/courses" },
+            { label: subject?.name ?? "Course", href: courseHref },
+            ...(unit ? [{ label: unit.title, href: courseHref }] : []),
+            { label: lesson.title }
+          ]}
+        />
+        <section className="relative overflow-hidden rounded-[2.25rem] bg-gradient-to-br from-slate-950 via-violet-900 to-blue-700 p-6 text-white shadow-[0_30px_80px_rgba(49,46,129,.3)] sm:p-9 lg:p-11">
+          <div className="pointer-events-none absolute -right-16 -top-20 size-72 rounded-full bg-cyan-300/20 blur-3xl" /><div className="pointer-events-none absolute -bottom-28 left-1/3 size-72 rounded-full bg-fuchsia-400/20 blur-3xl" />
+          <div className="relative grid gap-8 lg:grid-cols-[1fr_18rem] lg:items-end">
+            <div><div className="flex flex-wrap gap-2"><span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-xs font-black uppercase tracking-wider ring-1 ring-white/20"><Sparkles className="size-4 text-amber-300" />Learning mission</span><span className="rounded-full bg-blue-300/20 px-3 py-1.5 text-xs font-black uppercase tracking-wider text-blue-100 ring-1 ring-blue-200/20">{lesson.difficulty}</span></div><h1 className="mt-5 max-w-3xl text-4xl font-black leading-tight sm:text-5xl lg:text-6xl">{lesson.title}</h1><p className="mt-4 max-w-3xl text-base leading-8 text-blue-100 sm:text-lg">{lesson.description}</p><div className="mt-6 flex gap-3 rounded-2xl bg-white/10 p-4 ring-1 ring-white/15"><Target className="mt-1 size-5 shrink-0 text-amber-300" /><div><p className="text-xs font-black uppercase tracking-wider text-blue-200">Your mission</p><p className="mt-1 leading-7 text-white">{lesson.objective}</p></div></div></div>
+            <div className="rounded-3xl bg-white/10 p-5 ring-1 ring-white/15 backdrop-blur"><div className="flex items-center justify-between"><p className="text-sm font-black">Mission reward</p><XpBadge xp={lesson.xpReward} /></div><div className="mt-5 grid grid-cols-2 gap-2"><MissionFact icon={Clock} value={`${lesson.estimatedMinutes} min`} label="Mission time" /><MissionFact icon={MapIcon} value={`${journeyBlocks.length}`} label="Stages" /></div><div className="mt-4"><div className="flex justify-between text-xs font-black"><span>Mission progress</span><span>{missionProgress}%</span></div><div className="mt-2 h-2.5 overflow-hidden rounded-full bg-white/15"><div className="h-full rounded-full bg-gradient-to-r from-amber-300 to-emerald-300 transition-all duration-500" style={{ width: `${missionProgress}%` }} /></div></div></div>
+          </div>
+        </section>
+        <div className="flex items-center gap-3 px-1"><span className="grid size-11 place-items-center rounded-2xl bg-violet-100 text-violet-700"><MapIcon className="size-5" /></span><div><p className="text-xs font-black uppercase tracking-wider text-violet-700">Lesson stages</p><h2 className="text-2xl font-black">Learn, practise, conquer</h2></div></div>
+        <div className="relative grid gap-5 before:absolute before:bottom-8 before:left-[1.35rem] before:top-8 before:hidden before:w-1 before:rounded-full before:bg-gradient-to-b before:from-violet-200 before:via-fuchsia-200 before:to-emerald-200 sm:pl-14 sm:before:block">{journeyBlocks.map((block, index) => <div className="relative" key={block.id}><span className="absolute -left-14 top-7 z-10 hidden size-11 place-items-center rounded-full border-4 border-slate-100 bg-white text-sm font-black text-violet-700 shadow-md sm:grid">{index + 1}</span><BlockRenderer block={block} completedVideoPromptIds={state.completedVideoPromptIds} onVideoPromptComplete={completeVideoPrompt} previewMode /></div>)}</div>
+        {hasQuiz ? <><SkulKidCard className="relative overflow-hidden border-violet-200 bg-gradient-to-br from-violet-700 via-fuchsia-700 to-blue-700 p-7 text-center text-white shadow-[0_24px_65px_rgba(109,40,217,.25)]"><Trophy className="mx-auto size-12 text-amber-300" /><p className="mt-3 text-xs font-black uppercase tracking-[.2em] text-violet-200">{completed ? "Reward claimed" : "Lesson complete"}</p><h2 className="mt-1 text-3xl font-black">{completed ? "Quiz completed" : "Ready for the final challenge?"}</h2><p className="mx-auto mt-2 max-w-xl text-violet-100">{completed ? "Your result and lesson reward have been recorded." : `Take a ${questionBlocks.length}-question quiz to test what you learned and unlock your reward.`}</p><button className="mt-5 inline-flex min-h-12 items-center gap-2 rounded-xl bg-amber-300 px-7 font-black text-slate-950 shadow-lg disabled:cursor-not-allowed disabled:bg-white/20 disabled:text-white/60 disabled:shadow-none" disabled={completed} onClick={() => setQuizOpen(true)} type="button"><Sparkles className="size-5" />{completed ? "Quiz completed" : "Take quiz"}</button></SkulKidCard><QuizModal masteryScore={lesson.masteryScore ?? 80} onClaim={(results) => { setQuizResult(submitQuiz(lesson.id, results, lesson.passingScore ?? 70, lesson.masteryScore ?? 80)); completeLesson(lesson.id, lesson.xpReward); setQuizOpen(false); }} onClose={() => setQuizOpen(false)} open={quizOpen && !completed} passingScore={lesson.passingScore ?? 70} questions={questionBlocks} title={lesson.title} /></> : null}
+        {!hasQuiz || quizPassed || completed ? <SkulKidCard className="overflow-hidden border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-amber-50 p-6 text-center">
+          {completed ? <><CheckCircle2 className="mx-auto size-12 text-emerald-600" /><h2 className="mt-3 text-2xl font-black">Achievement recorded!</h2><p className="mt-2 text-text-secondary">This lesson is complete. Your XP and badge progress have been updated.</p><div className="mt-5 flex flex-wrap items-center justify-center gap-3"><Link className="inline-flex min-h-11 items-center rounded-xl bg-primary px-5 font-black text-white" href={courseHref}>Back to mission path</Link><Link className="inline-flex min-h-11 items-center rounded-xl border border-slate-200 bg-white px-5 font-black text-slate-700" href="/achievements">See my rewards</Link><Link className="inline-flex min-h-11 items-center rounded-xl border border-slate-200 bg-white px-5 font-black text-slate-700" href="/dashboard">Dashboard</Link></div></> : <><Trophy className="mx-auto size-12 text-amber-500" /><h2 className="mt-3 text-2xl font-black">Ready to finish?</h2><p className="mt-2 text-text-secondary">Complete the lesson to earn {lesson.xpReward} XP. {hasQuiz ? "Quiz stars are based on your score." : "A mystery bonus may be hiding too."}</p><button className="mt-5 inline-flex min-h-12 items-center gap-2 rounded-xl bg-emerald-600 px-6 font-black text-white shadow-sm transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50" disabled={hasQuiz && !quizPassed} onClick={() => completeLesson(lesson.id, lesson.xpReward)}><Gift className="size-5" />{hasQuiz && !quizPassed ? "Pass the quiz to complete" : "Complete lesson & reveal reward"}</button></>}
+        </SkulKidCard> : null}
+        {state.lastReward && completed ? <div aria-live="polite" className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-center"><p className="font-black text-amber-950">{state.lastReward.title}</p><p className="mt-1 text-sm text-amber-900">{state.lastReward.detail} +{state.lastReward.xp} XP · +{state.lastReward.stars} stars</p></div> : null}
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <Link className="inline-flex min-h-11 items-center gap-2 rounded-xl px-4 font-black text-primary hover:bg-blue-50" href={courseHref}>← Mission path</Link>
+          <Link className="inline-flex min-h-11 items-center gap-2 rounded-xl px-4 font-black text-slate-700 hover:bg-slate-50" href="/courses">All courses</Link>
+          <Link className="inline-flex min-h-11 items-center gap-2 rounded-xl px-4 font-black text-slate-700 hover:bg-slate-50" href="/dashboard">Dashboard</Link>
+        </div>
+      </main>
+    </StudentShell>
+  );
+}
 function MissionFact({ icon: Icon, value, label }: { icon: LucideIcon; value: string; label: string }) {
   return <div className="rounded-2xl bg-white/10 p-3 text-center ring-1 ring-white/10"><Icon className="mx-auto size-5 text-amber-300" aria-hidden="true" /><b className="mt-2 block text-sm">{value}</b><span className="mt-0.5 block text-[10px] font-bold uppercase tracking-wider text-blue-200">{label}</span></div>;
 }

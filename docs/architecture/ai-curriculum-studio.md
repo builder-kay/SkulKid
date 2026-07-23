@@ -38,4 +38,4 @@ GEMINI_CURRICULUM_MODEL=gemini-3.5-flash
 GEMINI_LESSON_MODEL=gemini-3.5-flash
 ```
 
-The current prototype does not persist drafts because Phase 1 has no administrator identity. The Prisma provenance model is ready for the authenticated workflow.
+The authenticated workflow persists curriculum provenance in Supabase.

@@ -17,11 +17,10 @@ const subjectDetails = [
 function useLiveLessons() {
   const [lessons, setLessons] = useState<AdminLessonRecord[]>([]);
   useEffect(() => {
-    const refresh = () => setLessons(readAdminLessons());
+    const refresh = () => { void readAdminLessons().then(setLessons); };
     refresh();
-    window.addEventListener("storage", refresh);
     window.addEventListener("skulkid:lessons-changed", refresh);
-    return () => { window.removeEventListener("storage", refresh); window.removeEventListener("skulkid:lessons-changed", refresh); };
+    return () => { window.removeEventListener("skulkid:lessons-changed", refresh); };
   }, []);
   return lessons;
 }

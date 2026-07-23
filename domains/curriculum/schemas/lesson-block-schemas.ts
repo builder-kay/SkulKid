@@ -98,6 +98,9 @@ export const videoBlockSchema = baseBlockSchema.extend({
   title: z.string().min(1),
   caption: z.string().min(1).optional(),
   participationPrompt: z.string().min(5).optional(),
+  participationOptions: z.array(assessmentOptionSchema).min(2).optional(),
+  participationCorrectOptionId: z.string().min(1).optional(),
+  participationExplanation: z.string().min(1).optional(),
   participationXp: z.number().int().min(1).max(50).optional()
 });
 

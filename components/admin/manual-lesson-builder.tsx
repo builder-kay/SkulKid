@@ -1,6 +1,6 @@
 ﻿"use client";
 
-/* eslint-disable react/no-unescaped-entities, @next/next/no-img-element -- lesson copy uses contractions and teacher-authored image hosts */
+/* eslint-disable @next/next/no-img-element -- teachers may use image hosts that are not known at build time */
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowDown, ArrowUp, Bold, Bot, CheckCircle2, ChevronRight, Download, FileImage, FileText, FileUp, Flame, Heading2, Italic, Lightbulb, Link2, List, ListOrdered, ListTree, LoaderCircle, Plus, Quote, RemoveFormatting, RotateCcw, Save, Send, Sparkles, Star, Trash2, TriangleAlert, Trophy, Underline, Video, Zap } from "lucide-react";
@@ -14,6 +14,7 @@ import type { SupportedCurriculumSubject } from "@/domains/curriculum-ai/schemas
 import { materialiseGeneratedCourse } from "@/domains/curriculum-ai/services/materialise-course";
 import type { MaterialisedCourse } from "@/domains/curriculum-ai/services/materialise-course";
 import { placeLessonAfter, readAdminLessons, writeAdminLesson } from "@/lib/admin/lesson-library";
+import { deleteAdminSetting, readAdminSetting, writeAdminSetting } from "@/lib/admin/settings";
 import type { AdminLessonRecord, AdminLessonStatus } from "@/lib/admin/lesson-library";
 import { resolveVideoEmbed } from "@/lib/video/embed";
 
@@ -51,7 +52,7 @@ type ImportedLesson = {
 
 type FormatAction = "heading" | "bold" | "italic" | "underline" | "bullet" | "numbered" | "quote" | "tip" | "link" | "clear";
 type LessonFormat = "text" | "video";
-type LessonVideo = { id: string; url: string; title: string; caption: string; participationPrompt: string; participationXp: number };
+type LessonVideo = { id: string; url: string; title: string; caption: string; participationPrompt: string; participationOptionA: string; participationOptionB: string; participationOptionC: string; participationCorrectOption: number; participationExplanation: string; participationXp: number };
 type TextLessonSection = { id: string; heading: string; body: string; imageUrl: string; imageAlt: string; imageCaption: string; videoUrl: string; videoTitle: string; videoCaption: string };
 const LessonFormatContext = createContext<LessonFormat>("text");
 const sectionTones: Record<string, { border: string; header: string; badge: string }> = {
@@ -90,7 +91,7 @@ type FormState = {
 const initial: FormState = {
   lessonFormat: "text", subject: "mathematics", grade: 4, unit: "", chapter: "", topic: "", prerequisiteLessonId: "", title: "", description: "", curriculumReference: "",
   objectives: ["", ""], minutes: 10, difficulty: "beginner", heading: "Let's learn", body: "", exampleTitle: "See it in action", videoUrl: "", videoTitle: "Watch and learn", videoCaption: "",
-  exampleProblem: "", exampleSteps: "", exampleAnswer: "", videos: [{ id: "video-1", url: "", title: "Watch and learn", caption: "", participationPrompt: "", participationXp: 5 }], textSections: [{ id: "text-section-1", heading: "Let's learn", body: "", imageUrl: "", imageAlt: "", imageCaption: "", videoUrl: "", videoTitle: "Watch and learn", videoCaption: "" }], questions: [{ id: "question-1", prompt: "", optionA: "", optionB: "", optionC: "", correctOption: 0, hint: "", explanation: "" }],
+  exampleProblem: "", exampleSteps: "", exampleAnswer: "", videos: [{ id: "video-1", url: "", title: "Watch and learn", caption: "", participationPrompt: "", participationOptionA: "", participationOptionB: "", participationOptionC: "", participationCorrectOption: 0, participationExplanation: "", participationXp: 5 }], textSections: [{ id: "text-section-1", heading: "Let's learn", body: "", imageUrl: "", imageAlt: "", imageCaption: "", videoUrl: "", videoTitle: "Watch and learn", videoCaption: "" }], questions: [{ id: "question-1", prompt: "", optionA: "", optionB: "", optionC: "", correctOption: 0, hint: "", explanation: "" }],
   summary: "", xp: 100, passingScore: 60, masteryScore: 80, maximumAttempts: 2, lessonRedos: 2
 };
 
@@ -117,25 +118,26 @@ export function ManualLessonBuilder({ initialAiConfigured = false, initialAiMode
   const canBuild = useMemo(() => Boolean(form.title.trim().length >= 3 && (hasText || hasVideo)), [form.title, hasText, hasVideo]);
   const wordCount = form.textSections.reduce((total, section) => total + (section.body.trim() ? section.body.trim().split(/\s+/).length : 0), 0);
   const assessmentCount = completeQuestions.length;
-  const participationBonusXp = validVideos.reduce((total, video) => total + (video.participationPrompt.trim() ? video.participationXp : 0), 0);
+  const participationBonusXp = validVideos.reduce((total, video) => total + (videoCheckpointComplete(video) ? video.participationXp : 0), 0);
   const maximumXp = form.xp + assessmentCount * 10 + participationBonusXp + 20;
   const subjectBadge = form.subject === "mathematics" ? "Mathematics Explorer" : form.subject === "science" ? "Science Explorer" : "English Explorer";
 
   useEffect(() => {
-    const lessons = readAdminLessons();
-    setLibraryLessons(lessons);
-    if (!editLessonId) return;
-    const lesson = lessons.find((candidate) => candidate.id === editLessonId);
-    if (!lesson) { setMessage("The lesson to edit could not be found in this browser."); return; }
-    if (lesson.builderState && typeof lesson.builderState === "object") {
-      const saved = lesson.builderState as Partial<FormState>;
-      const restoredVideos = saved.videos?.length ? saved.videos.map((video) => ({ ...video, participationPrompt: video.participationPrompt ?? "", participationXp: video.participationXp ?? 5 })) : saved.videoUrl ? [{ id: "restored-video-1", url: saved.videoUrl, title: saved.videoTitle || "Watch and learn", caption: saved.videoCaption || "", participationPrompt: "", participationXp: 5 }] : initial.videos;
-      const legacyFormat = (saved as { lessonFormat?: string }).lessonFormat;
-      const restoredTextSections = saved.textSections?.length ? saved.textSections : [{ ...initial.textSections[0], heading: saved.heading || initial.heading, body: saved.body || "", ...(legacyFormat === "blended" && restoredVideos[0]?.url ? { videoUrl: restoredVideos[0].url, videoTitle: restoredVideos[0].title, videoCaption: restoredVideos[0].caption } : {}) }];
-      setForm({ ...initial, ...saved, lessonFormat: saved.lessonFormat === "video" ? "video" : "text", videos: restoredVideos, textSections: restoredTextSections });
-    } else setForm(restoreFormFromLesson(lesson));
-    setSavedLessonId(lesson.id);
-    setMessage(`Editing ${lesson.status === "published" ? "published" : "draft"} lesson: ${lesson.title}`);
+    void readAdminLessons().then((lessons) => {
+      setLibraryLessons(lessons);
+      if (!editLessonId) return;
+      const lesson = lessons.find((candidate) => candidate.id === editLessonId);
+      if (!lesson) { setMessage("The lesson to edit could not be found."); return; }
+      if (lesson.builderState && typeof lesson.builderState === "object") {
+        const saved = lesson.builderState as Partial<FormState>;
+        const restoredVideos = saved.videos?.length ? saved.videos.map((video) => ({ ...initial.videos[0], ...video, participationPrompt: video.participationPrompt ?? "", participationXp: video.participationXp ?? 5 })) : saved.videoUrl ? [{ ...initial.videos[0], id: "restored-video-1", url: saved.videoUrl, title: saved.videoTitle || "Watch and learn", caption: saved.videoCaption || "" }] : initial.videos;
+        const legacyFormat = (saved as { lessonFormat?: string }).lessonFormat;
+        const restoredTextSections = saved.textSections?.length ? saved.textSections : [{ ...initial.textSections[0], heading: saved.heading || initial.heading, body: saved.body || "", ...(legacyFormat === "blended" && restoredVideos[0]?.url ? { videoUrl: restoredVideos[0].url, videoTitle: restoredVideos[0].title, videoCaption: restoredVideos[0].caption } : {}) }];
+        setForm({ ...initial, ...saved, lessonFormat: saved.lessonFormat === "video" ? "video" : "text", videos: restoredVideos, textSections: restoredTextSections });
+      } else setForm(restoreFormFromLesson(lesson));
+      setSavedLessonId(lesson.id);
+      setMessage(`Editing ${lesson.status === "published" ? "published" : "draft"} lesson: ${lesson.title}`);
+    }).catch(() => setMessage("Lessons could not be loaded from Supabase."));
   }, [editLessonId]);
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) { setForm((current) => ({ ...current, [key]: value })); setResult(null); }
@@ -156,7 +158,7 @@ export function ManualLessonBuilder({ initialAiConfigured = false, initialAiMode
   }
   function updateQuestion(id: string, changes: Partial<QuizQuestion>) { setForm((current) => ({ ...current, questions: current.questions.map((question) => question.id === id ? { ...question, ...changes } : question) })); setResult(null); }
   function addQuestion() { setForm((current) => ({ ...current, questions: [...current.questions, emptyQuestion()] })); setResult(null); }
-  function addVideo() { setForm((current) => ({ ...current, videos: [...current.videos, { id: crypto.randomUUID(), url: "", title: `Video ${current.videos.length + 1}`, caption: "", participationPrompt: "", participationXp: 5 }] })); setResult(null); }
+  function addVideo() { setForm((current) => ({ ...current, videos: [...current.videos, { ...initial.videos[0], id: crypto.randomUUID(), title: `Video ${current.videos.length + 1}` }] })); setResult(null); }
   function updateVideo(id: string, changes: Partial<LessonVideo>) { setForm((current) => ({ ...current, videos: current.videos.map((video) => video.id === id ? { ...video, ...changes } : video) })); setResult(null); }
   function removeVideo(id: string) { setForm((current) => ({ ...current, videos: current.videos.filter((video) => video.id !== id) })); setResult(null); }
   function addTextSection() { setForm((current) => ({ ...current, textSections: [...current.textSections, { id: crypto.randomUUID(), heading: `Section ${current.textSections.length + 1}`, body: "", imageUrl: "", imageAlt: "", imageCaption: "", videoUrl: "", videoTitle: "Watch and learn", videoCaption: "" }] })); setResult(null); }
@@ -222,7 +224,7 @@ export function ManualLessonBuilder({ initialAiConfigured = false, initialAiMode
     if (form.passingScore < 0 || form.passingScore > 100 || form.masteryScore > 100) { setMessage("Pass and mastery scores must be between 0 and 100."); return null; }
     if (form.maximumAttempts < 1 || form.maximumAttempts > 5) { setMessage("Attempts per question must be between 1 and 5."); return null; }
     if (form.lessonFormat !== "text" && form.videos.some((video) => video.url.trim() && !resolveVideoEmbed(video.url))) { setMessage("Every added video must use a valid public YouTube, Vimeo or TikTok link."); return null; }
-    if (form.lessonFormat !== "text" && form.videos.some((video) => video.participationPrompt.trim() && video.participationPrompt.trim().length < 5)) { setMessage("Each video participation prompt must contain at least 5 characters, or be left empty."); return null; }
+    if (form.lessonFormat !== "text" && form.videos.some((video) => video.participationPrompt.trim() && !videoCheckpointComplete(video))) { setMessage("Complete all three video checkpoint answers and choose the correct one, or leave the checkpoint question empty."); return null; }
     if (form.lessonFormat !== "text" && form.videos.some((video) => video.participationXp < 1 || video.participationXp > 50)) { setMessage("Video participation rewards must be between 1 and 50 XP."); return null; }
     if (form.lessonFormat === "text" && form.textSections.some((section) => section.videoUrl.trim() && !resolveVideoEmbed(section.videoUrl))) { setMessage("Every video embedded in a text section must use a valid public YouTube, Vimeo or TikTok link."); return null; }
     if (form.lessonFormat === "text" && form.textSections.some((section) => section.imageUrl.trim() && section.imageAlt.trim().length < 8)) { setMessage("Every section image needs alternative text of at least 8 characters."); return null; }
@@ -251,12 +253,12 @@ export function ManualLessonBuilder({ initialAiConfigured = false, initialAiMode
       }] }] }]
     });
     if (!course.success) { setMessage(formatCourseIssue(course.error.issues[0])); return null; }
-    const materialised = materialiseGeneratedCourse(course.data, `manual-${Date.now()}`, { baseXpReward: form.xp, passingScore: form.passingScore, masteryScore: form.masteryScore, maximumAttempts: form.maximumAttempts, maximumLessonRedos: form.lessonRedos, includeTrueFalse: false, includeText: hasText, includeWorkedExample: includeExample, includeAssessment: completeQuestions.length > 0, contentSections: form.lessonFormat === "text" ? form.textSections.map((section) => ({ heading: section.heading, body: section.body, imageUrl: section.imageUrl, imageAlt: section.imageAlt, imageCaption: section.imageCaption, videoUrl: section.videoUrl, videoTitle: section.videoTitle, videoCaption: section.videoCaption })) : undefined, videos: validVideos.map((video) => ({ url: video.url, title: video.title || form.title, caption: video.caption, participationPrompt: video.participationPrompt, participationXp: video.participationXp })), additionalChallenges: completeQuestions.slice(1).map(toGeneratedChallenge) });
+    const materialised = materialiseGeneratedCourse(course.data, `manual-${Date.now()}`, { baseXpReward: form.xp, passingScore: form.passingScore, masteryScore: form.masteryScore, maximumAttempts: form.maximumAttempts, maximumLessonRedos: form.lessonRedos, includeTrueFalse: false, includeText: hasText, includeWorkedExample: includeExample, includeAssessment: completeQuestions.length > 0, contentSections: form.lessonFormat === "text" ? form.textSections.map((section) => ({ heading: section.heading, body: section.body, imageUrl: section.imageUrl, imageAlt: section.imageAlt, imageCaption: section.imageCaption, videoUrl: section.videoUrl, videoTitle: section.videoTitle, videoCaption: section.videoCaption })) : undefined, videos: validVideos.map((video) => ({ url: video.url, title: video.title || form.title, caption: video.caption, participationPrompt: video.participationPrompt, participationOptions: videoCheckpointComplete(video) ? [{ id: "a", label: "A", text: video.participationOptionA.trim() }, { id: "b", label: "B", text: video.participationOptionB.trim() }, { id: "c", label: "C", text: video.participationOptionC.trim() }] : undefined, participationCorrectOptionId: videoCheckpointComplete(video) ? ["a", "b", "c"][video.participationCorrectOption] : undefined, participationExplanation: video.participationExplanation, participationXp: video.participationXp })), additionalChallenges: completeQuestions.slice(1).map(toGeneratedChallenge) });
     setResult(materialised); setMessage(materialised.issues.some((issue) => issue.severity === "error") ? "The draft needs corrections." : "Draft validated successfully.");
     return materialised;
   }
 
-  function saveLesson(status: AdminLessonStatus) {
+  async function saveLesson(status: AdminLessonStatus) {
     setSavingStatus(status);
     const materialised = build();
     if (!materialised || (status === "published" && materialised.issues.some((issue) => issue.severity === "error"))) { setSavingStatus(null); return; }
@@ -266,20 +268,20 @@ export function ManualLessonBuilder({ initialAiConfigured = false, initialAiMode
     const fixture = structuredClone(materialised.fixture);
     fixture.lessons[0].prerequisiteLessonId = form.prerequisiteLessonId || null;
     if (status === "published") fixture.lessonVersions.forEach((version) => { version.status = "published"; version.publishedAt = now; version.updatedAt = now; });
-    writeAdminLesson({ id, subject: form.subject, grade: form.grade, unit: form.unit, chapter: form.chapter, topic: form.topic,
+    await writeAdminLesson({ id, subject: form.subject, grade: form.grade, unit: form.unit, chapter: form.chapter, topic: form.topic,
       title: form.title, description: form.description, estimatedMinutes: form.minutes, xp: form.xp,
       questionCount: completeQuestions.length, format: form.lessonFormat, prerequisiteLessonId: form.prerequisiteLessonId || null, gamification: { passingScore: form.passingScore, masteryScore: form.masteryScore,
         maximumAttempts: form.maximumAttempts, lessonRetries: form.lessonRedos, maximumXp, badge: subjectBadge },
       status, createdAt: existingLesson?.createdAt ?? now, updatedAt: now, fixture, builderState: structuredClone(form) });
     const subjectIds = [...libraryLessons.filter((lesson) => lesson.subject === form.subject).map((lesson) => lesson.id), id];
-    placeLessonAfter(form.subject, id, form.prerequisiteLessonId || null, subjectIds);
+    await placeLessonAfter(form.subject, id, form.prerequisiteLessonId || null, subjectIds);
     setSavedLessonId(id);
-    window.localStorage.removeItem("skulkid-manual-lesson-draft");
+    await deleteAdminSetting("manual-lesson-draft");
     router.push(`/admin/lessons?subject=${form.subject}`);
   }
 
-  function saveLocally() { window.localStorage.setItem("skulkid-manual-lesson-draft", JSON.stringify(form)); setMessage("Draft saved in this browser."); }
-  function restore() { const saved = window.localStorage.getItem("skulkid-manual-lesson-draft"); if (!saved) { setMessage("No browser draft was found."); return; } const restored = JSON.parse(saved) as Partial<FormState> & { objectiveOne?: string; objectiveTwo?: string }; const legacyDraftFormat = (restored as { lessonFormat?: string }).lessonFormat; const legacyObjectives = [restored.objectiveOne, restored.objectiveTwo].filter((objective): objective is string => Boolean(objective)); const legacyVideo = restored.videos?.[0]; const textSections = restored.textSections?.length ? restored.textSections : [{ ...initial.textSections[0], heading: restored.heading || initial.heading, body: restored.body || "", ...(legacyDraftFormat === "blended" && legacyVideo?.url ? { videoUrl: legacyVideo.url, videoTitle: legacyVideo.title, videoCaption: legacyVideo.caption } : {}) }]; setForm({ ...initial, ...restored, lessonFormat: legacyDraftFormat === "video" ? "video" : "text", textSections, objectives: restored.objectives?.length ? restored.objectives : legacyObjectives.length ? legacyObjectives : [""], questions: restored.questions?.length ? restored.questions : [emptyQuestion()] }); setResult(null); setMessage("Browser draft restored."); }
+  async function saveLocally() { await writeAdminSetting("manual-lesson-draft", form); setMessage("Draft saved to Supabase."); }
+  async function restore() { const restored = await readAdminSetting<Partial<FormState> & { objectiveOne?: string; objectiveTwo?: string }>("manual-lesson-draft"); if (!restored) { setMessage("No saved draft was found."); return; } const legacyDraftFormat = (restored as { lessonFormat?: string }).lessonFormat; const legacyObjectives = [restored.objectiveOne, restored.objectiveTwo].filter((objective): objective is string => Boolean(objective)); const legacyVideo = restored.videos?.[0]; const textSections = restored.textSections?.length ? restored.textSections : [{ ...initial.textSections[0], heading: restored.heading || initial.heading, body: restored.body || "", ...(legacyDraftFormat === "blended" && legacyVideo?.url ? { videoUrl: legacyVideo.url, videoTitle: legacyVideo.title, videoCaption: legacyVideo.caption } : {}) }]; setForm({ ...initial, ...restored, lessonFormat: legacyDraftFormat === "video" ? "video" : "text", textSections, objectives: restored.objectives?.length ? restored.objectives : legacyObjectives.length ? legacyObjectives : [""], questions: restored.questions?.length ? restored.questions : [emptyQuestion()] }); setResult(null); setMessage("Supabase draft restored."); }
   function download() { if (!result) return; const url = URL.createObjectURL(new Blob([JSON.stringify(result.fixture, null, 2)], { type: "application/json" })); const link = document.createElement("a"); link.href = url; link.download = `${slug(form.title)}-lesson-draft.json`; link.click(); URL.revokeObjectURL(url); }
   function format(action: FormatAction, sectionId: string) {
     const area = document.getElementById(`lesson-body-${sectionId}`) as HTMLTextAreaElement | null;
@@ -378,7 +380,7 @@ export function ManualLessonBuilder({ initialAiConfigured = false, initialAiMode
                 <div className="flex items-center justify-between gap-3"><h3 className="font-black text-slate-950">Video {index + 1}</h3><SkulKidButton type="button" size="icon" variant="ghost" onClick={() => removeVideo(video.id)} aria-label={`Remove video ${index + 1}`}><Trash2 className="size-4" /></SkulKidButton></div>
                 <div className="mt-4 grid gap-4 sm:grid-cols-2"><Field label="Video link"><Input type="url" value={video.url} onChange={(event) => updateVideo(video.id, { url: event.target.value })} placeholder="https://www.youtube.com/watch?v=…" aria-invalid={Boolean(video.url && !embed)} /><span className={`font-normal ${video.url && !embed ? "text-red-700" : "text-muted"}`}>{video.url ? embed ? `${embed.provider[0].toUpperCase() + embed.provider.slice(1)} link recognised` : "Use a valid YouTube, Vimeo or TikTok video link." : "Paste a public video link."}</span></Field><Field label="Video title"><Input value={video.title} onChange={(event) => updateVideo(video.id, { title: event.target.value })} placeholder="What pupils will watch" /></Field></div>
                 <div className="mt-4"><Field label="Caption or viewing instruction (optional)"><Textarea className="min-h-20" value={video.caption} onChange={(event) => updateVideo(video.id, { caption: event.target.value })} placeholder="Tell pupils what to notice while watching." /></Field></div>
-                <div className="mt-4 grid gap-4 rounded-xl border border-violet-200 bg-violet-50 p-4 sm:grid-cols-[1fr_9rem]"><Field label="Participation prompt (optional)"><Input value={video.participationPrompt} onChange={(event) => updateVideo(video.id, { participationPrompt: event.target.value })} placeholder="What is one important idea you noticed?" /><span className="font-normal text-muted">Shown after the video. Any thoughtful response earns the bonus once.</span></Field><Field label="Prompt reward"><div className="relative"><Input type="number" min={1} max={50} value={video.participationXp} onChange={(event) => updateVideo(video.id, { participationXp: Math.min(50, Math.max(1, Number(event.target.value) || 1)) })} /><span className="absolute right-4 top-3 text-xs font-black text-muted">XP</span></div></Field></div>
+                <div className="mt-4 rounded-xl border border-violet-200 bg-violet-50 p-4"><div className="grid gap-4 sm:grid-cols-[1fr_9rem]"><Field label="Video checkpoint question (optional)"><Input value={video.participationPrompt} onChange={(event) => updateVideo(video.id, { participationPrompt: event.target.value })} placeholder="Which idea was explained in the video?" /><span className="font-normal text-muted">A correct answer is required before XP is awarded.</span></Field><Field label="Checkpoint reward"><div className="relative"><Input type="number" min={1} max={50} value={video.participationXp} onChange={(event) => updateVideo(video.id, { participationXp: Math.min(50, Math.max(1, Number(event.target.value) || 1)) })} /><span className="absolute right-4 top-3 text-xs font-black text-muted">XP</span></div></Field></div>{video.participationPrompt.trim() ? <div className="mt-4 grid gap-3 sm:grid-cols-3"><Field label="Answer A"><Input value={video.participationOptionA} onChange={(event) => updateVideo(video.id, { participationOptionA: event.target.value })} /></Field><Field label="Answer B"><Input value={video.participationOptionB} onChange={(event) => updateVideo(video.id, { participationOptionB: event.target.value })} /></Field><Field label="Answer C"><Input value={video.participationOptionC} onChange={(event) => updateVideo(video.id, { participationOptionC: event.target.value })} /></Field><Field label="Correct answer"><Select value={String(video.participationCorrectOption)} onChange={(event) => updateVideo(video.id, { participationCorrectOption: Number(event.target.value) })}><option value="0">Answer A</option><option value="1">Answer B</option><option value="2">Answer C</option></Select></Field><div className="sm:col-span-2"><Field label="Explanation shown after success"><Input value={video.participationExplanation} onChange={(event) => updateVideo(video.id, { participationExplanation: event.target.value })} placeholder="Explain why this answer is correct." /></Field></div></div> : null}</div>
                 {embed ? <div className="mt-5"><p className="mb-2 text-sm font-black">Embedded preview</p><EmbeddedVideo url={video.url} title={video.title || form.title || `Lesson video ${index + 1}`} caption={video.caption} /></div> : null}
               </div>;
             }) : <div className="rounded-2xl border-2 border-dashed border-sky-200 bg-sky-50/40 p-6 text-center text-sm text-muted">No videos added yet.</div>}
@@ -480,8 +482,9 @@ function FilePicker({ id, file, label, help, onChange, compact = false }: { id: 
 function RibbonGroup({ label, children }: { label: string; children: React.ReactNode }) { return <div className="flex min-w-fit flex-col border-r border-slate-300 pr-2 last:border-0"><div className="flex flex-1 items-center gap-1">{children}</div><span className="mt-1 text-center text-[9px] font-semibold text-slate-500">{label}</span></div>; }
 function Tool({ label, shortcut, icon: Icon, onClick }: { label: string; shortcut?: string; icon: LucideIcon; onClick: () => void }) { const title = shortcut ? `${label} (${shortcut})` : label; return <button type="button" onClick={onClick} title={title} aria-label={title} className="grid size-9 place-items-center rounded border border-transparent bg-transparent text-slate-700 hover:border-slate-300 hover:bg-white hover:text-[#185abd] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#185abd]"><Icon className="size-4" aria-hidden="true" /></button>; }
 function questionComplete(question: QuizQuestion) { return Boolean(question.prompt.trim().length >= 5 && question.optionA.trim() && question.optionB.trim() && (question.correctOption !== 2 || question.optionC.trim())); }
+function videoCheckpointComplete(video: LessonVideo) { return Boolean(video.participationPrompt.trim().length >= 5 && video.participationOptionA.trim() && video.participationOptionB.trim() && video.participationOptionC.trim() && video.participationCorrectOption >= 0 && video.participationCorrectOption <= 2); }
 function toGeneratedChallenge(question: QuizQuestion) { return { prompt: question.prompt.trim(), options: [question.optionA.trim(), question.optionB.trim(), question.optionC.trim() || "None of these"] as [string, string, string], correctOptionIndex: question.correctOption, hint: question.hint.trim() || "Review the lesson content and try again.", explanation: question.explanation.trim() || "The correct answer follows from the lesson content." }; }
-type StoredBlock = { type: string; order?: number; heading?: string; body?: string; source?: string; title?: string; caption?: string; altText?: string; participationPrompt?: string; participationXp?: number; problem?: string; orderedSteps?: string[]; finalAnswer?: string; prompt?: string; options?: Array<{ id: string; text: string }>; correctOptionId?: string; hint?: string; explanation?: string; keyPoints?: string[] };
+type StoredBlock = { type: string; order?: number; heading?: string; body?: string; source?: string; title?: string; caption?: string; altText?: string; participationPrompt?: string; participationOptions?: Array<{ id: string; text: string }>; participationCorrectOptionId?: string; participationExplanation?: string; participationXp?: number; problem?: string; orderedSteps?: string[]; finalAnswer?: string; prompt?: string; options?: Array<{ id: string; text: string }>; correctOptionId?: string; hint?: string; explanation?: string; keyPoints?: string[] };
 type StoredFixture = { lessonVersions?: Array<{ difficulty?: FormState["difficulty"]; learningObjectives?: Array<{ code: string; description: string }>; blocks?: StoredBlock[] }> };
 function restoreFormFromLesson(lesson: AdminLessonRecord): FormState {
   const fixture = lesson.fixture as StoredFixture | null;
@@ -494,7 +497,7 @@ function restoreFormFromLesson(lesson: AdminLessonRecord): FormState {
   const summary = blocks.find((block) => block.type === "summary");
   const questions = blocks.filter((block) => block.type === "multiple_choice").map((block, index) => ({ id: `restored-question-${index + 1}`, prompt: block.prompt ?? "", optionA: block.options?.[0]?.text ?? "", optionB: block.options?.[1]?.text ?? "", optionC: block.options?.[2]?.text ?? "", correctOption: Math.max(0, block.options?.findIndex((option) => option.id === block.correctOptionId) ?? 0), hint: block.hint ?? "", explanation: block.explanation ?? "" }));
   const objectives = version?.learningObjectives?.map((objective) => objective.description) ?? [];
-  const videos = videoBlocks.map((block, index) => ({ id: `restored-video-${index + 1}`, url: block.source ?? "", title: block.title ?? `Lesson video ${index + 1}`, caption: block.caption ?? "", participationPrompt: block.participationPrompt ?? "", participationXp: block.participationXp ?? 5 }));
+  const videos = videoBlocks.map((block, index) => ({ id: `restored-video-${index + 1}`, url: block.source ?? "", title: block.title ?? `Lesson video ${index + 1}`, caption: block.caption ?? "", participationPrompt: block.participationPrompt ?? "", participationOptionA: block.participationOptions?.[0]?.text ?? "", participationOptionB: block.participationOptions?.[1]?.text ?? "", participationOptionC: block.participationOptions?.[2]?.text ?? "", participationCorrectOption: Math.max(0, block.participationOptions?.findIndex((option) => option.id === block.participationCorrectOptionId) ?? 0), participationExplanation: block.participationExplanation ?? "", participationXp: block.participationXp ?? 5 }));
   const textBlocks = blocks.filter((block) => block.type === "text");
   const textSections = textBlocks.map((block, index) => { const nextOrder = textBlocks[index + 1]?.order ?? Number.POSITIVE_INFINITY; const related = blocks.filter((candidate) => (candidate.order ?? 0) > (block.order ?? 0) && (candidate.order ?? 0) < nextOrder); const image = related.find((candidate) => candidate.type === "image"); const embeddedVideo = related.find((candidate) => candidate.type === "video"); return { id: `restored-text-section-${index + 1}`, heading: block.heading ?? `Section ${index + 1}`, body: block.body ?? "", imageUrl: image?.source ?? "", imageAlt: image?.altText ?? "", imageCaption: image?.caption ?? "", videoUrl: embeddedVideo?.source ?? "", videoTitle: embeddedVideo?.title ?? "Watch and learn", videoCaption: embeddedVideo?.caption ?? "" }; });
   return { ...initial, subject: lesson.subject, grade: lesson.grade, unit: lesson.unit, chapter: lesson.chapter, topic: lesson.topic, prerequisiteLessonId: lesson.prerequisiteLessonId ?? "", title: lesson.title, description: lesson.description, curriculumReference: version?.learningObjectives?.[0]?.code ?? "", objectives: objectives.length ? objectives : [""], minutes: lesson.estimatedMinutes, difficulty: version?.difficulty ?? "beginner", heading: text?.heading ?? initial.heading, body: text?.body ?? "", textSections: textSections.length ? textSections : initial.textSections, exampleTitle: example?.title ?? initial.exampleTitle, exampleProblem: example?.problem ?? "", exampleSteps: example?.orderedSteps?.join("\n") ?? "", exampleAnswer: example?.finalAnswer ?? "", videos: videos.length ? videos : initial.videos, videoUrl: video?.source ?? "", videoTitle: video?.title ?? initial.videoTitle, videoCaption: video?.caption ?? "", questions, summary: summary?.keyPoints?.join("\n") ?? "", xp: lesson.xp, passingScore: lesson.gamification?.passingScore ?? initial.passingScore, masteryScore: lesson.gamification?.masteryScore ?? initial.masteryScore, maximumAttempts: lesson.gamification?.maximumAttempts ?? initial.maximumAttempts, lessonRedos: lesson.gamification?.lessonRetries ?? initial.lessonRedos, lessonFormat: lesson.format === "video" ? "video" : "text" };

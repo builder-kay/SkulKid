@@ -1,12 +1,9 @@
-import { beforeEach, describe, expect, it } from "vitest";
-import { normaliseOrder, placeLessonAfter, readLessonOrder } from "@/lib/admin/lesson-library";
+import { describe, expect, it } from "vitest";
+import { normaliseOrder, placeLessonIdAfter } from "@/lib/admin/lesson-library";
 
 describe("admin lesson ordering", () => {
-  beforeEach(() => window.localStorage.clear());
-
   it("places a new lesson directly after its selected predecessor", () => {
-    placeLessonAfter("english-language", "lesson-3", "lesson-1", ["lesson-1", "lesson-2", "lesson-3"]);
-    expect(readLessonOrder("english-language")).toEqual(["lesson-1", "lesson-3", "lesson-2"]);
+    expect(placeLessonIdAfter(["lesson-1", "lesson-2", "lesson-3"], "lesson-3", "lesson-1")).toEqual(["lesson-1", "lesson-3", "lesson-2"]);
   });
 
   it("keeps saved order while appending newly available lessons", () => {

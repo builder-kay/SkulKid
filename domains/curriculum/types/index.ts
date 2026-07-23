@@ -163,6 +163,9 @@ export type VideoBlock = BaseLessonBlock & {
   title: string;
   caption?: string;
   participationPrompt?: string;
+  participationOptions?: Array<{ id: string; label: string; text: string; feedback?: string }>;
+  participationCorrectOptionId?: string;
+  participationExplanation?: string;
   participationXp?: number;
 };
 

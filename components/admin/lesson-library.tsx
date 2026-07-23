@@ -6,7 +6,7 @@ import { ArrowDown, ArrowUp, BookOpen, CheckCircle2, Clock3, Eye, FilePenLine, F
 import { Input, Select } from "@/components/design-system/form-controls";
 import { SkulKidCard } from "@/components/shared/skulkid-card";
 import { subjects } from "@/data/subjects";
-import { normaliseOrder, readAdminLessons, readLessonOrder, writeLessonOrder } from "@/lib/admin/lesson-library";
+import { readAdminLessons, writeLessonOrder } from "@/lib/admin/lesson-library";
 import type { AdminLessonRecord, AdminLessonStatus } from "@/lib/admin/lesson-library";
 import type { SupportedCurriculumSubject } from "@/domains/curriculum-ai/schemas/generated-course";
 
@@ -21,19 +21,16 @@ export function LessonLibrary({ initialSubject }: { initialSubject: SupportedCur
   const [status, setStatus] = useState<"all" | AdminLessonStatus>("all");
   const [query, setQuery] = useState("");
   const [savedLessons, setSavedLessons] = useState<AdminLessonRecord[]>([]);
-  const [orderVersion, setOrderVersion] = useState(0);
-  useEffect(() => setSavedLessons(readAdminLessons()), []);
+  useEffect(() => { void readAdminLessons().then(setSavedLessons); }, []);
 
   const allLessons = savedLessons;
   const subjectLessons = allLessons.filter((lesson) => lesson.subject === subject);
-  const orderedIds = normaliseOrder(readLessonOrder(subject), subjectLessons.map((lesson) => lesson.id));
-  const orderedLessons = orderedIds.map((id) => subjectLessons.find((lesson) => lesson.id === id)).filter((lesson): lesson is AdminLessonRecord => Boolean(lesson));
+  const orderedLessons = subjectLessons;
   const visible = orderedLessons.filter((lesson) => (status === "all" || lesson.status === status) && `${lesson.title} ${lesson.unit} ${lesson.topic}`.toLowerCase().includes(query.toLowerCase()));
   const publishedCount = allLessons.filter((lesson) => lesson.subject === subject && lesson.status === "published").length;
   const draftCount = allLessons.filter((lesson) => lesson.subject === subject && lesson.status === "draft").length;
   const activeSubject = subjects.find((item) => item.slug === subject);
-  function moveLesson(lessonId: string, direction: -1 | 1) { const current = normaliseOrder(readLessonOrder(subject), subjectLessons.map((lesson) => lesson.id)); const index = current.indexOf(lessonId); const target = index + direction; if (index < 0 || target < 0 || target >= current.length) return; [current[index], current[target]] = [current[target], current[index]]; writeLessonOrder(subject, current); setOrderVersion((value) => value + 1); }
-  void orderVersion;
+  function moveLesson(lessonId: string, direction: -1 | 1) { const current = subjectLessons.map((lesson) => lesson.id); const index = current.indexOf(lessonId); const target = index + direction; if (index < 0 || target < 0 || target >= current.length) return; [current[index], current[target]] = [current[target], current[index]]; const rank = new Map(current.map((id, position) => [id, position])); setSavedLessons((lessons) => [...lessons].sort((a, b) => a.subject === subject && b.subject === subject ? (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0) : 0)); void writeLessonOrder(subject, current); }
 
   return <main className="mx-auto w-full max-w-[94rem] space-y-6">
     <header className="relative overflow-hidden rounded-[2rem] bg-slate-950 p-6 text-white shadow-xl sm:p-8 lg:p-10"><div className={`pointer-events-none absolute -right-20 -top-24 size-80 rounded-full ${subjectStyles[subject].accent} opacity-20 blur-3xl`} /><div className="relative flex flex-col gap-7 lg:flex-row lg:items-end lg:justify-between"><div><p className="text-xs font-black uppercase tracking-[0.2em] text-slate-300">Lesson library</p><h1 className="mt-3 text-3xl font-black sm:text-5xl">{activeSubject?.name} lessons</h1><p className="mt-4 max-w-2xl text-base leading-7 text-slate-300">Review drafts, manage published lessons and continue building the learning path.</p></div><Link href="/admin/lessons/new" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-white px-5 font-black text-slate-950 shadow-lg hover:bg-slate-100"><Plus className="size-5" />Create another lesson</Link></div></header>

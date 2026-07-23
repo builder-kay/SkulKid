@@ -24,6 +24,7 @@ export type TextBlock = LessonBlockBase & {
   type: "text";
   heading: string;
   content: string;
+  emphasisTerms?: string[];
 };
 
 export type ImageBlock = LessonBlockBase & {
@@ -39,6 +40,9 @@ export type VideoBlock = LessonBlockBase & {
   title: string;
   caption?: string;
   participationPrompt?: string;
+  participationOptions?: AnswerOption[];
+  participationCorrectOptionId?: string;
+  participationExplanation?: string;
   participationXp?: number;
 };
 
@@ -47,6 +51,7 @@ export type ExampleBlock = LessonBlockBase & {
   title: string;
   content: string;
   explanation: string;
+  finalAnswer?: string;
 };
 
 export type TipBlock = LessonBlockBase & {

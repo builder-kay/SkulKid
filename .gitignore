@@ -8,4 +8,5 @@ coverage
 dist
 .npm-cache
 .tmp
+tmp
 *.log

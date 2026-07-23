@@ -184,6 +184,57 @@ input {
   background: rgba(37, 99, 235, 0.2);
 }
 
+/* Game avatar idle — ready-to-move bob + shadow pulse */
+@keyframes avatar-game-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+@keyframes avatar-game-head-sway {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-1.5px) rotate(1.2deg);
+  }
+}
+
+@keyframes avatar-game-shadow-breathe {
+  0%,
+  100% {
+    transform: scaleX(1);
+    opacity: 0.28;
+  }
+  50% {
+    transform: scaleX(0.92);
+    opacity: 0.2;
+  }
+}
+
+.avatar-game-idle .avatar-game-body {
+  animation: avatar-game-bob 2.4s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+
+.avatar-game-idle .avatar-game-head {
+  animation: avatar-game-head-sway 2.4s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+
+.avatar-game-idle .avatar-game-shadow {
+  animation: avatar-game-shadow-breathe 2.4s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -192,5 +243,11 @@ input {
     animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;
     transition-duration: 0.001ms !important;
+  }
+
+  .avatar-game-idle .avatar-game-body,
+  .avatar-game-idle .avatar-game-head,
+  .avatar-game-idle .avatar-game-shadow {
+    animation: none !important;
   }
 }

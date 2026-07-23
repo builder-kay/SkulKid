@@ -4,7 +4,7 @@ SkulKid is a gamified e-learning platform foundation for primary school students
 
 ## Phase 1 Scope
 
-This phase includes project architecture, design tokens, typed learning content, discriminated lesson blocks, sample Mathematics lessons, student progress models, gamification rules, adaptive-learning rules, Prisma models, unit tests, and an internal lesson preview.
+This phase includes project architecture, design tokens, typed learning content, student progress models, gamification rules, Supabase persistence, authentication, access control, unit tests, and lesson previews.
 
 It does not include production authentication, a teacher portal, an admin lesson builder, or the full student dashboard.
 
@@ -16,8 +16,7 @@ It does not include production authentication, a teacher portal, an admin lesson
 - Shadcn-style UI primitives
 - Lucide React
 - Framer Motion
-- PostgreSQL
-- Prisma ORM
+- Supabase Database, Auth and Storage
 - Zod
 - Vitest and React Testing Library
 - Playwright configuration for future E2E tests
@@ -35,28 +34,44 @@ Open `http://localhost:3000`.
 ## Environment Variables
 
 ```bash
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/skulkid?schema=public"
+NEXT_PUBLIC_SUPABASE_URL="your Supabase project URL"
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="your Supabase publishable key"
+SUPABASE_SERVICE_ROLE_KEY="your server-only Supabase secret key"
+CLIFZE_API_KEY="your server-only Clifze API key"
+CLIFZE_SENDER_ID="SkulKid"
 ```
 
-Prisma 7 uses `prisma.config.ts` for the datasource URL.
+## Authentication
+
+Student accounts use Supabase Auth with a phone number and password. Clifze sends and verifies the six-digit code used to confirm signup and password resets.
+
+1. Create a Supabase project and copy `.env.example` to `.env.local`.
+2. Add the Supabase URL, publishable key and service-role key.
+3. Enable the Phone provider in Supabase Authentication. Supabase does not send the verification message in this application; Clifze does.
+4. Add the Clifze API key and an approved sender ID. Never prefix either secret with `NEXT_PUBLIC_`.
+5. Run the SQL files in `supabase/migrations` using the Supabase SQL Editor.
+6. Start the app.
+
+Public account routes are `/login`, `/signup`, and `/forgot-password`. Student and admin routes require a Supabase session once the Supabase variables are configured. New accounts receive the `student` role. Assign `app_metadata.role = "admin"` from a trusted server or the Supabase dashboard for administrators.
+
+The access flow is:
+
+```text
+Unauthenticated visitor
+  -> /login or /signup
+  -> Clifze phone verification for signup
+  -> Supabase session cookie
+  -> /dashboard for students or /admin for administrators
+```
+
+Opening `/`, a student route, an admin page, or an admin API directly cannot
+bypass authentication. Student accounts receive `401/403` protection from
+admin APIs, and authenticated users are redirected away from account screens
+to the correct role home.
 
 ## Database
 
-For the complete backend handoff, schema overview, local and Vercel setup, migration workflow, API priorities, and the list of browser-only data that still needs database integration, see [DATABASE_SETUP.md](DATABASE_SETUP.md).
-
-Create a PostgreSQL database named `skulkid`, then run:
-
-```bash
-npx prisma migrate dev --name init
-npx prisma generate
-npm run prisma:seed
-```
-
-Validate the schema with:
-
-```bash
-npm run prisma:validate
-```
+For the complete Supabase setup and migration order, see [DATABASE_SETUP.md](DATABASE_SETUP.md).
 
 ## Commands
 
@@ -66,8 +81,6 @@ npm run build
 npm run lint
 npm run typecheck
 npm run test
-npm run prisma:validate
-npm run prisma:seed
 ```
 
 ## Project Structure
@@ -78,7 +91,7 @@ components/                UI primitives, gamification UI, lesson player blocks
 data/                      Validated sample subject, lessons and progress data
 features/                  Future feature module boundaries
 lib/                       Pure business rules, validation and utilities
-prisma/                    Prisma schema and seed script
+supabase/migrations/       Supabase SQL schema and security policies
 public/placeholders/       Local preview images
 tests/unit/                Unit tests for rules and lesson unlocking
 types/                     Shared domain contracts

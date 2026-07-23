@@ -77,7 +77,7 @@ const lessonVersions: LessonVersion[] = [
         required: true,
         estimatedSeconds: 120,
         heading: "What Makes a Fraction?",
-        body: "Fractions are used when a whole is split into equal parts. One out of two equal parts is one half. One out of four equal parts is one quarter.",
+        body: "Fractions are used when a **whole** is split into **equal parts**.\n\nOne out of two equal parts is *one half*.\n\nOne out of four equal parts is *one quarter*.\n\n[tip]Say it aloud: the bottom number tells how many equal parts the whole has.[/tip]",
         emphasisTerms: ["equal parts", "whole"]
       },
       {
@@ -178,7 +178,7 @@ const lessonVersions: LessonVersion[] = [
         required: true,
         estimatedSeconds: 120,
         heading: "Numerator and Denominator",
-        body: "The numerator is the top number. It tells how many parts we have. The denominator is the bottom number. It tells how many equal parts make the whole."
+        body: "The **numerator** is the top number. It tells how many parts we have.\n\nThe **denominator** is the bottom number. It tells how many **equal parts** make the whole.\n\n[tip]Remember: denominator is *down below*.[/tip]"
       },
       {
         id: "parts-fraction-3",
@@ -278,7 +278,7 @@ const lessonVersions: LessonVersion[] = [
         required: true,
         estimatedSeconds: 120,
         heading: "Same Denominator",
-        body: "If two fractions have the same denominator, compare the numerators. The larger numerator means more equal parts are counted."
+        body: "If two fractions have the **same denominator**, compare the numerators.\n\nThe *larger numerator* means more equal parts are counted.\n\n> Same bottom number? Look at the top!"
       },
       {
         id: "compare-fractions-3",
