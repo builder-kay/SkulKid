@@ -15,7 +15,7 @@ export function CharacterAvatar({ avatar, className = "size-24", label = "Custom
   const shoulder = avatar.bodyStyle === "slim" ? 39 : avatar.bodyStyle === "strong" ? 31 : 35;
   const torsoWidth = avatar.bodyStyle === "slim" ? 62 : avatar.bodyStyle === "strong" ? 78 : 70;
 
-  return <svg aria-label={label} className={cn("overflow-hidden rounded-full", className)} role="img" viewBox="0 0 160 210">
+  return <svg aria-label={label} className={cn("overflow-hidden rounded-2xl", className)} preserveAspectRatio="xMidYMid meet" role="img" viewBox="-8 -5 176 220">
     <defs>
       <radialGradient id={`${uid}-bg`} cx=".3" cy=".18"><stop stopColor="#fff" /><stop offset=".45" stopColor="#dbeafe" /><stop offset="1" stopColor="#c4b5fd" /></radialGradient>
       <linearGradient id={skin} x1=".08" x2=".92" y1=".05" y2=".95"><stop stopColor="#fff" stopOpacity=".52" /><stop offset=".24" stopColor={avatar.skinColor} /><stop offset=".72" stopColor={avatar.skinColor} /><stop offset="1" stopColor="#000" stopOpacity=".28" /></linearGradient>
@@ -24,7 +24,8 @@ export function CharacterAvatar({ avatar, className = "size-24", label = "Custom
       <filter id={`${uid}-shadow`} x="-30%" y="-30%" width="160%" height="170%"><feDropShadow dx="1" dy="5" floodColor="#172554" floodOpacity=".3" stdDeviation="3.5" /></filter>
       <filter id={`${uid}-soft`}><feGaussianBlur stdDeviation="4" /></filter>
     </defs>
-    <rect fill={`url(#${uid}-bg)`} height="210" width="160" />
+    <rect fill={`url(#${uid}-bg)`} height="220" width="176" x="-8" y="-5" />
+    <g transform="translate(-12 0) scale(1.15 1)">
     <circle cx="28" cy="29" fill="white" opacity=".42" r="23" />
     <ellipse cx="80" cy={skateboard ? "204" : "193"} fill="#312e81" filter={`url(#${uid}-soft)`} opacity=".24" rx={skateboard ? "67" : "55"} ry="7" />
     {skateboard ? <g filter={`url(#${uid}-shadow)`}><path d="M16 187q4 8 15 7h98q11 1 15-7-7 2-17 0H33q-10 2-17 0z" fill={skateboard.colour} stroke="#0f172a" strokeOpacity=".3" strokeWidth="2" /><path d="M28 188h104" opacity=".35" stroke="white" strokeLinecap="round" strokeWidth="2" /><BrandMark brand={skateboard.brand} scale=".45" x="71" y="181" /><path d="M34 194v4m92-4v4" stroke="#64748b" strokeWidth="4" /><circle cx="34" cy="202" fill="#1e293b" r="6" /><circle cx="126" cy="202" fill="#1e293b" r="6" /><circle cx="34" cy="202" fill="#94a3b8" r="2" /><circle cx="126" cy="202" fill="#94a3b8" r="2" /></g> : null}
@@ -82,6 +83,7 @@ export function CharacterAvatar({ avatar, className = "size-24", label = "Custom
       <path d="M78 53l-2 7 5 1" fill="none" stroke="#000" strokeLinecap="round" strokeOpacity=".16" strokeWidth="2" />
       {glasses ? <g><path d="M49 38h62l-5 26H87l-7-9-7 9H54z" fill={glasses.colour} opacity=".92" /><path d="M55 43h21l-5 14H57zm29 0h21l-3 14H89z" fill="#67e8f9" opacity=".8" /><path d="M58 44h11" stroke="white" strokeLinecap="round" strokeOpacity=".8" strokeWidth="3" /><BrandMark brand={glasses.brand} scale=".2" x="72" y="38" /></g> : null}
       {!glasses ? <path d="M67 66q13 10 26 0" fill="none" stroke="#5c2e24" strokeLinecap="round" strokeWidth="3" /> : null}
+    </g>
     </g>
   </svg>;
 }

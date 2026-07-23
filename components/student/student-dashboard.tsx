@@ -48,10 +48,10 @@ export function StudentDashboard() {
             </div>
             <div
               aria-label={`${profile.displayName} profile photo`}
-              className="grid size-16 shrink-0 place-items-center overflow-hidden rounded-full border-4 border-white bg-gradient-to-br from-blue-100 to-violet-100 text-2xl font-black text-primary shadow-[0_8px_24px_rgba(37,99,235,0.2)] sm:size-20"
+              className="grid aspect-square size-20 shrink-0 place-items-center overflow-hidden rounded-3xl border-4 border-white bg-gradient-to-br from-blue-100 to-violet-100 text-2xl font-black text-primary shadow-[0_8px_24px_rgba(37,99,235,0.2)] sm:size-24"
               role="img"
             >
-              <CharacterAvatar avatar={profile.avatar} className="size-full" label={`${profile.displayName}'s avatar`} />
+              <CharacterAvatar avatar={profile.avatar} className="size-full rounded-[1.25rem]" label={`${profile.displayName}'s avatar`} />
             </div>
           </div>
         </header>
