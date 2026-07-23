@@ -42,6 +42,8 @@ Prisma 7 uses `prisma.config.ts` for the datasource URL.
 
 ## Database
 
+For the complete backend handoff, schema overview, local and Vercel setup, migration workflow, API priorities, and the list of browser-only data that still needs database integration, see [DATABASE_SETUP.md](DATABASE_SETUP.md).
+
 Create a PostgreSQL database named `skulkid`, then run:
 
 ```bash
