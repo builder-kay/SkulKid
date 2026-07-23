@@ -4,7 +4,7 @@ import { Award, Check, Crown, Gift, Lock, Sparkles, Trophy } from "lucide-react"
 import { ProgressBar } from "@/components/shared/progress-bar";
 import { DAILY_LEARNING_XP_GOAL, useStudentGame } from "@/lib/gamification/student-game";
 
-export function GamificationArena() {
+export function GamificationArena({ idPrefix = "" }: { idPrefix?: string }) {
   const { state, achievements, claimDailyReward, dailyGiftUnlocked, dailyLearningXp } = useStudentGame();
   const now = new Date();
   const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
@@ -13,10 +13,10 @@ export function GamificationArena() {
   const topThree = board.slice(0, 3);
   const earned = achievements.filter((achievement) => achievement.earned).length;
 
-  return <aside className="grid gap-4 xl:sticky xl:top-8" aria-labelledby="game-zone-title">
+  return <aside className="grid gap-4 xl:sticky xl:top-8" aria-labelledby={`${idPrefix}game-zone-title`}>
     <section className="overflow-hidden rounded-[2rem] border border-violet-200 bg-white shadow-[var(--shadow-card)]">
       <div className="bg-gradient-to-br from-violet-700 via-violet-700 to-blue-700 p-5 text-white">
-        <div className="flex items-center justify-between"><div><p className="text-xs font-black uppercase tracking-wider text-violet-200">Student rewards</p><h2 id="game-zone-title" className="mt-1 text-2xl font-black">Your game zone</h2></div><Trophy className="size-8 text-amber-300" /></div>
+        <div className="flex items-center justify-between"><div><p className="text-xs font-black uppercase tracking-wider text-violet-200">Student rewards</p><h2 id={`${idPrefix}game-zone-title`} className="mt-1 text-2xl font-black">Your game zone</h2></div><Trophy className="size-8 text-amber-300" /></div>
         <div className="mt-5 grid grid-cols-3 gap-2 text-center"><Metric value={state.xp} label="XP" /><Metric value={state.stars} label="Stars" /><Metric value={state.streak} label="Streak" /></div>
         <div className="mt-4 rounded-2xl bg-white/10 p-3"><ProgressBar label="Next 100 XP" value={state.xp % 100} /></div>
       </div>

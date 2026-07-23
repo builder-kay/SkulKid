@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { Award, BookOpen, GraduationCap, LayoutDashboard, Trophy, UserRound } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Award, BookOpen, GraduationCap, LayoutDashboard, Trophy, UserRound, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { GamificationArena } from "@/components/gamification/gamification-arena";
 import { ProgressBar } from "@/components/shared/progress-bar";
 import { getStudentLevel } from "@/lib/gamification/calculate-level";
 import { cn } from "@/lib/utils";
@@ -32,9 +34,22 @@ const navItems: Array<{
 ];
 
 export function StudentShell({ activeItem, children }: StudentShellProps) {
+  const [rewardsNavOpen, setRewardsNavOpen] = useState(false);
   const { state } = useStudentGame();
   const { profile } = useStudentProfile();
   const studentLevel = getStudentLevel(state.xp);
+
+  useEffect(() => {
+    if (!rewardsNavOpen) return;
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setRewardsNavOpen(false);
+    }
+
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [rewardsNavOpen]);
+
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[18.5rem_1fr]">
       <header className="sticky top-0 z-30 border-b border-white/80 bg-white/90 px-4 py-3 shadow-[0_8px_28px_rgba(15,23,42,0.08)] backdrop-blur lg:hidden">
@@ -53,12 +68,51 @@ export function StudentShell({ activeItem, children }: StudentShellProps) {
               </span>
             </span>
           </Link>
-          <div className="rounded-2xl bg-blue-50 px-3 py-2 text-right">
-            <p className="text-xs font-bold text-blue-900/75">Level</p>
-            <p className="text-lg font-black leading-5 text-blue-900">{studentLevel.level}</p>
-          </div>
+          <button
+            aria-controls="mobile-rewards-navigation"
+            aria-expanded={rewardsNavOpen}
+            aria-label="Open rewards navigation"
+            className="grid size-11 shrink-0 place-items-center rounded-2xl bg-amber-100 text-amber-800 transition hover:bg-amber-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-600"
+            onClick={() => setRewardsNavOpen(true)}
+            type="button"
+          >
+            <Award aria-hidden="true" className="size-6" />
+          </button>
         </div>
       </header>
+
+      <div
+        aria-hidden={!rewardsNavOpen}
+        className={cn(
+          "fixed inset-0 z-40 bg-slate-950/35 backdrop-blur-[2px] transition-opacity duration-300 lg:hidden",
+          rewardsNavOpen ? "opacity-100" : "pointer-events-none opacity-0"
+        )}
+        onClick={() => setRewardsNavOpen(false)}
+      />
+      <aside
+        aria-label="Student rewards navigation"
+        aria-modal="true"
+        className={cn(
+          "fixed inset-y-0 right-0 z-50 flex w-[min(92vw,24rem)] flex-col bg-slate-50 shadow-[-20px_0_55px_rgba(15,23,42,0.22)] transition-transform duration-300 ease-out lg:hidden",
+          rewardsNavOpen ? "translate-x-0" : "pointer-events-none translate-x-full"
+        )}
+        id="mobile-rewards-navigation"
+        role="dialog"
+      >
+        <div className="flex shrink-0 justify-end bg-slate-50 px-4 pb-2 pt-[calc(0.75rem+env(safe-area-inset-top))]">
+          <button
+            aria-label="Close rewards navigation"
+            className="grid size-11 place-items-center rounded-2xl bg-white text-text-secondary shadow-sm hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            onClick={() => setRewardsNavOpen(false)}
+            type="button"
+          >
+            <X aria-hidden="true" className="size-6" />
+          </button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+          <GamificationArena idPrefix="mobile-" />
+        </div>
+      </aside>
 
       <aside className="sticky top-0 z-20 hidden border-b border-white/80 bg-white/90 shadow-[0_12px_40px_rgba(15,23,42,0.08)] backdrop-blur lg:block lg:h-screen lg:border-b-0 lg:border-r lg:border-slate-200/80">
         <div className="flex h-full flex-col gap-4 p-4 lg:gap-5 lg:p-5">

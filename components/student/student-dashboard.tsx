@@ -110,7 +110,9 @@ export function StudentDashboard() {
         </section>
           </div>
 
-          <GamificationArena />
+          <div className="hidden lg:block">
+            <GamificationArena />
+          </div>
         </div>
 
       </main>
