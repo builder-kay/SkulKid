@@ -1,3 +1,5 @@
-import { AuthPage } from "@/components/auth/auth-page";
+import { AuthRoleChooser } from "@/components/auth/auth-role-chooser";
 
-export default function SignupPage() { return <AuthPage mode="signup" />; }
+export default function SignupPage() {
+  return <AuthRoleChooser intent="signup" />;
+}

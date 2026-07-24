@@ -86,7 +86,7 @@ export function StudentDashboard() {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <h2 id="course-heading" className="text-2xl font-bold text-text-primary">
-                Courses
+                Subjects
               </h2>
               <p className="mt-2 text-text-secondary">Pick a subject and continue your path.</p>
             </div>
@@ -94,7 +94,7 @@ export function StudentDashboard() {
               className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-text-primary shadow-sm transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               href="/courses"
             >
-              View all courses
+              View all subjects
               <ArrowRight aria-hidden="true" className="size-4" />
             </Link>
           </div>

@@ -13,9 +13,10 @@ import { generatedCourseSchema } from "@/domains/curriculum-ai/schemas/generated
 import type { SupportedCurriculumSubject } from "@/domains/curriculum-ai/schemas/generated-course";
 import { materialiseGeneratedCourse } from "@/domains/curriculum-ai/services/materialise-course";
 import type { MaterialisedCourse } from "@/domains/curriculum-ai/services/materialise-course";
-import { placeLessonAfter, readAdminLessons, writeAdminLesson } from "@/lib/admin/lesson-library";
+import { courseIdForSubject, placeLessonAfter, placeLessonIdAfter, readAdminLessons, readModuleLessonOrder, writeAdminLesson } from "@/lib/admin/lesson-library";
 import { deleteAdminSetting, readAdminSetting, writeAdminSetting } from "@/lib/admin/settings";
 import type { AdminLessonRecord, AdminLessonStatus } from "@/lib/admin/lesson-library";
+import { saveUnit, useCourses, writeModuleLessonOrder } from "@/lib/courses/course-library";
 import { resolveVideoEmbed } from "@/lib/video/embed";
 
 type QuizQuestion = {
@@ -76,7 +77,9 @@ function emptyQuestion(): QuizQuestion {
 
 type FormState = {
   lessonFormat: LessonFormat;
+  classId: string;
   subject: SupportedCurriculumSubject; grade: number; unit: string; chapter: string; topic: string; prerequisiteLessonId: string;
+  courseId: string; unitId: string;
   title: string; description: string; curriculumReference: string; objectives: string[];
   minutes: number; difficulty: "foundation" | "beginner" | "developing" | "proficient" | "challenge";
   heading: string; body: string; exampleTitle: string; exampleProblem: string; exampleSteps: string; exampleAnswer: string;
@@ -89,15 +92,22 @@ type FormState = {
 };
 
 const initial: FormState = {
-  lessonFormat: "text", subject: "mathematics", grade: 4, unit: "", chapter: "", topic: "", prerequisiteLessonId: "", title: "", description: "", curriculumReference: "",
+  lessonFormat: "text", classId: "", subject: "mathematics", grade: 4, unit: "", chapter: "", topic: "", prerequisiteLessonId: "", courseId: "", unitId: "", title: "", description: "", curriculumReference: "",
   objectives: ["", ""], minutes: 10, difficulty: "beginner", heading: "Let's learn", body: "", exampleTitle: "See it in action", videoUrl: "", videoTitle: "Watch and learn", videoCaption: "",
   exampleProblem: "", exampleSteps: "", exampleAnswer: "", videos: [{ id: "video-1", url: "", title: "Watch and learn", caption: "", participationPrompt: "", participationOptionA: "", participationOptionB: "", participationOptionC: "", participationCorrectOption: 0, participationExplanation: "", participationXp: 5 }], textSections: [{ id: "text-section-1", heading: "Let's learn", body: "", imageUrl: "", imageAlt: "", imageCaption: "", videoUrl: "", videoTitle: "Watch and learn", videoCaption: "" }], questions: [{ id: "question-1", prompt: "", optionA: "", optionB: "", optionC: "", correctOption: 0, hint: "", explanation: "" }],
   summary: "", xp: 100, passingScore: 60, masteryScore: 80, maximumAttempts: 2, lessonRedos: 2
 };
 
-export function ManualLessonBuilder({ initialAiConfigured = false, initialAiModel = "Not configured", editLessonId }: { initialAiConfigured?: boolean; initialAiModel?: string; editLessonId?: string }) {
+export function ManualLessonBuilder({ initialAiConfigured = false, initialAiModel = "Not configured", editLessonId, initialCourseId, initialClassId }: { initialAiConfigured?: boolean; initialAiModel?: string; editLessonId?: string; initialCourseId?: string; initialClassId?: string }) {
   const router = useRouter();
-  const [form, setForm] = useState(initial);
+  const { courses: clientCourses } = useCourses();
+  const [placementCourses, setPlacementCourses] = useState<typeof clientCourses>([]);
+  const [form, setForm] = useState(() => ({ ...initial, classId: initialClassId ?? "", courseId: initialCourseId ?? "" }));
+  const [teacherClasses, setTeacherClasses] = useState<Array<{ id: string; name: string }>>([]);
+  const [showNewSubject, setShowNewSubject] = useState(false);
+  const [newSubjectName, setNewSubjectName] = useState("");
+  const [newSubjectDescription, setNewSubjectDescription] = useState("");
+  const [creatingPlacement, setCreatingPlacement] = useState(false);
   const [result, setResult] = useState<MaterialisedCourse | null>(null);
   const [message, setMessage] = useState("");
   const [lessonFile, setLessonFile] = useState<File | null>(null);
@@ -120,7 +130,66 @@ export function ManualLessonBuilder({ initialAiConfigured = false, initialAiMode
   const assessmentCount = completeQuestions.length;
   const participationBonusXp = validVideos.reduce((total, video) => total + (videoCheckpointComplete(video) ? video.participationXp : 0), 0);
   const maximumXp = form.xp + assessmentCount * 10 + participationBonusXp + 20;
-  const subjectBadge = form.subject === "mathematics" ? "Mathematics Explorer" : form.subject === "science" ? "Science Explorer" : "English Explorer";
+  const courses = placementCourses.length ? placementCourses : clientCourses;
+  const subjectCourse = courses.find((course) => course.id === form.courseId)
+    ?? courses.find((course) => course.id === courseIdForSubject(form.subject) || course.slug === form.subject)
+    ?? null;
+  const subjectBadge = `${subjectCourse?.name ?? subjectLabel(form.subject)} Explorer`;
+  const moduleOptions = subjectCourse?.units ?? [];
+  const availableSubjectCourses = courses.filter((course) =>
+    course.visibility !== "class" || !form.classId || course.ownerClassId === form.classId
+  );
+
+  useEffect(() => {
+    void fetch("/api/teacher/classes", { cache: "no-store" })
+      .then(async (response) => {
+        const payload = await response.json() as { classes?: Array<{ id: string; name: string }>; error?: string };
+        if (!response.ok) throw new Error(payload.error || "Classes could not be loaded.");
+        setTeacherClasses(payload.classes ?? []);
+      })
+      .catch(() => setMessage("Classes could not be loaded. You can still save this lesson without assigning a class."));
+  }, []);
+
+  async function refreshPlacementCourses() {
+    const response = await fetch("/api/teacher/lesson-placement", { cache: "no-store" });
+    const payload = await response.json() as { courses?: typeof clientCourses; error?: string };
+    if (!response.ok) throw new Error(payload.error || "Subjects and modules could not be loaded.");
+    setPlacementCourses(payload.courses ?? []);
+  }
+
+  useEffect(() => {
+    void refreshPlacementCourses().catch((cause) => setMessage(cause instanceof Error ? cause.message : "Subjects and modules could not be loaded."));
+  }, []);
+
+  async function createPlacementSubject() {
+    if (newSubjectName.trim().length < 2) return;
+    setCreatingPlacement(true);
+    setMessage("");
+    try {
+      const response = await fetch("/api/teacher/lesson-placement", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "create_subject",
+          name: newSubjectName,
+          description: newSubjectDescription,
+          classId: form.classId || undefined
+        })
+      });
+      const payload = await response.json() as { id?: string; error?: string };
+      if (!response.ok || !payload.id) throw new Error(payload.error || "Subject could not be created.");
+      await refreshPlacementCourses();
+      setForm((current) => ({ ...current, courseId: payload.id!, unitId: "__new__", unit: "", chapter: "" }));
+      setNewSubjectName("");
+      setNewSubjectDescription("");
+      setShowNewSubject(false);
+      setMessage("Subject created. Now enter its first module name.");
+    } catch (cause) {
+      setMessage(cause instanceof Error ? cause.message : "Subject could not be created.");
+    } finally {
+      setCreatingPlacement(false);
+    }
+  }
 
   useEffect(() => {
     void readAdminLessons().then((lessons) => {
@@ -133,12 +202,38 @@ export function ManualLessonBuilder({ initialAiConfigured = false, initialAiMode
         const restoredVideos = saved.videos?.length ? saved.videos.map((video) => ({ ...initial.videos[0], ...video, participationPrompt: video.participationPrompt ?? "", participationXp: video.participationXp ?? 5 })) : saved.videoUrl ? [{ ...initial.videos[0], id: "restored-video-1", url: saved.videoUrl, title: saved.videoTitle || "Watch and learn", caption: saved.videoCaption || "" }] : initial.videos;
         const legacyFormat = (saved as { lessonFormat?: string }).lessonFormat;
         const restoredTextSections = saved.textSections?.length ? saved.textSections : [{ ...initial.textSections[0], heading: saved.heading || initial.heading, body: saved.body || "", ...(legacyFormat === "blended" && restoredVideos[0]?.url ? { videoUrl: restoredVideos[0].url, videoTitle: restoredVideos[0].title, videoCaption: restoredVideos[0].caption } : {}) }];
-        setForm({ ...initial, ...saved, lessonFormat: saved.lessonFormat === "video" ? "video" : "text", videos: restoredVideos, textSections: restoredTextSections });
-      } else setForm(restoreFormFromLesson(lesson));
+        setForm({
+          ...initial,
+          ...saved,
+          lessonFormat: saved.lessonFormat === "video" ? "video" : "text",
+          videos: restoredVideos,
+          textSections: restoredTextSections,
+          courseId: lesson.courseId ?? saved.courseId ?? courseIdForSubject(lesson.subject),
+          unitId: lesson.unitId ?? saved.unitId ?? ""
+        });
+      } else setForm({ ...restoreFormFromLesson(lesson), classId: lesson.classId ?? "", courseId: lesson.courseId ?? courseIdForSubject(lesson.subject), unitId: lesson.unitId ?? "" });
       setSavedLessonId(lesson.id);
       setMessage(`Editing ${lesson.status === "published" ? "published" : "draft"} lesson: ${lesson.title}`);
     }).catch(() => setMessage("Lessons could not be loaded from Supabase."));
   }, [editLessonId]);
+
+  useEffect(() => {
+    if (!subjectCourse) return;
+    setForm((current) => {
+      if (current.courseId === subjectCourse.id) {
+        if (!subjectCourse.units.length && !current.unitId) return { ...current, unitId: "__new__" };
+        return current;
+      }
+      const matchedUnit = subjectCourse.units.find((unit) => unit.id === current.unitId || unit.title === current.unit);
+      return {
+        ...current,
+        courseId: subjectCourse.id,
+        unitId: matchedUnit?.id ?? "",
+        unit: matchedUnit?.title ?? (current.unitId ? "" : current.unit),
+        chapter: matchedUnit?.title ?? (current.unitId ? "" : current.chapter || current.unit)
+      };
+    });
+  }, [subjectCourse]);
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) { setForm((current) => ({ ...current, [key]: value })); setResult(null); }
   function insertExampleText(text: string) {
@@ -184,7 +279,7 @@ export function ManualLessonBuilder({ initialAiConfigured = false, initialAiMode
     const payload = new FormData();
     payload.set("file", sourceFile); payload.set("mode", mode); payload.set("subject", form.subject); payload.set("grade", String(form.grade)); payload.set("questionCount", String(quizQuestionCount));
     try {
-      const response = await fetch("/api/admin/lessons/import", { method: "POST", body: payload });
+      const response = await fetch("/api/teacher/lessons/import", { method: "POST", body: payload });
       const result = await response.json() as { data?: ImportedLesson | { questions: ImportedChallenge[] }; error?: string };
       if (!response.ok || !result.data) throw new Error(result.error ?? "The file could not be extracted.");
       if (mode === "lesson") applyImportedLesson(result.data as ImportedLesson);
@@ -196,7 +291,7 @@ export function ManualLessonBuilder({ initialAiConfigured = false, initialAiMode
   }
 
   function applyImportedLesson(data: ImportedLesson) {
-    setForm((current) => ({ ...current, unit: data.unit, chapter: data.chapter, topic: data.topic, title: data.title,
+    setForm((current) => ({ ...current, unit: data.unit, chapter: data.chapter || data.unit, topic: data.topic, title: data.title,
       description: data.description, curriculumReference: data.curriculumReference, objectives: data.objectives.length ? data.objectives : [""],
       minutes: data.estimatedMinutes, difficulty: data.difficulty,
       heading: data.teachingHeading, body: data.teachingText, textSections: [{ ...initial.textSections[0], id: crypto.randomUUID(), heading: data.teachingHeading, body: data.teachingText }], exampleTitle: data.exampleTitle, exampleProblem: data.exampleProblem,
@@ -216,7 +311,7 @@ export function ManualLessonBuilder({ initialAiConfigured = false, initialAiMode
 
   function build() {
     setMessage("");
-    if (!["mathematics", "english-language", "science"].includes(form.subject)) { setMessage("Course / subject is invalid. Choose a subject again."); return null; }
+    if (!["mathematics", "english-language", "science"].includes(form.subject)) { setMessage("Subject is invalid. Choose a subject again."); return null; }
     if (!["foundation", "beginner", "developing", "proficient", "challenge"].includes(form.difficulty)) { setMessage("Difficulty is invalid. Choose a difficulty again."); return null; }
     if (form.title.trim().length < 3) { setMessage("Lesson title must contain at least 3 characters."); return null; }
     if (!hasText && !hasVideo) { setMessage("Add lesson text or a valid video before publishing."); return null; }
@@ -230,7 +325,7 @@ export function ManualLessonBuilder({ initialAiConfigured = false, initialAiMode
     if (form.lessonFormat === "text" && form.textSections.some((section) => section.imageUrl.trim() && section.imageAlt.trim().length < 8)) { setMessage("Every section image needs alternative text of at least 8 characters."); return null; }
     if (form.lessonRedos < 0 || form.lessonRedos > 20) { setMessage("Lesson redos must be between 0 and 20."); return null; }
     const unit = form.unit.trim() || "General lessons";
-    const chapter = form.chapter.trim() || "General";
+    const chapter = form.chapter.trim() || form.unit.trim() || "General";
     const topic = form.topic.trim() || form.title.trim();
     const description = form.description.trim() || `Learn the key ideas in ${form.title.trim()}.`;
     const objectives = form.objectives.map((objective) => objective.trim()).filter((objective) => objective.length >= 5);
@@ -240,9 +335,9 @@ export function ManualLessonBuilder({ initialAiConfigured = false, initialAiMode
     const fallbackChallenge = { prompt: "What did you learn in this lesson?", options: ["The main lesson idea", "An unrelated idea", "Nothing new"] as [string, string, string], correctOptionIndex: 0, hint: "Think about the lesson title.", explanation: "The first answer matches the lesson focus." };
     const course = generatedCourseSchema.safeParse({
       title: `${subjectLabel(form.subject)}: ${unit}`, subject: form.subject,
-      sourceSummary: `Manual administrator lesson for Basic ${form.grade}, ${unit}, chapter ${chapter}.`,
+      sourceSummary: `Manual administrator lesson for Basic ${form.grade}, ${unit}, module ${chapter}.`,
       designRationale: "Administrator-authored short mission with instruction, worked practice, assessment and retrieval summary.",
-      units: [{ title: unit, description: `Basic ${form.grade} learning unit: ${unit}.`, grade: form.grade, topics: [{ title: topic, description: `Learn and practise ${topic} in this lesson.`, lessons: [{
+      units: [{ title: unit, description: `Basic ${form.grade} learning module: ${unit}.`, grade: form.grade, topics: [{ title: topic, description: `Learn and practise ${topic} in this lesson.`, lessons: [{
         title: form.title.trim(), description, curriculumReferences: [form.curriculumReference.trim() || `B${form.grade}.MANUAL`],
         objectives: objectives.length ? objectives : [`Understand ${form.title.trim()}.`], estimatedMinutes: form.minutes, difficulty: form.difficulty,
         teachingHeading: form.textSections[0]?.heading.trim() || form.heading.trim() || "Let's learn", teachingText: hasText ? form.textSections.map((section) => section.body).filter(Boolean).join("\n\n") : "Watch the lesson video and focus on the key ideas being demonstrated.", exampleTitle: form.exampleTitle.trim() || "Lesson example", exampleProblem: includeExample ? form.exampleProblem : "Review the main idea from the lesson.",
@@ -268,16 +363,87 @@ export function ManualLessonBuilder({ initialAiConfigured = false, initialAiMode
     const fixture = structuredClone(materialised.fixture);
     fixture.lessons[0].prerequisiteLessonId = form.prerequisiteLessonId || null;
     if (status === "published") fixture.lessonVersions.forEach((version) => { version.status = "published"; version.publishedAt = now; version.updatedAt = now; });
-    await writeAdminLesson({ id, subject: form.subject, grade: form.grade, unit: form.unit, chapter: form.chapter, topic: form.topic,
-      title: form.title, description: form.description, estimatedMinutes: form.minutes, xp: form.xp,
-      questionCount: completeQuestions.length, format: form.lessonFormat, prerequisiteLessonId: form.prerequisiteLessonId || null, gamification: { passingScore: form.passingScore, masteryScore: form.masteryScore,
-        maximumAttempts: form.maximumAttempts, lessonRetries: form.lessonRedos, maximumXp, badge: subjectBadge },
-      status, createdAt: existingLesson?.createdAt ?? now, updatedAt: now, fixture, builderState: structuredClone(form) });
-    const subjectIds = [...libraryLessons.filter((lesson) => lesson.subject === form.subject).map((lesson) => lesson.id), id];
-    await placeLessonAfter(form.subject, id, form.prerequisiteLessonId || null, subjectIds);
+
+    let courseId = form.courseId || subjectCourse?.id || courseIdForSubject(form.subject);
+    let unitId = form.unitId.trim();
+    let unitTitle = form.unit.trim() || "General lessons";
+
+    if (!courseId) { setMessage("Choose a subject before saving the lesson."); setSavingStatus(null); return; }
+    if (!unitId && !form.unit.trim()) { setMessage("Choose a module or create a new module before saving the lesson."); setSavingStatus(null); return; }
+    if (unitId === "__new__" || (!unitId && form.unit.trim())) {
+      if (!form.unit.trim()) { setMessage("Enter a module name to create it."); setSavingStatus(null); return; }
+      unitId = await saveUnit(courseId, { title: form.unit.trim(), description: `Module for ${subjectLabel(form.subject)}.` });
+      unitTitle = form.unit.trim();
+    } else if (unitId) {
+      const selectedModule = moduleOptions.find((unit) => unit.id === unitId);
+      unitTitle = selectedModule?.title ?? unitTitle;
+    }
+
+    await writeAdminLesson({
+      id,
+      subject: form.subject,
+      classId: form.classId || null,
+      courseId,
+      unitId: unitId || null,
+      grade: form.grade,
+      unit: unitTitle,
+      chapter: unitTitle,
+      topic: form.topic,
+      title: form.title,
+      description: form.description,
+      estimatedMinutes: form.minutes,
+      xp: form.xp,
+      questionCount: completeQuestions.length,
+      format: form.lessonFormat,
+      prerequisiteLessonId: form.prerequisiteLessonId || null,
+      gamification: {
+        passingScore: form.passingScore,
+        masteryScore: form.masteryScore,
+        maximumAttempts: form.maximumAttempts,
+        lessonRetries: form.lessonRedos,
+        maximumXp,
+        badge: subjectBadge
+      },
+      status,
+      createdAt: existingLesson?.createdAt ?? now,
+      updatedAt: now,
+      fixture,
+      builderState: structuredClone({ ...form, courseId, unitId, unit: unitTitle, chapter: unitTitle })
+    });
+
+    if (form.classId) {
+      const response = await fetch(`/api/teacher/classes/${form.classId}/courses`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ courseId, note: "Assigned through lesson creation" })
+      });
+      const payload = await response.json() as { error?: string };
+      if (!response.ok) {
+        setMessage(payload.error || "The lesson was saved, but its subject could not be assigned to the class.");
+        setSavingStatus(null);
+        return;
+      }
+    }
+
+    if (unitId) {
+      const moduleIds = await readModuleLessonOrder(courseId, unitId);
+      const predecessorInModule = form.prerequisiteLessonId && moduleIds.includes(form.prerequisiteLessonId)
+        ? form.prerequisiteLessonId
+        : null;
+      const ordered = placeLessonIdAfter(
+        moduleIds.includes(id) ? moduleIds : [...moduleIds, id],
+        id,
+        predecessorInModule
+      );
+      await writeModuleLessonOrder(courseId, unitId, ordered);
+    } else {
+      const subjectIds = [...libraryLessons.filter((lesson) => lesson.subject === form.subject).map((lesson) => lesson.id), id];
+      await placeLessonAfter(form.subject, id, form.prerequisiteLessonId || null, subjectIds);
+    }
+
     setSavedLessonId(id);
     await deleteAdminSetting("manual-lesson-draft");
-    router.push(`/admin/lessons?subject=${form.subject}`);
+    router.push(`/teacher/lessons?courseId=${encodeURIComponent(courseId)}`);
   }
 
   async function saveLocally() { await writeAdminSetting("manual-lesson-draft", form); setMessage("Draft saved to Supabase."); }
@@ -338,7 +504,119 @@ export function ManualLessonBuilder({ initialAiConfigured = false, initialAiMode
 
     <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.55fr)_minmax(20rem,0.65fr)]">
       <div className="space-y-6">
-        <Section number="1" title="Course placement" description="Choose exactly where this lesson belongs."><div className="grid gap-4 sm:grid-cols-2"><Field label="Course / subject"><Select value={form.subject} onChange={(e) => update("subject", e.target.value as FormState["subject"])}><option value="mathematics">Mathematics</option><option value="english-language">English Language</option><option value="science">Science</option></Select></Field><Field label="Grade"><Select value={form.grade} onChange={(e) => update("grade", Number(e.target.value))}><option value={4}>Basic 4</option><option value={5}>Basic 5</option><option value={6}>Basic 6</option></Select></Field><Field label="Unit"><Input value={form.unit} onChange={(e) => update("unit", e.target.value)} placeholder="e.g. Fractions" required /></Field><Field label="Chapter"><Input value={form.chapter} onChange={(e) => update("chapter", e.target.value)} placeholder="e.g. Chapter 2" required /></Field><Field label="Topic"><Input value={form.topic} onChange={(e) => update("topic", e.target.value)} placeholder="e.g. Comparing fractions" required /></Field></div></Section>
+        <Section number="1" title="Lesson placement" description="Choose a subject, choose or create its module, then save this lesson inside that module.">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Subject">
+              <Select value={form.courseId || subjectCourse?.id || ""} onChange={(e) => {
+                if (e.target.value === "__new_subject__") {
+                  setShowNewSubject(true);
+                  return;
+                }
+                const course = courses.find((item) => item.id === e.target.value);
+                const supported = course?.slug === "mathematics" || course?.slug === "science" || course?.slug === "english-language"
+                  ? course.slug as FormState["subject"]
+                  : form.subject;
+                setForm((current) => ({ ...current, subject: supported, courseId: e.target.value, unitId: course?.units.length ? "" : "__new__", unit: "", chapter: "" }));
+                setResult(null);
+              }}>
+                <option value="">Choose a subject</option>
+                {availableSubjectCourses.map((course) => <option value={course.id} key={course.id}>{course.name}{course.visibility === "class" ? " · Class subject" : ""}</option>)}
+                <option value="__new_subject__">+ Create a new subject…</option>
+              </Select>
+            </Field>
+            <Field label="Module">
+              <Select
+                required
+                value={form.unitId || ""}
+                onChange={(e) => {
+                  const nextId = e.target.value;
+                  const selected = moduleOptions.find((unit) => unit.id === nextId);
+                  setForm((current) => ({
+                    ...current,
+                    unitId: nextId,
+                    unit: nextId === "__new__" ? current.unit : (selected?.title ?? ""),
+                    chapter: nextId === "__new__" ? current.unit : (selected?.title ?? "")
+                  }));
+                  setResult(null);
+                }}
+              >
+                <option value="">Choose a module</option>
+                {moduleOptions.map((unit, index) => (
+                  <option key={unit.id} value={unit.id}>Module {index + 1}: {unit.title}</option>
+                ))}
+                <option value="__new__">Create a new module…</option>
+              </Select>
+            </Field>
+            <Field label="Class assignment (optional)">
+              <Select value={form.classId} onChange={(event) => {
+                const nextClassId = event.target.value;
+                setForm((current) => {
+                  const currentCourse = courses.find((course) => course.id === current.courseId);
+                  const courseAllowed = !currentCourse || currentCourse.visibility !== "class" || currentCourse.ownerClassId === nextClassId;
+                  return { ...current, classId: nextClassId, ...(courseAllowed ? {} : { courseId: "", unitId: "", unit: "", chapter: "" }) };
+                });
+                setResult(null);
+              }}>
+                <option value="">No class assignment</option>
+                {teacherClasses.map((classroom) => <option value={classroom.id} key={classroom.id}>{classroom.name}</option>)}
+              </Select>
+            </Field>
+            <Field label="Grade">
+              <Select value={form.grade} onChange={(e) => update("grade", Number(e.target.value))}>
+                <option value={4}>Basic 4</option>
+                <option value={5}>Basic 5</option>
+                <option value={6}>Basic 6</option>
+              </Select>
+            </Field>
+            {showNewSubject ? (
+              <div className="rounded-2xl border border-violet-200 bg-violet-50 p-4 sm:col-span-2">
+                <div className="grid gap-3 sm:grid-cols-[1fr_1.4fr_auto]">
+                  <Field label="New subject name"><Input value={newSubjectName} onChange={(event) => setNewSubjectName(event.target.value)} placeholder="e.g. Creative Arts" /></Field>
+                  <Field label="Description"><Input value={newSubjectDescription} onChange={(event) => setNewSubjectDescription(event.target.value)} placeholder="What will this subject cover?" /></Field>
+                  <button className="mt-6 min-h-11 rounded-xl bg-violet-700 px-4 font-black text-white disabled:opacity-50" disabled={creatingPlacement || newSubjectName.trim().length < 2} onClick={() => void createPlacementSubject()} type="button">{creatingPlacement ? "Creating…" : "Create subject"}</button>
+                </div>
+                <button className="mt-2 text-xs font-bold text-slate-600" onClick={() => setShowNewSubject(false)} type="button">Cancel</button>
+              </div>
+            ) : null}
+            {form.unitId === "__new__" || !moduleOptions.length ? (
+              <Field label={form.unitId === "__new__" ? "New module name" : "Module name"}>
+                <Input
+                  value={form.unit}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setForm((current) => ({
+                      ...current,
+                      unit: value,
+                      chapter: value,
+                      unitId: moduleOptions.length ? (current.unitId === "__new__" ? "__new__" : current.unitId || "__new__") : current.unitId
+                    }));
+                    setResult(null);
+                  }}
+                  placeholder="e.g. Living things"
+                  required={form.unitId === "__new__" || !moduleOptions.length}
+                />
+              </Field>
+            ) : (
+              <Field label="Lesson focus">
+                <Input value={form.topic} onChange={(e) => update("topic", e.target.value)} placeholder="e.g. Parts of a plant" required />
+              </Field>
+            )}
+            {(form.unitId === "__new__" || !moduleOptions.length) ? (
+              <Field label="Lesson focus">
+                <Input value={form.topic} onChange={(e) => update("topic", e.target.value)} placeholder="e.g. Parts of a plant" required />
+              </Field>
+            ) : null}
+          </div>
+          {subjectCourse ? (
+            <p className="mt-3 text-xs font-bold text-muted">
+              Placement: {teacherClasses.find((item) => item.id === form.classId)?.name ?? "Platform-wide"} → {subjectCourse.name} → {moduleOptions.find((item) => item.id === form.unitId)?.title ?? (form.unit || "No module selected")}.
+            </p>
+          ) : (
+            <p className="mt-3 text-xs font-bold text-amber-800">
+              No catalogue subject found for this selection yet. Create modules under Curriculum, or enter a new module name here.
+            </p>
+          )}
+        </Section>
 
         <Section number="2" title="Lesson foundations" description="State what pupils will learn and why."><div className="grid gap-5"><Field label="Lesson title"><Input value={form.title} onChange={(e) => update("title", e.target.value)} placeholder="A short, motivating title" required /></Field><Field label="Short description"><Textarea value={form.description} onChange={(e) => update("description", e.target.value)} placeholder="What will happen in this lesson?" required /></Field>
           <fieldset className="rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><legend className="font-black text-slate-900">Learning objectives</legend><p className="mt-1 text-xs leading-5 text-muted">Add every measurable outcome pupils should achieve. Begin with an action verb such as identify, explain, compare or create.</p></div><span className="rounded-full bg-violet-100 px-3 py-1 text-xs font-black text-violet-800">{form.objectives.length} {form.objectives.length === 1 ? "objective" : "objectives"}</span></div><div className="mt-4 grid gap-3">{form.objectives.map((objective, index) => <div className="grid grid-cols-[2.25rem_1fr_auto] items-start gap-3" key={index}><span className="mt-1 grid size-9 place-items-center rounded-xl bg-white text-sm font-black text-violet-700 shadow-sm">{index + 1}</span><Textarea className="min-h-20 bg-white" aria-label={`Learning objective ${index + 1}`} value={objective} onChange={(event) => updateObjective(index, event.target.value)} placeholder="Pupils will be able to…" required /><SkulKidButton type="button" size="icon" variant="ghost" disabled={form.objectives.length === 1} onClick={() => removeObjective(index)} aria-label={`Remove learning objective ${index + 1}`}><Trash2 className="size-4" /></SkulKidButton></div>)}</div><SkulKidButton type="button" variant="outline" className="mt-4 w-full border-dashed" onClick={addObjective}><Plus className="size-4" />Add another learning objective</SkulKidButton></fieldset>
@@ -463,7 +741,7 @@ function LessonSectionNav({ format }: { format: LessonFormat }) {
     { id: "lesson-format", label: "Lesson format" },
     ...(format === "text" ? [{ id: "ai-extraction", label: "AI text extraction" }] : []),
     { id: "learning-path", label: "Learning path" },
-    { id: "course-placement", label: "Course placement" },
+    { id: "course-placement", label: "Subject placement" },
     { id: "learning-objectives", label: "Learning objectives" },
     ...(format !== "video" ? [{ id: "teaching-material", label: "Teaching material" }, { id: "worked-example", label: "Worked example" }] : []),
     ...(format !== "text" ? [{ id: "video-content", label: "Video content" }] : []),
@@ -509,14 +787,14 @@ function formatCourseIssue(issue: { path: PropertyKey[]; message: string } | und
     difficulty: "Difficulty", teachingHeading: "Teaching heading", teachingText: "Teaching material", exampleTitle: "Example title",
     exampleProblem: "Example problem", exampleSteps: "Example steps", exampleAnswer: "Example answer", prompt: "Question",
     options: "Answer options", correctOptionIndex: "Correct answer", hint: "Question hint", explanation: "Answer explanation",
-    summaryPoints: "Summary points", subject: "Course / subject", unit: "Unit", topic: "Topic"
+    summaryPoints: "Summary points", subject: "Subject", unit: "Module", chapter: "Module", topic: "Lesson focus"
   };
   const key = [...issue.path].reverse().find((part) => typeof part === "string");
   const field = typeof key === "string" ? (fieldNames[key] ?? key.replace(/([A-Z])/g, " $1").replace(/^./, (letter) => letter.toUpperCase())) : "Lesson";
   return `${field}: ${issue.message}`;
 }
 function subjectLabel(subject: SupportedCurriculumSubject) { return subject === "english-language" ? "English Language" : subject[0].toUpperCase() + subject.slice(1); }
-function sectionId(title: string) { const ids: Record<string, string> = { "Course placement": "course-placement", "Lesson foundations": "learning-objectives", "Teaching material": "teaching-material", "Worked example": "worked-example", "Assessment and feedback": "assessment", "Rewards and mastery": "rewards-mastery" }; return ids[title] ?? title.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-").replaceAll(/(^-|-$)/g, ""); }
+function sectionId(title: string) { const ids: Record<string, string> = { "Subject placement": "course-placement", "Lesson foundations": "learning-objectives", "Teaching material": "teaching-material", "Worked example": "worked-example", "Assessment and feedback": "assessment", "Rewards and mastery": "rewards-mastery" }; return ids[title] ?? title.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-").replaceAll(/(^-|-$)/g, ""); }
 function slug(value: string) { return value.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-").replaceAll(/(^-|-$)/g, "") || "lesson"; }
 
 

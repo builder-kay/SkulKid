@@ -4,7 +4,7 @@ import { avatarShopAssets, type AvatarAsset, type AvatarAssetCategory } from "@/
 import { cn } from "@/lib/utils";
 
 /**
- * Game-character avatar in 3/4 ready stance.
+ * Smooth stylized game avatar — Steve-like proportions with soft rounded 3D forms.
  * Far limbs draw first; near limbs + head sit on top for depth.
  */
 export function CharacterAvatar({ avatar, className = "size-24", label = "Custom student avatar", animated = true }: { avatar: AvatarConfig; className?: string; label?: string; animated?: boolean }) {
@@ -13,6 +13,7 @@ export function CharacterAvatar({ avatar, className = "size-24", label = "Custom
   const skinFar = `${uid}-skin-far`;
   const shirtFill = `${uid}-shirt`;
   const pantsFill = `${uid}-pants`;
+  const limbShine = `${uid}-limb`;
   const premium = (category: AvatarAssetCategory) => avatarShopAssets.find((asset) => asset.id === avatar.equippedPremium[category]);
   const shirt = premium("shirt");
   const bottoms = premium("bottoms");
@@ -26,47 +27,56 @@ export function CharacterAvatar({ avatar, className = "size-24", label = "Custom
   const shirtColour = shirt?.colour ?? avatar.shirtColor;
   const pantsColour = bottoms?.colour ?? avatar.pantsColor;
   const shoeColour = shoes?.colour ?? avatar.shoeColor;
-  const torsoW = avatar.bodyStyle === "slim" ? (female ? 43 : 46) : avatar.bodyStyle === "strong" ? (female ? 53 : 58) : (female ? 48 : 52);
-  const shoulderX = Math.round((164 - torsoW) / 2);
+  /* Steve-like body: compact torso under a larger smooth head */
+  const torsoW = avatar.bodyStyle === "slim" ? (female ? 44 : 48) : avatar.bodyStyle === "strong" ? (female ? 56 : 62) : (female ? 50 : 54);
+  const torsoX = Math.round((180 - torsoW) / 2);
+  const torsoY = 78;
+  const torsoH = female ? 52 : 54;
+  const armW = avatar.bodyStyle === "slim" ? 16 : avatar.bodyStyle === "strong" ? 20 : 18;
+  const legW = avatar.bodyStyle === "slim" ? (female ? 18 : 20) : avatar.bodyStyle === "strong" ? (female ? 24 : 26) : (female ? 20 : 22);
 
   return (
     <svg aria-label={label} className={cn("overflow-hidden rounded-2xl", animated && "avatar-game-idle", className)} preserveAspectRatio="xMidYMid meet" role="img" viewBox="0 0 180 220">
       <defs>
-        <linearGradient id={skin} x1=".15" x2=".9" y1=".05" y2=".95">
-          <stop stopColor="#fff" stopOpacity=".48" />
-          <stop offset=".28" stopColor={avatar.skinColor} />
-          <stop offset=".7" stopColor={avatar.skinColor} />
-          <stop offset="1" stopColor="#000" stopOpacity=".3" />
+        <linearGradient id={skin} x1=".18" x2=".86" y1=".05" y2=".95">
+          <stop stopColor="#fff" stopOpacity=".5" />
+          <stop offset=".3" stopColor={avatar.skinColor} />
+          <stop offset=".72" stopColor={avatar.skinColor} />
+          <stop offset="1" stopColor="#000" stopOpacity=".26" />
         </linearGradient>
         <linearGradient id={skinFar} x1=".2" x2=".85" y1=".1" y2="1">
           <stop stopColor={avatar.skinColor} />
-          <stop offset="1" stopColor="#000" stopOpacity=".38" />
-        </linearGradient>
-        <linearGradient id={shirtFill} x1=".1" x2=".95" y1=".05" y2=".92">
-          <stop stopColor="#fff" stopOpacity=".38" />
-          <stop offset=".32" stopColor={shirtColour} />
-          <stop offset=".7" stopColor={shirtColour} />
           <stop offset="1" stopColor="#000" stopOpacity=".34" />
         </linearGradient>
-        <linearGradient id={pantsFill} x1=".1" x2=".9" y1=".05" y2=".95">
+        <linearGradient id={shirtFill} x1=".12" x2=".9" y1=".04" y2=".96">
+          <stop stopColor="#fff" stopOpacity=".4" />
+          <stop offset=".3" stopColor={shirtColour} />
+          <stop offset=".68" stopColor={shirtColour} />
+          <stop offset="1" stopColor="#000" stopOpacity=".3" />
+        </linearGradient>
+        <linearGradient id={pantsFill} x1=".12" x2=".88" y1=".05" y2=".95">
+          <stop stopColor="#fff" stopOpacity=".3" />
+          <stop offset=".32" stopColor={pantsColour} />
+          <stop offset=".7" stopColor={pantsColour} />
+          <stop offset="1" stopColor="#000" stopOpacity=".36" />
+        </linearGradient>
+        <linearGradient id={limbShine} x1="0" x2="1" y1="0" y2="0">
           <stop stopColor="#fff" stopOpacity=".28" />
-          <stop offset=".35" stopColor={pantsColour} />
-          <stop offset=".75" stopColor={pantsColour} />
-          <stop offset="1" stopColor="#000" stopOpacity=".4" />
+          <stop offset=".45" stopColor="#fff" stopOpacity="0" />
+          <stop offset="1" stopColor="#000" stopOpacity=".18" />
         </linearGradient>
         <filter id={`${uid}-shadow`} x="-35%" y="-30%" width="170%" height="175%">
-          <feDropShadow dx="2" dy="6" floodColor="#0f172a" floodOpacity=".28" stdDeviation="3.2" />
+          <feDropShadow dx="1.5" dy="5" floodColor="#0f172a" floodOpacity=".24" stdDeviation="3" />
         </filter>
         <filter id={`${uid}-soft`}>
           <feGaussianBlur stdDeviation="4.5" />
         </filter>
       </defs>
 
-      {/* ground plane */}
-      <ellipse className="avatar-game-shadow" cx="92" cy={skateboard ? 206 : 198} fill="#1e1b4b" filter={`url(#${uid}-soft)`} opacity=".28" rx={skateboard ? 62 : 48} ry="8" />
+      <ellipse className="avatar-game-shadow" cx="90" cy={skateboard ? 208 : 200} fill="#1e1b4b" filter={`url(#${uid}-soft)`} opacity=".26" rx={skateboard ? 60 : 46} ry="7.5" />
 
       {skateboard ? (
-        <g filter={`url(#${uid}-shadow)`} transform="translate(8 4) rotate(-6 90 190)">
+        <g filter={`url(#${uid}-shadow)`} transform="translate(6 6) rotate(-5 90 190)">
           <path d="M28 186q6 10 18 8h86q14 2 18-8-8 3-20 1H48q-12 2-20 0z" fill={skateboard.colour} stroke="#0f172a" strokeOpacity=".3" strokeWidth="2" />
           <path d="M42 188h90" opacity=".4" stroke="white" strokeLinecap="round" strokeWidth="2" />
           <BrandMark brand={skateboard.brand} scale=".42" x="78" y="180" />
@@ -78,135 +88,199 @@ export function CharacterAvatar({ avatar, className = "size-24", label = "Custom
       ) : null}
 
       <g className="avatar-game-body" filter={`url(#${uid}-shadow)`}>
-        {/* FAR arm (back, slightly darker) — hanging ready */}
-        <g transform="translate(-4 2)">
-          <path d={`M${shoulderX + 4} 86 L42 98 l-6 28 16 6 10-30z`} fill={`url(#${shirtFill})`} stroke="#0f172a" strokeOpacity=".2" strokeWidth="1.8" opacity=".88" />
-          <rect fill={`url(#${skinFar})`} height="20" rx="7" transform="rotate(18 42 128)" width="15" x="34" y="118" />
-          <ellipse cx="38" cy="142" fill={`url(#${skinFar})`} rx="11" ry="10" stroke="#0f172a" strokeOpacity=".2" strokeWidth="1.6" transform="rotate(14 38 142)" />
+        {/* FAR arm — soft hanging cylinder */}
+        <g opacity=".92">
+          <SmoothLimb
+            fill={`url(#${shirtFill})`}
+            height={36}
+            rotate={12}
+            shine={`url(#${limbShine})`}
+            width={armW}
+            x={torsoX - armW + 4}
+            y={torsoY + 4}
+          />
+          <SmoothLimb
+            fill={`url(#${skinFar})`}
+            height={28}
+            rotate={16}
+            shine={`url(#${limbShine})`}
+            width={armW - 2}
+            x={torsoX - armW + 2}
+            y={torsoY + 36}
+          />
+          <ellipse cx={torsoX - armW / 2 + 2} cy={torsoY + 68} fill={`url(#${skinFar})`} rx={armW * 0.55} ry={armW * 0.5} stroke="#0f172a" strokeOpacity=".16" strokeWidth="1.4" />
         </g>
 
-        {/* FAR leg (planted back) */}
+        {/* FAR leg */}
         {avatar.pantsStyle === "skirt" ? null : (
-          <g opacity=".92">
-            <path d="M58 128h28l-2 42-8 8H52l-2-12z" fill={`url(#${pantsFill})`} stroke="#0f172a" strokeOpacity=".22" strokeWidth="2" />
-            <path d="M62 134h16" stroke="white" strokeLinecap="round" strokeOpacity=".18" strokeWidth="2.5" />
-            {avatar.pantsStyle === "shorts" ? <path d="M54 150h28l-2 22H56z" fill={`url(#${skinFar})`} /> : null}
-            {/* far shoe — heel planted */}
-            <path d="M46 168q16-6 34 2v14q-2 7-34 3-7-2 0-19z" fill={shoeColour} stroke="#0f172a" strokeOpacity=".28" strokeWidth="2" />
-            <path d="M52 176h18" stroke="white" strokeLinecap="round" strokeOpacity=".55" strokeWidth="2.5" />
-            {shoes ? <BrandMark brand={shoes.brand} scale=".2" x="54" y="174" /> : null}
+          <g opacity=".9">
+            <SmoothLimb
+              fill={`url(#${pantsFill})`}
+              height={avatar.pantsStyle === "shorts" ? 28 : 52}
+              rotate={-4}
+              shine={`url(#${limbShine})`}
+              width={legW}
+              x={torsoX + 2}
+              y={torsoY + torsoH - 6}
+            />
+            {avatar.pantsStyle === "shorts" ? (
+              <SmoothLimb fill={`url(#${skinFar})`} height={26} rotate={-4} shine={`url(#${limbShine})`} width={legW - 2} x={torsoX + 3} y={torsoY + torsoH + 20} />
+            ) : null}
+            <ellipse cx={torsoX + legW * 0.45} cy={torsoY + torsoH + 52} fill={shoeColour} rx={legW * 0.72} ry="8" stroke="#0f172a" strokeOpacity=".22" strokeWidth="1.6" />
+            <ellipse cx={torsoX + legW * 0.35} cy={torsoY + torsoH + 49} fill="#fff" opacity=".25" rx={legW * 0.35} ry="2.5" />
+            {shoes ? <BrandMark brand={shoes.brand} scale=".18" x={String(torsoX + 2)} y={String(torsoY + torsoH + 46)} /> : null}
           </g>
         )}
 
         {bag ? (
-          <g transform="translate(-6 8)">
-            <rect fill={bag.colour} height="52" rx="12" width="28" x="36" y="98" stroke="#0f172a" strokeOpacity=".22" strokeWidth="2" />
-            <path d="M42 104q8-14 16 0" fill="none" stroke="white" strokeOpacity=".3" strokeWidth="4" />
-            <rect fill="black" fillOpacity=".18" height="18" rx="5" width="18" x="41" y="118" />
-            <BrandMark brand={bag.brand} scale=".28" x="42" y="120" />
+          <g transform="translate(-4 6)">
+            <rect fill={bag.colour} height="48" rx="14" width="26" x={torsoX - 18} y={torsoY + 16} stroke="#0f172a" strokeOpacity=".2" strokeWidth="2" />
+            <path d={`M${torsoX - 12} ${torsoY + 20}q6-12 12 0`} fill="none" stroke="white" strokeOpacity=".28" strokeWidth="3.5" />
+            <BrandMark brand={bag.brand} scale=".26" x={String(torsoX - 14)} y={String(torsoY + 34)} />
           </g>
         ) : null}
 
-        {/* Torso — angled 3/4 */}
-        <rect fill={`url(#${skin})`} height="14" rx="5" width="16" x="78" y="72" />
-        <path
-          d={`M${shoulderX} 80
-             h${torsoW}
-             c6 2 10 8 11 18
-             l4 36
-             c0 6-4 10-10 10
-             H${shoulderX - 4}
-             c-6 0-10-4-10-10
-             l-2-34
-             c0-12 4-18 11-20z`}
+        {/* Soft neck */}
+        <rect fill={`url(#${skin})`} height="16" rx="7" width="18" x={90 - 9} y={torsoY - 10} />
+        <rect fill={`url(#${limbShine})`} height="16" opacity=".55" rx="7" width="18" x={90 - 9} y={torsoY - 10} />
+
+        {/* Smooth rounded torso */}
+        <rect
           fill={`url(#${shirtFill})`}
+          height={torsoH}
+          rx={female ? 16 : 14}
+          ry={female ? 16 : 14}
           stroke="#0f172a"
-          strokeLinejoin="round"
-          strokeOpacity=".24"
+          strokeOpacity=".18"
           strokeWidth="2"
+          width={torsoW}
+          x={torsoX}
+          y={torsoY}
         />
-        {/* torso depth crease (near side brighter) */}
-        <path d={`M${shoulderX + torsoW - 2} 86 l6 8 2 38-8-4z`} fill="#000" opacity=".14" />
-        <path d={`M${shoulderX + 8} 88 h${torsoW - 18}`} stroke="white" strokeLinecap="round" strokeOpacity=".28" strokeWidth="3" />
+        <rect fill={`url(#${limbShine})`} height={torsoH} opacity=".7" rx={female ? 16 : 14} ry={female ? 16 : 14} width={torsoW} x={torsoX} y={torsoY} />
+        <ellipse cx={torsoX + torsoW * 0.42} cy={torsoY + 10} fill="#fff" opacity=".22" rx={torsoW * 0.28} ry="5" />
         <ShirtMark premiumBrand={shirt?.brand} style={avatar.shirtStyle} />
 
-        {/* skirt sits over legs when equipped */}
+        {/* Legs / skirt */}
         {avatar.pantsStyle === "skirt" ? (
           <g>
-            <path d="M52 126h66l12 42H42z" fill={`url(#${pantsFill})`} stroke="#0f172a" strokeOpacity=".2" strokeWidth="2" />
-            <path d="M58 132h48" stroke="white" strokeLinecap="round" strokeOpacity=".2" strokeWidth="3" />
-            {bottoms ? <BrandMark brand={bottoms.brand} scale=".35" x="62" y="140" /> : null}
-            <path d="M48 158q18-5 36 1v14q-2 6-34 2-6-1 0-17z" fill={shoeColour} stroke="#0f172a" strokeOpacity=".28" strokeWidth="2" />
-            <path d="M92 156q22-7 38 2 6 18-2 20-36 4-38-4z" fill={shoeColour} stroke="#0f172a" strokeOpacity=".28" strokeWidth="2" />
-            <path d="M56 166h20M102 166h22" stroke="white" strokeLinecap="round" strokeOpacity=".55" strokeWidth="2.5" />
+            <path
+              d={`M${torsoX + 2} ${torsoY + torsoH - 8}
+                 h${torsoW - 4}
+                 l${12} ${44}
+                 H${torsoX - 10}
+                 z`}
+              fill={`url(#${pantsFill})`}
+              stroke="#0f172a"
+              strokeOpacity=".18"
+              strokeWidth="2"
+            />
+            <path d={`M${torsoX + 10} ${torsoY + torsoH - 2} h${torsoW - 20}`} stroke="white" strokeLinecap="round" strokeOpacity=".22" strokeWidth="3" />
+            {bottoms ? <BrandMark brand={bottoms.brand} scale=".32" x={String(torsoX + 12)} y={String(torsoY + torsoH + 8)} /> : null}
+            <ellipse cx={torsoX + 16} cy={torsoY + torsoH + 48} fill={shoeColour} rx="14" ry="8" stroke="#0f172a" strokeOpacity=".22" strokeWidth="1.6" />
+            <ellipse cx={torsoX + torsoW - 10} cy={torsoY + torsoH + 48} fill={shoeColour} rx="15" ry="8" stroke="#0f172a" strokeOpacity=".22" strokeWidth="1.6" />
           </g>
         ) : (
           <g>
-            {/* NEAR leg — stepped forward (game walk-ready) */}
-            <path d="M86 126h32l10 48-6 10H90l-4-12z" fill={`url(#${pantsFill})`} stroke="#0f172a" strokeOpacity=".22" strokeWidth="2" />
-            <path d="M92 132h18" stroke="white" strokeLinecap="round" strokeOpacity=".22" strokeWidth="2.5" />
-            <path d="M108 130h8l6 36-6 6" fill="#000" opacity=".12" />
-            {bottoms ? <BrandMark brand={bottoms.brand} scale=".32" x="90" y="136" /> : null}
-            {avatar.pantsStyle === "shorts" ? <path d="M88 150h34l4 24H90z" fill={`url(#${skin})`} /> : null}
-            {/* near shoe — toe forward */}
-            <path d="M88 172q28-10 48 4 8 18-2 20-44 5-48-6z" fill={shoeColour} stroke="#0f172a" strokeOpacity=".3" strokeWidth="2" />
-            <path d="M98 180h26" stroke="white" strokeLinecap="round" strokeOpacity=".65" strokeWidth="3" />
-            <path d="M92 190q22 3 42-1" fill="none" stroke="#0f172a" strokeOpacity=".16" strokeWidth="2.5" />
-            {shoes ? <BrandMark brand={shoes.brand} scale=".22" x="104" y="178" /> : null}
+            <SmoothLimb
+              fill={`url(#${pantsFill})`}
+              height={avatar.pantsStyle === "shorts" ? 28 : 52}
+              rotate={5}
+              shine={`url(#${limbShine})`}
+              width={legW}
+              x={torsoX + torsoW - legW - 2}
+              y={torsoY + torsoH - 6}
+            />
+            {bottoms ? <BrandMark brand={bottoms.brand} scale=".28" x={String(torsoX + torsoW - legW + 2)} y={String(torsoY + torsoH + 4)} /> : null}
+            {avatar.pantsStyle === "shorts" ? (
+              <SmoothLimb fill={`url(#${skin})`} height={26} rotate={5} shine={`url(#${limbShine})`} width={legW - 2} x={torsoX + torsoW - legW - 1} y={torsoY + torsoH + 20} />
+            ) : null}
+            <ellipse cx={torsoX + torsoW - legW * 0.35} cy={torsoY + torsoH + 52} fill={shoeColour} rx={legW * 0.85} ry="9" stroke="#0f172a" strokeOpacity=".24" strokeWidth="1.6" />
+            <ellipse cx={torsoX + torsoW - legW * 0.45} cy={torsoY + torsoH + 49} fill="#fff" opacity=".3" rx={legW * 0.4} ry="2.8" />
+            {shoes ? <BrandMark brand={shoes.brand} scale=".2" x={String(torsoX + torsoW - legW)} y={String(torsoY + torsoH + 46)} /> : null}
           </g>
         )}
 
-        {/* NEAR arm — bent, ready pose */}
+        {/* NEAR arm — soft bent cylinder */}
         <g>
-          <path d={`M${shoulderX + torsoW - 6} 84 l22 6 10 26-18 8-16-28z`} fill={`url(#${shirtFill})`} stroke="#0f172a" strokeOpacity=".24" strokeWidth="2" />
-          <circle cx="138" cy="96" fill="white" opacity=".16" r="5" />
-          <rect fill={`url(#${skin})`} height="22" rx="8" transform="rotate(-22 136 122)" width="17" x="127" y="110" />
-          <ellipse cx="142" cy="136" fill={`url(#${skin})`} rx="12" ry="11" stroke="#0f172a" strokeOpacity=".22" strokeWidth="1.8" transform="rotate(-16 142 136)" />
-          <path d="M134 132q8-6 16 0M136 142q6 4 12-1" fill="none" stroke="#2d160f" strokeLinecap="round" strokeOpacity=".26" strokeWidth="2" />
-          <ellipse cx="146" cy="130" fill="white" opacity=".28" rx="3.5" ry="2" transform="rotate(-16 146 130)" />
+          <SmoothLimb
+            fill={`url(#${shirtFill})`}
+            height={34}
+            rotate={-14}
+            shine={`url(#${limbShine})`}
+            width={armW}
+            x={torsoX + torsoW - 6}
+            y={torsoY + 2}
+          />
+          <SmoothLimb
+            fill={`url(#${skin})`}
+            height={30}
+            rotate={-20}
+            shine={`url(#${limbShine})`}
+            width={armW - 1}
+            x={torsoX + torsoW + 4}
+            y={torsoY + 32}
+          />
+          <ellipse cx={torsoX + torsoW + armW * 0.7} cy={torsoY + 66} fill={`url(#${skin})`} rx={armW * 0.58} ry={armW * 0.52} stroke="#0f172a" strokeOpacity=".18" strokeWidth="1.5" transform={`rotate(-12 ${torsoX + torsoW + armW * 0.7} ${torsoY + 66})`} />
+          <ellipse cx={torsoX + torsoW + armW * 0.85} cy={torsoY + 62} fill="#fff" opacity=".28" rx="3" ry="2" />
           {watch ? (
             <g>
-              <rect fill={watch.colour} height="12" rx="3" transform="rotate(-22 134 120)" width="20" x="124" y="114" />
-              <rect fill="#dbeafe" height="8" rx="2" transform="rotate(-22 134 120)" width="11" x="128" y="116" />
-              <BrandMark brand={watch.brand} scale=".14" x="130" y="116" />
+              <rect fill={watch.colour} height="11" rx="4" transform={`rotate(-20 ${torsoX + torsoW + 10} ${torsoY + 40})`} width="18" x={torsoX + torsoW + 2} y={torsoY + 36} />
+              <rect fill="#dbeafe" height="7" rx="2" transform={`rotate(-20 ${torsoX + torsoW + 10} ${torsoY + 40})`} width="10" x={torsoX + torsoW + 6} y={torsoY + 38} />
+              <BrandMark brand={watch.brand} scale=".12" x={String(torsoX + torsoW + 6)} y={String(torsoY + 38)} />
             </g>
           ) : null}
         </g>
 
-        {/* Head — 3/4 turn toward camera */}
+        {/* Head */}
         <g className="avatar-game-head">
-          <g transform="translate(3 -5) scale(1.04)">
-            <HeadShape fill={`url(#${skin})`} style={avatar.headStyle} />
-            {/* cheek / jaw depth */}
-            <path d="M108 32q8 16 2 40" fill="none" stroke="#000" strokeLinecap="round" strokeOpacity=".14" strokeWidth="5" />
-            <path d="M54 30q10-8 22-8" fill="none" stroke="white" strokeLinecap="round" strokeOpacity=".34" strokeWidth="4.5" />
+          <g transform="translate(2 -6)">
+            <HeadShape fill={`url(#${skin})`} gender={avatar.gender} style={avatar.headStyle} uid={uid} />
             <Hair color={avatar.hairColor} gender={avatar.gender} style={avatar.hairStyle} />
             {cap ? <Cap brand={cap.brand} colour={cap.colour} /> : null}
-            {/* brows angled with head turn */}
-            <path d={female ? "M57 44q8-5 17 0M88 42q9-5 18 1" : "M58 44q8-5 16 1M88 42q9-5 17 2"} fill="none" stroke="#422006" strokeLinecap="round" strokeOpacity=".55" strokeWidth={female ? "1.8" : "2.2"} />
-            {/* eyes — near eye larger */}
-            <ellipse cx="66" cy="54" fill="white" rx={female ? "7.2" : "6.5"} ry={female ? "7.8" : "7"} />
-            <ellipse cx="98" cy="52" fill="white" rx={female ? "8.1" : "7.5"} ry={female ? "8.3" : "7.5"} />
-            <circle cx="67" cy="55" fill={avatar.eyeColor} r={female ? "3.8" : "3.2"} />
-            <circle cx="99" cy="53" fill={avatar.eyeColor} r={female ? "4.1" : "3.6"} />
-            <circle cx="65.5" cy="52.5" fill="white" r=".9" />
-            <circle cx="97.5" cy="50.5" fill="white" r="1.1" />
-            {female ? <><path d="M58 48l-4-3m7 1-2-4m38 3 3-4m1 6 5-3" fill="none" stroke="#21140f" strokeLinecap="round" strokeWidth="1.5" /><ellipse cx="59" cy="64" fill="#fb7185" opacity=".18" rx="7" ry="3.5" /><ellipse cx="104" cy="62" fill="#fb7185" opacity=".18" rx="7" ry="3.5" /></> : null}
-            <path d="M80 55l-2 7 5 1.5" fill="none" stroke="#000" strokeLinecap="round" strokeOpacity=".16" strokeWidth="2" />
+            <FaceFeatures eyeColor={avatar.eyeColor} expression={avatar.expression ?? "classic"} female={female} glasses={Boolean(glasses)} />
             {glasses ? (
               <g>
-                <path d="M50 40h64l-4 24H90l-6-7-6 7H54z" fill={glasses.colour} opacity=".92" />
-                <path d="M56 45h20l-4 12H58zm28 0h22l-3 12H90z" fill="#67e8f9" opacity=".78" />
-                <path d="M59 47h10" stroke="white" strokeLinecap="round" strokeOpacity=".8" strokeWidth="2.5" />
-                <BrandMark brand={glasses.brand} scale=".18" x="74" y="40" />
+                <path d="M48 38h66l-4 22H92l-6-6-6 6H52z" fill={glasses.colour} opacity=".92" />
+                <path d="M54 43h20l-4 11H56zm28 0h22l-3 11H88z" fill="#67e8f9" opacity=".78" />
+                <path d="M57 45h10" stroke="white" strokeLinecap="round" strokeOpacity=".8" strokeWidth="2.5" />
+                <BrandMark brand={glasses.brand} scale=".18" x="74" y="38" />
               </g>
-            ) : (
-              female ? <g><path d="M70 69q12 7 24 0-12 13-24 0z" fill="#c94d65" opacity=".9" /><path d="M74 70q8 3 16 0" stroke="#ffd5dc" strokeLinecap="round" strokeWidth="1.2" /></g> : <path d="M70 68q12 9 24 1" fill="none" stroke="#5c2e24" strokeLinecap="round" strokeWidth="2.8" />
-            )}
+            ) : null}
           </g>
         </g>
       </g>
     </svg>
+  );
+}
+
+/** Soft cylindrical limb segment with volume wash */
+function SmoothLimb({
+  x,
+  y,
+  width,
+  height,
+  fill,
+  shine,
+  rotate = 0,
+}: {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  fill: string;
+  shine: string;
+  rotate?: number;
+}) {
+  const cx = x + width / 2;
+  const cy = y + height / 2;
+  const r = Math.min(width / 2, 12);
+  return (
+    <g transform={`rotate(${rotate} ${cx} ${cy})`}>
+      <rect fill={fill} height={height} rx={r} ry={r} stroke="#0f172a" strokeOpacity=".16" strokeWidth="1.6" width={width} x={x} y={y} />
+      <rect fill={shine} height={height} opacity=".75" rx={r} ry={r} width={width} x={x} y={y} />
+      <ellipse cx={x + width * 0.35} cy={y + 6} fill="#fff" opacity=".18" rx={width * 0.22} ry="3" />
+    </g>
   );
 }
 
@@ -298,37 +372,255 @@ export function PremiumAssetPreview({ asset, className = "h-36 w-full" }: { asse
   );
 }
 
-function HeadShape({ style, fill }: { style: AvatarConfig["headStyle"]; fill: string }) {
-  const shared = { fill, stroke: "#0f172a", strokeOpacity: .2, strokeWidth: 2 };
-  /* Slightly wider on the near (right) side for 3/4 read */
-  if (style === "round") {
-    return (
-      <g>
-        <ellipse cx="82" cy="50" rx="35" ry="34" {...shared} />
-        <ellipse cx="74" cy="24" fill="white" opacity=".18" rx="18" ry="5" />
-      </g>
-    );
-  }
-  if (style === "oval") {
-    return (
-      <g>
-        <ellipse cx="82" cy="50" rx="29" ry="38" {...shared} />
-        <ellipse cx="74" cy="18" fill="white" opacity=".18" rx="15" ry="4" />
-      </g>
-    );
-  }
-  if (style === "wide") {
-    return (
-      <g>
-        <rect height="60" rx="20" width="84" x="40" y="20" {...shared} />
-        <ellipse cx="74" cy="23" fill="white" opacity=".16" rx="28" ry="5" />
-      </g>
-    );
-  }
+/**
+ * Roblox-style 3D capsule head.
+ * Vertical cylinder with soft rounded crown + chin and volume shading.
+ */
+function HeadShape({
+  style,
+  fill,
+  gender,
+  uid,
+}: {
+  style: AvatarConfig["headStyle"];
+  fill: string;
+  gender: AvatarConfig["gender"];
+  uid: string;
+}) {
+  const female = gender === "female";
+  /* block = classic Roblox capsule; round/oval/wide tweak proportions */
+  const dims =
+    style === "round"
+      ? { x: 46, y: 14, w: 78, h: 72, r: 36 }
+      : style === "oval"
+        ? { x: 50, y: 10, w: 70, h: 78, r: 32 }
+        : style === "wide"
+          ? { x: 40, y: 16, w: 90, h: 66, r: 28 }
+          : { x: female ? 47 : 45, y: female ? 12 : 14, w: female ? 76 : 80, h: female ? 74 : 70, r: female ? 34 : 30 };
+
+  const { x, y, w, h, r } = dims;
+  const cx = x + w / 2;
+  const topY = y + r * 0.35;
+  const chinY = y + h - r * 0.28;
+  const rimId = `${uid}-head-rim`;
+  const volumeId = `${uid}-head-vol`;
+
   return (
     <g>
-      <rect height="64" rx="15" width="74" x="45" y="17" {...shared} />
-      <ellipse cx="74" cy="20" fill="white" opacity=".16" rx="24" ry="5.5" />
+      <defs>
+        <linearGradient id={volumeId} x1="0.18" x2="0.88" y1="0.08" y2="0.95">
+          <stop offset="0" stopColor="#fff" stopOpacity=".42" />
+          <stop offset=".32" stopColor="#fff" stopOpacity=".08" />
+          <stop offset=".72" stopColor="#000" stopOpacity=".08" />
+          <stop offset="1" stopColor="#000" stopOpacity=".28" />
+        </linearGradient>
+        <radialGradient cx="38%" cy="28%" id={rimId} r="72%">
+          <stop offset="0" stopColor="#fff" stopOpacity=".22" />
+          <stop offset=".55" stopColor="#fff" stopOpacity="0" />
+          <stop offset="1" stopColor="#000" stopOpacity=".16" />
+        </radialGradient>
+      </defs>
+
+      {/* soft contact shadow under chin */}
+      <ellipse cx={cx} cy={y + h + 2} fill="#0f172a" opacity=".14" rx={w * 0.34} ry="5" />
+
+      {/* main capsule body */}
+      <rect
+        fill={fill}
+        height={h}
+        rx={r}
+        ry={r}
+        stroke="#0f172a"
+        strokeOpacity=".2"
+        strokeWidth="2"
+        width={w}
+        x={x}
+        y={y}
+      />
+
+      {/* cylindrical volume wash */}
+      <rect fill={`url(#${volumeId})`} height={h} opacity=".9" rx={r} ry={r} width={w} x={x} y={y} />
+      <rect fill={`url(#${rimId})`} height={h} rx={r} ry={r} width={w} x={x} y={y} />
+
+      {/* crown highlight — flat top plane catching light */}
+      <ellipse cx={cx - 2} cy={topY} fill="#fff" opacity=".28" rx={w * 0.34} ry={r * 0.28} />
+      <ellipse cx={cx - 8} cy={topY + 2} fill="#fff" opacity=".12" rx={w * 0.18} ry={r * 0.12} />
+
+      {/* near-side rim light */}
+      <path
+        d={`M${x + w - 6} ${y + r * 0.7} q${8} ${h * 0.22} ${2} ${h * 0.55}`}
+        fill="none"
+        stroke="#fff"
+        strokeLinecap="round"
+        strokeOpacity=".16"
+        strokeWidth="5"
+      />
+
+      {/* far-side depth crease */}
+      <path
+        d={`M${x + 8} ${y + r * 0.75} q${-4} ${h * 0.25} ${1} ${h * 0.48}`}
+        fill="none"
+        stroke="#000"
+        strokeLinecap="round"
+        strokeOpacity=".12"
+        strokeWidth="6"
+      />
+
+      {/* chin soft shade */}
+      <ellipse cx={cx + 1} cy={chinY} fill="#000" opacity=".1" rx={w * 0.3} ry={r * 0.22} />
+    </g>
+  );
+}
+
+/** Classic Roblox-style face decals with selectable expressions */
+function FaceFeatures({
+  female,
+  eyeColor,
+  glasses,
+  expression,
+}: {
+  female: boolean;
+  eyeColor: string;
+  glasses: boolean;
+  expression: AvatarConfig["expression"];
+}) {
+  const leftEye = { cx: 66, cy: 48 };
+  const rightEye = { cx: 100, cy: 48 };
+  const eyeRx = female ? 9.2 : 8.4;
+  const eyeRy = expression === "surprised" ? (female ? 10.2 : 9.2) : expression === "sleepy" || expression === "cool" ? (female ? 6.4 : 5.6) : female ? 8.6 : 7.6;
+  const pupilR = expression === "surprised" ? (female ? 6 : 5.4) : female ? 5.2 : 4.6;
+  const browStroke = female ? 2.1 : 2.8;
+  const winkLeft = expression === "wink";
+
+  const brows =
+    expression === "surprised"
+      ? { left: "M54 32.5q12-8 24 0", right: "M88 32q13-8.5 25 .5" }
+      : expression === "sleepy" || expression === "cool"
+        ? { left: "M54 39q12-2.5 24 1", right: "M88 38.5q13-2.5 25 1.5" }
+        : expression === "silly" || expression === "happy"
+          ? { left: "M54 35q12-8 24 0", right: "M88 34.5q13-8.5 25 .5" }
+          : female
+            ? { left: "M54 36.5q12-7.5 24-.5", right: "M88 36q13-8 25 0" }
+            : { left: "M54 37.5q11-5.5 23 1", right: "M89 36.5q12-5.5 24 1.5" };
+
+  function Eye({ side }: { side: "left" | "right" }) {
+    const eye = side === "left" ? leftEye : rightEye;
+    const closed = winkLeft && side === "left";
+    if (closed) {
+      return (
+        <g>
+          <path d={`M${eye.cx - eyeRx} ${eye.cy + 1} q${eyeRx} ${4} ${eyeRx * 2} 0`} fill="none" stroke="#1c1917" strokeLinecap="round" strokeWidth="2.4" />
+          {female ? <path d={`M${eye.cx - eyeRx + 2} ${eye.cy - 1}l-2.5-2.5M${eye.cx - 2} ${eye.cy - 2.5}l-1-3`} fill="none" stroke="#1c1917" strokeLinecap="round" strokeWidth="1.4" /> : null}
+        </g>
+      );
+    }
+    const lidSquash = expression === "sleepy" || expression === "cool" ? 0.72 : 1;
+    const ry = eyeRy * lidSquash;
+    return (
+      <g>
+        <path d={`M${eye.cx - eyeRx + 1} ${eye.cy - 1} q${eyeRx} ${-ry * 0.95} ${eyeRx * 2 - 2} 0`} fill="none" stroke="#1c1917" strokeLinecap="round" strokeOpacity=".85" strokeWidth="1.35" />
+        <ellipse cx={eye.cx} cy={eye.cy} fill="#fff" rx={eyeRx} ry={ry} stroke="#0f172a" strokeOpacity=".35" strokeWidth="1.2" />
+        <circle cx={eye.cx + 0.4} cy={eye.cy + (expression === "sleepy" ? 1.4 : 0.6)} fill={eyeColor} r={pupilR * (expression === "cool" ? 0.9 : 1)} />
+        <circle cx={eye.cx - 1.8} cy={eye.cy - 1.6} fill="#fff" r="1.7" />
+        <circle cx={eye.cx + 2.2} cy={eye.cy + 2.4} fill="#fff" opacity=".55" r=".7" />
+        <path d={`M${eye.cx - eyeRx + 2} ${eye.cy + 2} q${eyeRx} ${ry * 0.7} ${eyeRx * 2 - 4} 0`} fill="none" stroke="#1c1917" strokeLinecap="round" strokeOpacity=".35" strokeWidth="1.1" />
+        {expression === "sleepy" || expression === "cool" ? (
+          <path d={`M${eye.cx - eyeRx + 1} ${eye.cy - ry * 0.15} q${eyeRx} ${ry * 0.9} ${eyeRx * 2 - 2} 0`} fill="#1c1917" opacity=".12" />
+        ) : null}
+      </g>
+    );
+  }
+
+  function Mouth() {
+    if (glasses) return null;
+    if (expression === "surprised") {
+      return <ellipse cx="83" cy="70" fill="#1c1917" rx="6.5" ry="8" />;
+    }
+    if (expression === "happy") {
+      return female ? (
+        <g>
+          <path d="M68 64.5q15 16 30 0-15 12-30 0z" fill="#1c1917" />
+          <path d="M72 66q11 8 22 0" fill="#fff" opacity=".85" />
+          <path d="M70 64q7-3.5 13 0 6-3.5 13 0" fill="#e8799a" />
+        </g>
+      ) : (
+        <g>
+          <path d="M69 65q14 15 28 0" fill="none" stroke="#1c1917" strokeLinecap="round" strokeWidth="2.6" />
+          <path d="M73 67q10 8 20 0" fill="#1c1917" opacity=".14" />
+        </g>
+      );
+    }
+    if (expression === "silly") {
+      return (
+        <g>
+          <path d="M70 65q13 10 26 0" fill="none" stroke="#1c1917" strokeLinecap="round" strokeWidth="2.2" />
+          <path d="M78 68q5 14 12 1 1 8-6 10-8 1-8-8z" fill="#fb7185" stroke="#1c1917" strokeWidth="1.2" />
+          <path d="M82 72q3 4 6 1" fill="none" stroke="#fda4af" strokeWidth="1.2" />
+        </g>
+      );
+    }
+    if (expression === "sleepy") {
+      return female ? (
+        <g>
+          <path d="M74 68q9 3 18 0" fill="none" stroke="#1c1917" strokeLinecap="round" strokeWidth="1.8" />
+          <path d="M76 68.5q7 4 14 0" fill="#f472b6" opacity=".75" />
+        </g>
+      ) : (
+        <path d="M74 69q9 2.5 18 0" fill="none" stroke="#1c1917" strokeLinecap="round" strokeWidth="2" />
+      );
+    }
+    if (expression === "cool" || expression === "smirk" || (expression === "classic" && !female)) {
+      return (
+        <g>
+          <path d="M74 67.5q8 2 14-1.5 5 5.5 12 4" fill="none" stroke="#1c1917" strokeLinecap="round" strokeWidth="2.2" />
+          <path d="M108 62q1.5 7-.5 13" fill="none" stroke="#1c1917" strokeLinecap="round" strokeOpacity=".75" strokeWidth="1.6" />
+        </g>
+      );
+    }
+    if (expression === "wink") {
+      return female ? (
+        <g>
+          <path d="M72 66.5q6-3 10 0 4-3 10 0" fill="#e8799a" />
+          <path d="M72 66.8q10 8 20 0-10 6-20 0z" fill="#f472b6" />
+          <path d="M72.5 66.8q9.5 4.5 19 0" fill="none" stroke="#1c1917" strokeLinecap="round" strokeWidth="1.7" />
+        </g>
+      ) : (
+        <path d="M72 68q12 7 24 1" fill="none" stroke="#1c1917" strokeLinecap="round" strokeWidth="2.3" />
+      );
+    }
+    return female ? (
+      <g>
+        <path d="M72 66.5q6-3.5 10-.2 4-3.4 10 .2" fill="#e8799a" />
+        <path d="M72 66.8q10 9.5 20 0-10 7-20 0z" fill="#f472b6" />
+        <path d="M72.5 66.8q9.5 5.5 19 0" fill="none" stroke="#1c1917" strokeLinecap="round" strokeWidth="1.7" />
+        <path d="M78 69.5q6 2.2 12 0" fill="none" stroke="#ffd6e3" strokeLinecap="round" strokeOpacity=".7" strokeWidth="1.1" />
+      </g>
+    ) : (
+      <path d="M72 68q12 8 24 1" fill="none" stroke="#1c1917" strokeLinecap="round" strokeWidth="2.4" />
+    );
+  }
+
+  return (
+    <g>
+      <g fill="none" stroke={female ? "#1c1917" : "#292524"} strokeLinecap="round" strokeLinejoin="round">
+        <path d={brows.left} strokeWidth={browStroke} />
+        <path d={brows.right} strokeWidth={browStroke} />
+      </g>
+
+      <Eye side="left" />
+      <Eye side="right" />
+
+      {female && expression !== "sleepy" ? (
+        <>
+          <g fill="none" stroke="#1c1917" strokeLinecap="round" strokeWidth="1.55">
+            <path d="M56 44.5l-3.2-2.8M58.5 42.5l-1.6-3.4M108.5 44.5l3.2-2.8M106 42.5l1.6-3.4" />
+          </g>
+          <ellipse cx="54" cy="60" fill="#fb7185" opacity={expression === "happy" || expression === "surprised" ? ".22" : ".16"} rx="7" ry="3.2" />
+          <ellipse cx="112" cy="60" fill="#fb7185" opacity={expression === "happy" || expression === "surprised" ? ".22" : ".16"} rx="7" ry="3.2" />
+        </>
+      ) : null}
+
+      <Mouth />
     </g>
   );
 }
@@ -451,8 +743,8 @@ function ShirtMark({ style, premiumBrand }: { style: AvatarConfig["shirtStyle"];
   const text = style === "skulkid" ? "SK" : style === "math" ? "M" : style === "science" ? "SCI" : "AB";
   return (
     <g>
-      <rect fill="white" fillOpacity=".92" height="28" rx="7" width="36" x="70" y="96" />
-      <text fill="#172554" fontFamily="sans-serif" fontSize="13" fontWeight="900" textAnchor="middle" x="88" y="115">
+      <rect fill="white" fillOpacity=".92" height="26" rx="8" width="36" x="72" y="94" />
+      <text fill="#172554" fontFamily="sans-serif" fontSize="12" fontWeight="900" textAnchor="middle" x="90" y="112">
         {text}
       </text>
     </g>

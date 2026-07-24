@@ -35,6 +35,11 @@ Open Supabase Dashboard → SQL Editor and run the migrations in filename order:
 ```text
 supabase/migrations/20260723150000_initial.sql
 supabase/migrations/20260723160000_app_persistence.sql
+supabase/migrations/20260723170000_course_management.sql
+supabase/migrations/20260723180000_separate_admin_student_profiles.sql
+supabase/migrations/20260724120000_teacher_and_admin_roles.sql
+supabase/migrations/20260724130000_teacher_classes.sql
+supabase/migrations/20260724140000_class_retakes_courses_leaderboard.sql
 ```
 
 The migrations create the curriculum, lessons, students, progress, quiz,

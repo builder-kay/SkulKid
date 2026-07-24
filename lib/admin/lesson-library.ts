@@ -6,6 +6,7 @@ export type AdminLessonRecord = {
   id: string;
   subject: SupportedCurriculumSubject;
   courseId?: string | null;
+  classId?: string | null;
   unitId?: string | null;
   topicId?: string | null;
   grade: number;
@@ -41,8 +42,8 @@ async function client() {
 
 export async function readAdminLessons(): Promise<AdminLessonRecord[]> {
   const supabase = await client();
-  const enriched = await supabase.from("AdminLessonRecord").select("record,courseId,unitId,topicId").order("subject").order("position");
-  if (!enriched.error) return (enriched.data ?? []).map((row) => ({ ...(row.record as AdminLessonRecord), courseId: row.courseId, unitId: row.unitId, topicId: row.topicId }));
+  const enriched = await supabase.from("AdminLessonRecord").select("record,classId,courseId,unitId,topicId").order("subject").order("position");
+  if (!enriched.error) return (enriched.data ?? []).map((row) => ({ ...(row.record as AdminLessonRecord), classId: row.classId, courseId: row.courseId, unitId: row.unitId, topicId: row.topicId }));
   const legacy = await supabase.from("AdminLessonRecord").select("record").order("subject").order("position");
   if (legacy.error) throw legacy.error;
   return (legacy.data ?? []).map((row) => {
@@ -61,6 +62,7 @@ export async function writeAdminLesson(record: AdminLessonRecord) {
     id: record.id,
     subject: record.subject,
     status: record.status,
+    classId: record.classId ?? null,
     courseId: record.courseId ?? `subject-${record.subject}`,
     unitId: record.unitId ?? null,
     topicId: record.topicId ?? null,
@@ -91,6 +93,22 @@ export async function writeLessonOrder(subject: SupportedCurriculumSubject, ids:
 export async function placeLessonAfter(subject: SupportedCurriculumSubject, lessonId: string, predecessorId: string | null, fallbackIds: string[]) {
   const current = placeLessonIdAfter(normaliseOrder(await readLessonOrder(subject), fallbackIds), lessonId, predecessorId);
   await writeLessonOrder(subject, current);
+}
+
+export function courseIdForSubject(subject: SupportedCurriculumSubject) {
+  return `subject-${subject}` as const;
+}
+
+export async function readModuleLessonOrder(courseId: string, unitId: string): Promise<string[]> {
+  const supabase = await client();
+  const { data, error } = await supabase
+    .from("AdminLessonRecord")
+    .select("id")
+    .eq("courseId", courseId)
+    .eq("unitId", unitId)
+    .order("position");
+  if (error) throw error;
+  return (data ?? []).map((row) => String(row.id));
 }
 
 export function placeLessonIdAfter(ids: string[], lessonId: string, predecessorId: string | null) {

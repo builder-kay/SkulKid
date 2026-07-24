@@ -1,22 +1,36 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { isStaffRole, resolveAppRole, roleHome } from "@/lib/auth/roles";
 
-const protectedPrefixes = ["/dashboard", "/courses", "/profile", "/leaderboard", "/achievements", "/preview/lessons"];
-const studentOnlyPrefixes = ["/dashboard", "/courses", "/profile", "/leaderboard", "/achievements"];
+const protectedPrefixes = ["/dashboard", "/courses", "/classes", "/profile", "/leaderboard", "/achievements", "/preview/lessons"];
+const studentOnlyPrefixes = ["/dashboard", "/courses", "/classes", "/profile", "/leaderboard", "/achievements"];
+
 const authPages = ["/login", "/signup", "/forgot-password"];
+const isAuthPage = (pathname: string) =>
+  authPages.some((page) => pathname === page || pathname.startsWith(`${page}/`));
 
 export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const adminApi = pathname.startsWith("/api/admin");
-  const protectedRoute = protectedPrefixes.some((prefix) => pathname.startsWith(prefix)) || pathname.startsWith("/admin") || adminApi;
+  const teacherApi = pathname.startsWith("/api/teacher");
+  const staffApi = adminApi || teacherApi;
+  const protectedRoute =
+    protectedPrefixes.some((prefix) => pathname.startsWith(prefix)) ||
+    pathname.startsWith("/admin") ||
+    pathname.startsWith("/teacher") ||
+    staffApi;
+
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) {
-    if (adminApi) return NextResponse.json({ error: "Authentication is not configured." }, { status: 503 });
+    if (staffApi) return NextResponse.json({ error: "Authentication is not configured." }, { status: 503 });
     if (protectedRoute) {
-      const url = request.nextUrl.clone(); url.pathname = "/login"; url.searchParams.set("next", pathname);
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      url.searchParams.set("next", pathname);
       return NextResponse.redirect(url);
     }
     return NextResponse.next();
   }
+
   let response = NextResponse.next({ request });
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -32,32 +46,61 @@ export async function proxy(request: NextRequest) {
       }
     }
   );
+
   const { data: { user } } = await supabase.auth.getUser();
-  const role = user?.app_metadata.role === "admin" ? "admin" : "student";
+  const role = resolveAppRole(user?.app_metadata.role);
+
   if (!user && protectedRoute) {
-    if (adminApi) return NextResponse.json({ error: "Authentication required." }, { status: 401 });
-    const url = request.nextUrl.clone(); url.pathname = "/login"; url.searchParams.set("next", pathname);
+    if (staffApi) return NextResponse.json({ error: "Authentication required." }, { status: 401 });
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    url.searchParams.set("next", pathname);
     return NextResponse.redirect(url);
   }
-  if (user && authPages.includes(pathname)) {
-    const url = request.nextUrl.clone(); url.pathname = role === "admin" ? "/admin" : "/dashboard"; url.search = "";
+
+  if (user && isAuthPage(pathname)) {
+    const url = request.nextUrl.clone();
+    url.pathname = roleHome(role);
+    url.search = "";
     return NextResponse.redirect(url);
   }
+
   if (pathname === "/" && user) {
-    const url = request.nextUrl.clone(); url.pathname = role === "admin" ? "/admin" : "/dashboard"; url.search = "";
+    const url = request.nextUrl.clone();
+    url.pathname = roleHome(role);
+    url.search = "";
     return NextResponse.redirect(url);
   }
+
   if (adminApi && role !== "admin") {
     return NextResponse.json({ error: "Administrator access required." }, { status: 403 });
   }
+
+  if (teacherApi && !isStaffRole(role)) {
+    return NextResponse.json({ error: "Teacher access required." }, { status: 403 });
+  }
+
   if (pathname.startsWith("/admin") && role !== "admin") {
-    const url = request.nextUrl.clone(); url.pathname = "/dashboard"; url.search = "";
+    const url = request.nextUrl.clone();
+    url.pathname = roleHome(role);
+    url.search = "";
     return NextResponse.redirect(url);
   }
-  if (role === "admin" && studentOnlyPrefixes.some((prefix) => pathname.startsWith(prefix))) {
-    const url = request.nextUrl.clone(); url.pathname = "/admin"; url.search = "";
+
+  if (pathname.startsWith("/teacher") && !isStaffRole(role)) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/dashboard";
+    url.search = "";
     return NextResponse.redirect(url);
   }
+
+  if (isStaffRole(role) && studentOnlyPrefixes.some((prefix) => pathname.startsWith(prefix))) {
+    const url = request.nextUrl.clone();
+    url.pathname = roleHome(role);
+    url.search = "";
+    return NextResponse.redirect(url);
+  }
+
   return response;
 }
 

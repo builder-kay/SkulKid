@@ -10,7 +10,7 @@ export async function GET() {
 
   const admin = createAdminClient();
   const [coursesResult, unitsResult, topicsResult, lessonsResult] = await Promise.all([
-    admin.from("Subject").select("id,name,slug,description,colourToken,coverUrl,gradeLevels,order").eq("status", "ACTIVE").order("order"),
+    admin.from("Subject").select("id,name,slug,description,colourToken,coverUrl,gradeLevels,order,visibility").eq("status", "ACTIVE").neq("visibility", "class").order("order"),
     admin.from("Unit").select("id,subjectId,name,slug,description,order").order("order"),
     admin.from("Topic").select("id,unitId,name,slug,description,order").order("order"),
     admin.from("AdminLessonRecord").select("id,courseId,topicId").eq("status", "published").order("position")

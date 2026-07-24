@@ -6,9 +6,9 @@ import { SkulKidLogo } from "@/components/shared/skulkid-logo";
 import type { AvatarConfig } from "@/lib/student/student-profile";
 
 const avatars: AvatarConfig[] = [
-  { gender: "male", bodyStyle: "classic", headStyle: "block", skinColor: "#8D5524", hairStyle: "afro", hairColor: "#21140F", eyeColor: "#3B2414", shirtStyle: "math", shirtColor: "#2563EB", pantsStyle: "trousers", pantsColor: "#172554", shoeColor: "#FFFFFF", equippedPremium: {} },
-  { gender: "female", bodyStyle: "slim", headStyle: "round", skinColor: "#C68642", hairStyle: "braids", hairColor: "#23150F", eyeColor: "#3B2414", shirtStyle: "reader", shirtColor: "#7C3AED", pantsStyle: "skirt", pantsColor: "#312E81", shoeColor: "#F8FAFC", equippedPremium: {} },
-  { gender: "male", bodyStyle: "strong", headStyle: "wide", skinColor: "#6F3B1F", hairStyle: "short", hairColor: "#16100C", eyeColor: "#21140F", shirtStyle: "science", shirtColor: "#16A34A", pantsStyle: "shorts", pantsColor: "#0F172A", shoeColor: "#FFFFFF", equippedPremium: {} }
+  { gender: "male", bodyStyle: "classic", headStyle: "block", expression: "classic", skinColor: "#8D5524", hairStyle: "afro", hairColor: "#21140F", eyeColor: "#3B2414", shirtStyle: "math", shirtColor: "#2563EB", pantsStyle: "trousers", pantsColor: "#172554", shoeColor: "#FFFFFF", equippedPremium: {} },
+  { gender: "female", bodyStyle: "slim", headStyle: "round", expression: "happy", skinColor: "#C68642", hairStyle: "braids", hairColor: "#23150F", eyeColor: "#3B2414", shirtStyle: "reader", shirtColor: "#7C3AED", pantsStyle: "skirt", pantsColor: "#312E81", shoeColor: "#F8FAFC", equippedPremium: {} },
+  { gender: "male", bodyStyle: "strong", headStyle: "wide", expression: "smirk", skinColor: "#6F3B1F", hairStyle: "short", hairColor: "#16100C", eyeColor: "#21140F", shirtStyle: "science", shirtColor: "#16A34A", pantsStyle: "shorts", pantsColor: "#0F172A", shoeColor: "#FFFFFF", equippedPremium: {} }
 ];
 
 export function LandingPage() {
@@ -27,7 +27,7 @@ export function LandingPage() {
           </Link>
           <nav className="hidden items-center gap-7 text-sm font-extrabold text-slate-600 md:flex" aria-label="Landing page">
             <a className="transition hover:text-blue-700" href="#how-it-works">How it works</a>
-            <a className="transition hover:text-blue-700" href="#subjects">Courses</a>
+            <a className="transition hover:text-blue-700" href="#subjects">Subjects</a>
             <a className="transition hover:text-blue-700" href="#rewards">Rewards</a>
           </nav>
           <div className="flex items-center gap-2">
@@ -82,7 +82,7 @@ export function LandingPage() {
         <div className="pointer-events-none absolute left-1/2 top-0 h-px w-3/4 -translate-x-1/2 bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
         <div className="mx-auto max-w-7xl px-5 sm:px-8">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <div><p className="text-sm font-black uppercase tracking-[0.18em] text-blue-700">Choose an adventure</p><h2 className="mt-2 text-4xl font-black tracking-[-.04em] sm:text-5xl">A growing world of courses.</h2><p className="mt-3 max-w-2xl leading-7 text-slate-600">Teachers can keep creating and publishing new learning paths. Here are a few places the adventure can begin.</p></div>
+            <div><p className="text-sm font-black uppercase tracking-[0.18em] text-blue-700">Choose an adventure</p><h2 className="mt-2 text-4xl font-black tracking-[-.04em] sm:text-5xl">A growing world of subjects.</h2><p className="mt-3 max-w-2xl leading-7 text-slate-600">Teachers can keep creating and publishing new learning paths. Here are a few places the adventure can begin.</p></div>
             <Link className="inline-flex min-h-11 items-center gap-2 self-start font-black text-blue-700" href="/signup">Start for free <ArrowRight className="size-4" /></Link>
           </div>
           <div className="mt-10 grid gap-4 md:grid-cols-3">
@@ -125,7 +125,7 @@ export function LandingPage() {
 
             <nav aria-label="Footer" className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm font-bold text-slate-700">
               <a className="transition hover:text-blue-700" href="#how-it-works">How it works</a>
-              <a className="transition hover:text-blue-700" href="#subjects">Courses</a>
+              <a className="transition hover:text-blue-700" href="#subjects">Subjects</a>
               <a className="transition hover:text-blue-700" href="#rewards">Rewards</a>
               <Link className="transition hover:text-blue-700" href="/login">Sign in</Link>
               <Link className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-blue-600 px-3 text-xs font-black text-white transition hover:bg-blue-700" href="/signup">

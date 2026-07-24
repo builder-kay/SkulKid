@@ -23,7 +23,7 @@ export function CourseCard({ course, featured = false, grade }: CourseCardProps)
   const SubjectIcon = theme.icon;
   const completed = course.progressPercent >= 100;
   const started = course.progressPercent > 0;
-  const action = completed ? "Review course" : started ? "Continue course" : "Start course";
+  const action = completed ? "Review subject" : started ? "Continue subject" : "Start subject";
 
   return (
     <Link
@@ -55,7 +55,7 @@ export function CourseCard({ course, featured = false, grade }: CourseCardProps)
           <p className="line-clamp-2 min-h-12 text-sm leading-6 text-text-secondary">{subject.description}</p>
           <div className="mt-5 rounded-2xl bg-slate-50 p-4">
             <div className="flex items-center justify-between gap-3 text-xs font-black">
-              <span className="flex items-center gap-2 text-slate-700">{completed ? <CheckCircle2 className="size-4 text-emerald-600" /> : <Sparkles className="size-4 text-violet-600" />}{completed ? "Course complete" : "Adventure progress"}</span>
+              <span className="flex items-center gap-2 text-slate-700">{completed ? <CheckCircle2 className="size-4 text-emerald-600" /> : <Sparkles className="size-4 text-violet-600" />}{completed ? "Subject complete" : "Adventure progress"}</span>
               <span className={completed ? "text-emerald-700" : "text-violet-700"}>{course.progressPercent}%</span>
             </div>
             <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-slate-200">

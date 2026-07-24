@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { normalizeGhanaPhone } from "@/lib/auth/phone";
+import { resolveAppRole } from "@/lib/auth/roles";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { ensurePhoneLoginIdentity, findSupabaseUserByPhone, phoneIdentityEmail } from "@/lib/auth/supabase-phone-user";
 
@@ -24,7 +25,7 @@ export async function POST(request: Request) {
       console.error("Supabase sign-in failed:", error.message);
       throw new Error("Phone number or password is incorrect.");
     }
-    return NextResponse.json({ ok: true, role: data.user.app_metadata.role === "admin" ? "admin" : "student" });
+    return NextResponse.json({ ok: true, role: resolveAppRole(data.user.app_metadata.role) });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to sign in." }, { status: 400 });
   }

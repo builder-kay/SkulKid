@@ -52,7 +52,12 @@ Student accounts use Supabase Auth with a phone number and password. Clifze send
 5. Run the SQL files in `supabase/migrations` using the Supabase SQL Editor.
 6. Start the app.
 
-Public account routes are `/login`, `/signup`, and `/forgot-password`. Student and admin routes require a Supabase session once the Supabase variables are configured. New accounts receive the `student` role. Assign `app_metadata.role = "admin"` from a trusted server or the Supabase dashboard for administrators.
+Public account routes are `/login`, `/signup`, and `/forgot-password`. Student, teacher and admin routes require a Supabase session once the Supabase variables are configured. New accounts receive the `student` role.
+
+Assign roles from a trusted server or the Supabase dashboard:
+
+- `app_metadata.role = "teacher"` for the teacher content workspace (`/teacher`)
+- `app_metadata.role = "admin"` for the platform admin console (`/admin`)
 
 The access flow is:
 
@@ -61,12 +66,14 @@ Unauthenticated visitor
   -> /login or /signup
   -> Clifze phone verification for signup
   -> Supabase session cookie
-  -> /dashboard for students or /admin for administrators
+  -> /dashboard for students
+  -> /teacher for teachers
+  -> /admin for platform administrators
 ```
 
-Opening `/`, a student route, an admin page, or an admin API directly cannot
+Opening `/`, a student route, a staff page, or a staff API directly cannot
 bypass authentication. Student accounts receive `401/403` protection from
-admin APIs, and authenticated users are redirected away from account screens
+teacher/admin APIs, and authenticated users are redirected away from account screens
 to the correct role home.
 
 ## Database
@@ -135,12 +142,13 @@ The engine is deterministic and rule-based. No machine learning is used in Phase
 ## Preview Routes
 
 - `/dashboard` shows the current student dashboard shell
-- `/courses` shows course navigation
+- `/courses` shows subject navigation
 - `/courses/mathematics` shows the Mathematics learning path
 - `/preview/lessons` lists the sample lessons and metadata
 - `/preview/lessons/[lessonId]` renders all typed lesson blocks for a lesson
 - `/preview/design-system` documents the design-system foundation
-- `/admin/curriculum-studio` creates validated AI-assisted drafts from Mathematics, English and Science curriculum files
+- `/teacher/curriculum-studio` creates validated AI-assisted drafts from Mathematics, English and Science curriculum files
+- `/admin` is the platform control centre for users, subject oversight, moderation, activity and system settings
 
 Question blocks support local preview interaction only. No progress is persisted yet.
 

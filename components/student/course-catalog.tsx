@@ -30,12 +30,6 @@ export function CourseCatalog() {
   return (
     <StudentShell activeItem="courses">
       <main className="mx-auto w-full max-w-7xl space-y-5 sm:space-y-6">
-        <StudentPageNav
-          backHref="/dashboard"
-          backLabel="Back to dashboard"
-          crumbs={[{ label: "Home", href: "/dashboard" }, { label: "Courses" }]}
-        />
-
         <header className="relative overflow-hidden rounded-[1.75rem] bg-gradient-to-br from-slate-950 via-indigo-950 to-violet-800 p-5 text-white shadow-[0_22px_60px_rgba(49,46,129,.24)] sm:rounded-[2rem] sm:p-8 lg:p-10">
           <div className="pointer-events-none absolute -right-16 -top-16 size-56 rounded-full bg-fuchsia-400/20 blur-2xl" />
           <div className="pointer-events-none absolute -bottom-24 left-1/3 size-64 rounded-full bg-cyan-400/15 blur-3xl" />
@@ -46,13 +40,13 @@ export function CourseCatalog() {
                 Learning map
               </div>
               <h1 className="mt-4 max-w-2xl text-3xl font-black leading-tight sm:text-4xl lg:text-5xl">
-                Pick a course. Start your next adventure.
+                Pick a subject. Start your next adventure.
               </h1>
               <p className="mt-3 max-w-xl text-sm leading-6 text-slate-300 sm:text-base sm:leading-7">
                 Complete missions, collect XP and watch every learning path fill up.
               </p>
               <div className="mt-5 grid max-w-xl grid-cols-3 gap-2 sm:gap-3">
-                <HeroStat icon={BookOpen} label="Live courses" value={courseSummaries.length} />
+                <HeroStat icon={BookOpen} label="Live subjects" value={courseSummaries.length} />
                 <HeroStat icon={CheckCircle2} label="Lessons done" value={completedLessons} />
                 <HeroStat icon={Trophy} label="Paths started" value={coursesStarted} />
               </div>
@@ -68,13 +62,19 @@ export function CourseCatalog() {
           </div>
         </header>
 
+        <StudentPageNav
+          backHref="/dashboard"
+          backLabel="Back to dashboard"
+          crumbs={[{ label: "Home", href: "/dashboard" }, { label: "Subjects" }]}
+        />
+
         <section aria-labelledby="course-list-heading">
           <div className="mb-4 flex flex-col gap-4 px-1 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="text-xs font-black uppercase tracking-wider text-violet-700">Choose your quest</p>
-              <h2 className="mt-1 text-2xl font-black text-text-primary sm:text-3xl" id="course-list-heading">Your courses</h2>
+              <h2 className="mt-1 text-2xl font-black text-text-primary sm:text-3xl" id="course-list-heading">Your subjects</h2>
             </div>
-            <div className="flex min-w-0 items-center gap-2 overflow-x-auto pb-1" aria-label="Filter courses by grade">
+            <div className="flex min-w-0 items-center gap-2 overflow-x-auto pb-1" aria-label="Filter subjects by grade">
               <span className="sticky left-0 inline-flex min-h-10 shrink-0 items-center gap-2 rounded-xl bg-violet-100 px-3 text-xs font-black text-violet-800">
                 <GraduationCap className="size-4" />
                 Grade
@@ -93,7 +93,7 @@ export function CourseCatalog() {
             </div>
           </div>
           <div className="mb-4 flex items-center justify-between rounded-2xl border border-violet-100 bg-violet-50 px-4 py-3 text-sm">
-            <p className="font-bold text-violet-950">Showing courses for <span className="font-black">Grade {selectedGrade}</span></p>
+            <p className="font-bold text-violet-950">Showing subjects for <span className="font-black">Grade {selectedGrade}</span></p>
             {totalLessons > 0 ? <p className="hidden font-bold text-violet-700 sm:block">{completedLessons} of {totalLessons} lessons cleared</p> : null}
           </div>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -104,7 +104,7 @@ export function CourseCatalog() {
             ) : courseSummaries.map((course) => (
               <CourseCard course={course} featured={course.subject.name === "Mathematics"} grade={selectedGrade} key={course.subject.id} />
             ))}
-            {!loading && !courseSummaries.length ? <p className="col-span-full rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center font-bold text-muted">No courses are live yet.</p> : null}
+            {!loading && !courseSummaries.length ? <p className="col-span-full rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center font-bold text-muted">No subjects are live yet.</p> : null}
           </div>
         </section>
       </main>

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
+import { buildCourseLessonOrder } from "@/lib/courses/module-lesson-order";
 import type { Subject, Topic, Unit } from "@/types/subject";
 
 export type CourseStatus = "draft" | "published";
@@ -9,6 +10,8 @@ export type ManagedCourse = Subject & {
   status: CourseStatus;
   order: number;
   icon: string;
+  visibility: "platform" | "class";
+  ownerClassId: string | null;
 };
 
 export type CourseInput = {
@@ -27,8 +30,9 @@ const changedEvent = "skulkid:courses-changed";
 
 export async function readCourses(): Promise<ManagedCourse[]> {
   const supabase = createBrowserSupabaseClient();
+  const { data: { user } } = await supabase.auth.getUser();
   const [coursesResult, unitsResult, topicsResult, lessonsResult] = await Promise.all([
-    supabase.from("Subject").select("id,name,slug,description,icon,colourToken,coverUrl,gradeLevels,order,status").order("order"),
+    supabase.from("Subject").select("id,name,slug,description,icon,colourToken,coverUrl,gradeLevels,order,status,visibility,ownerClassId").order("order"),
     supabase.from("Unit").select("id,subjectId,name,slug,description,order").order("order"),
     supabase.from("Topic").select("id,unitId,name,slug,description,order").order("order"),
     supabase.from("AdminLessonRecord").select("id,courseId,unitId,topicId,status").eq("status", "published").order("position")
@@ -65,7 +69,16 @@ export async function readCourses(): Promise<ManagedCourse[]> {
     unitsByCourse.set(mapped.subjectId, [...(unitsByCourse.get(mapped.subjectId) ?? []), mapped]);
   }
 
-  return (coursesResult.data ?? []).map((course) => ({
+  let visibleCourses = coursesResult.data ?? [];
+  const role = user?.app_metadata?.role;
+  if (role === "teacher" && user) {
+    const { data: ownedClasses, error: classError } = await supabase.from("TeacherClass").select("id").eq("teacherId", user.id);
+    if (classError) throw classError;
+    const ownedIds = new Set((ownedClasses ?? []).map((item) => String(item.id)));
+    visibleCourses = visibleCourses.filter((course) => course.visibility !== "class" || ownedIds.has(String(course.ownerClassId)));
+  }
+
+  return visibleCourses.map((course) => ({
     id: String(course.id),
     name: String(course.name),
     slug: String(course.slug),
@@ -76,7 +89,9 @@ export async function readCourses(): Promise<ManagedCourse[]> {
     units: unitsByCourse.get(String(course.id)) ?? [],
     status: course.status === "ACTIVE" ? "published" : "draft",
     order: Number(course.order),
-    icon: String(course.icon)
+    icon: String(course.icon),
+    visibility: course.visibility === "class" ? "class" : "platform",
+    ownerClassId: course.ownerClassId ? String(course.ownerClassId) : null
   }));
 }
 
@@ -132,8 +147,9 @@ export async function setCourseStatus(id: string, status: CourseStatus) {
 export async function saveUnit(courseId: string, input: { id?: string; title: string; description: string }) {
   const supabase = createBrowserSupabaseClient();
   const countResult = input.id ? null : await supabase.from("Unit").select("id", { count: "exact", head: true }).eq("subjectId", courseId);
+  const id = input.id ?? `unit-${crypto.randomUUID()}`;
   const { error } = await supabase.from("Unit").upsert({
-    id: input.id ?? `unit-${crypto.randomUUID()}`,
+    id,
     subjectId: courseId,
     name: input.title.trim(),
     slug: slugify(input.title),
@@ -143,6 +159,7 @@ export async function saveUnit(courseId: string, input: { id?: string; title: st
   }, { onConflict: "id" });
   if (error) throw error;
   notify();
+  return id;
 }
 
 export async function saveTopic(unitId: string, input: { id?: string; title: string; description: string }) {
@@ -178,9 +195,91 @@ export async function attachLessonToTopic(lessonId: string, courseId: string, un
   const supabase = createBrowserSupabaseClient();
   const { error } = await supabase.from("AdminLessonRecord").update({ courseId, unitId, topicId }).eq("id", lessonId);
   if (error) throw error;
+  await renumberCourseByModules(courseId);
   window.dispatchEvent(new Event("skulkid:lessons-changed"));
   notify();
 }
+
+/** Link a lesson to a module (Unit) and place it at the end of that module's order. */
+export async function attachLessonToModule(lessonId: string, courseId: string, unitId: string, unitTitle: string) {
+  const supabase = createBrowserSupabaseClient();
+  const { data, error: readError } = await supabase.from("AdminLessonRecord").select("record").eq("id", lessonId).maybeSingle();
+  if (readError) throw readError;
+  const record = data?.record && typeof data.record === "object" ? data.record as Record<string, unknown> : null;
+  const nextRecord = record
+    ? { ...record, courseId, unitId, unit: unitTitle, chapter: unitTitle }
+    : null;
+  const { error } = await supabase.from("AdminLessonRecord").update({
+    courseId,
+    unitId,
+    ...(nextRecord ? { record: nextRecord } : {})
+  }).eq("id", lessonId);
+  if (error) throw error;
+
+  const { data: moduleLessons, error: listError } = await supabase
+    .from("AdminLessonRecord")
+    .select("id")
+    .eq("courseId", courseId)
+    .eq("unitId", unitId)
+    .order("position");
+  if (listError) throw listError;
+  const orderedIds = [...(moduleLessons ?? []).map((row) => String(row.id)).filter((id) => id !== lessonId), lessonId];
+  await renumberCourseByModules(courseId, { [unitId]: orderedIds });
+  window.dispatchEvent(new Event("skulkid:lessons-changed"));
+  notify();
+}
+
+export async function writeModuleLessonOrder(courseId: string, unitId: string, orderedIds: string[]) {
+  const supabase = createBrowserSupabaseClient();
+  const uniqueIds = [...new Set(orderedIds)];
+  const results = await Promise.all(
+    uniqueIds.map((id) => supabase.from("AdminLessonRecord").update({ courseId, unitId }).eq("id", id))
+  );
+  const failure = results.find((result) => result.error)?.error;
+  if (failure) throw failure;
+  await renumberCourseByModules(courseId, { [unitId]: uniqueIds });
+  window.dispatchEvent(new Event("skulkid:lessons-changed"));
+  notify();
+}
+
+export async function detachLessonFromModule(lessonId: string, courseId: string) {
+  const supabase = createBrowserSupabaseClient();
+  const { error } = await supabase.from("AdminLessonRecord").update({ unitId: null, topicId: null }).eq("id", lessonId);
+  if (error) throw error;
+  await renumberCourseByModules(courseId);
+  window.dispatchEvent(new Event("skulkid:lessons-changed"));
+  notify();
+}
+
+/**
+ * Rebuild subject-wide `position` from module order, then lesson order inside each module.
+ * Overrides let a module supply an explicit lesson id sequence (for reorder / attach).
+ */
+export async function renumberCourseByModules(courseId: string, overrides: Record<string, string[]> = {}) {
+  const supabase = createBrowserSupabaseClient();
+  const [unitsResult, lessonsResult] = await Promise.all([
+    supabase.from("Unit").select("id").eq("subjectId", courseId).order("order"),
+    supabase.from("AdminLessonRecord").select("id,unitId").eq("courseId", courseId).order("position")
+  ]);
+  if (unitsResult.error) throw unitsResult.error;
+  if (lessonsResult.error) throw lessonsResult.error;
+
+  const finalOrder = buildCourseLessonOrder(
+    (unitsResult.data ?? []).map((unit) => String(unit.id)),
+    (lessonsResult.data ?? []).map((lesson) => ({ id: String(lesson.id), unitId: lesson.unitId ? String(lesson.unitId) : null })),
+    overrides
+  );
+
+  if (!finalOrder.length) return;
+  const results = await Promise.all(
+    finalOrder.map((id, position) => supabase.from("AdminLessonRecord").update({ position }).eq("id", id))
+  );
+  const failure = results.find((result) => result.error)?.error;
+  if (failure) throw failure;
+}
+
+export { buildCourseLessonOrder } from "@/lib/courses/module-lesson-order";
+
 
 export function useCourses() {
   const [courses, setCourses] = useState<ManagedCourse[]>([]);

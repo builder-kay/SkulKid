@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Award, BookOpen, LayoutDashboard, LogOut, Trophy, UserRound, X } from "lucide-react";
+import { Award, BookOpen, LayoutDashboard, LogOut, Trophy, UserRound, Users, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { GamificationArena } from "@/components/gamification/gamification-arena";
 import { CharacterAvatar } from "@/components/student/character-avatar";
@@ -15,11 +15,13 @@ import { cn } from "@/lib/utils";
 import { useStudentGame } from "@/lib/gamification/student-game";
 import { useStudentProfile } from "@/lib/student/student-profile";
 
-export type StudentNavItem = "dashboard" | "courses" | "mathematics" | "preview" | "leaderboard" | "achievements" | "profile";
+export type StudentNavItem = "dashboard" | "courses" | "classes" | "mathematics" | "preview" | "leaderboard" | "achievements" | "profile";
 
 export type StudentShellProps = {
   activeItem: StudentNavItem;
   children: React.ReactNode;
+  /** Replaces the mobile rewards drawer content (e.g. class leaderboard). */
+  mobileAside?: React.ReactNode;
 };
 
 const navItems: Array<{
@@ -30,13 +32,15 @@ const navItems: Array<{
   icon: LucideIcon;
 }> = [
   { id: "dashboard", href: "/dashboard", label: "Dashboard", mobileLabel: "Home", icon: LayoutDashboard },
-  { id: "courses", href: "/courses", label: "Courses", mobileLabel: "Courses", icon: BookOpen },
+  { id: "courses", href: "/courses", label: "Subjects", mobileLabel: "Subjects", icon: BookOpen },
+  { id: "classes", href: "/classes", label: "My Classes", mobileLabel: "Classes", icon: Users },
   { id: "leaderboard", href: "/leaderboard", label: "Leaderboard", mobileLabel: "League", icon: Trophy },
-  { id: "achievements", href: "/achievements", label: "Rewards & Achievements", mobileLabel: "Rewards", icon: Award }
-  ,{ id: "profile", href: "/profile", label: "My Avatar", mobileLabel: "Avatar", icon: UserRound }
+  { id: "achievements", href: "/achievements", label: "Rewards & Achievements", mobileLabel: "Rewards", icon: Award },
+  { id: "profile", href: "/profile", label: "My Avatar", mobileLabel: "Avatar", icon: UserRound }
 ];
 
-export function StudentShell({ activeItem, children }: StudentShellProps) {
+
+export function StudentShell({ activeItem, children, mobileAside }: StudentShellProps) {
   const [rewardsNavOpen, setRewardsNavOpen] = useState(false);
   const [signOutOpen, setSignOutOpen] = useState(false);
   const { state } = useStudentGame();
@@ -73,7 +77,7 @@ export function StudentShell({ activeItem, children }: StudentShellProps) {
           <button
             aria-controls="mobile-rewards-navigation"
             aria-expanded={rewardsNavOpen}
-            aria-label="Open rewards navigation"
+            aria-label={mobileAside ? "Open class leaderboard" : "Open rewards navigation"}
             className="grid size-11 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-amber-50 to-amber-100 shadow-[inset_0_1px_0_rgba(255,255,255,.7)] ring-1 ring-amber-200/80 transition hover:from-amber-100 hover:to-amber-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-600"
             onClick={() => setRewardsNavOpen(true)}
             type="button"
@@ -92,7 +96,7 @@ export function StudentShell({ activeItem, children }: StudentShellProps) {
         onClick={() => setRewardsNavOpen(false)}
       />
       <aside
-        aria-label="Student rewards navigation"
+        aria-label={mobileAside ? "Class leaderboard navigation" : "Student rewards navigation"}
         aria-modal="true"
         className={cn(
           "fixed inset-y-0 right-0 z-50 flex w-[min(92vw,24rem)] flex-col bg-slate-50 shadow-[-20px_0_55px_rgba(15,23,42,0.22)] transition-transform duration-300 ease-out lg:hidden",
@@ -122,7 +126,7 @@ export function StudentShell({ activeItem, children }: StudentShellProps) {
           </button>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-[calc(1rem+env(safe-area-inset-bottom))]">
-          {rewardsNavOpen ? <GamificationArena idPrefix="mobile-" /> : null}
+          {rewardsNavOpen ? (mobileAside ?? <GamificationArena idPrefix="mobile-" />) : null}
         </div>
       </aside>
 
@@ -190,8 +194,8 @@ export function StudentShell({ activeItem, children }: StudentShellProps) {
         aria-label="Mobile student navigation"
         className="fixed inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-40 rounded-[1.6rem] border border-white/90 bg-white/95 p-2 shadow-[0_18px_50px_rgba(15,23,42,0.18)] backdrop-blur lg:hidden"
       >
-        <div className="grid grid-cols-4 gap-1">
-          {navItems.filter((item) => ["dashboard", "courses", "leaderboard", "profile"].includes(item.id)).map((item) => (
+        <div className="grid grid-cols-5 gap-1">
+          {navItems.filter((item) => ["dashboard", "courses", "classes", "leaderboard", "profile"].includes(item.id)).map((item) => (
             <MobileNavLink active={activeItem === item.id} item={item} key={item.id} />
           ))}
         </div>

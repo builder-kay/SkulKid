@@ -28,19 +28,37 @@ export async function readGameState(): Promise<GameState> {
       const response = await fetch("/api/student/game-state", { cache: "no-store" });
       if (!response.ok) return currentGameState;
       const payload = await response.json() as { state: Partial<GameState> | null };
-      const saved = payload.state ?? {};
-      const state = { ...initialState, ...saved } as GameState;
-      if (!Array.isArray(state.completedVideoPromptIds)) state.completedVideoPromptIds = [];
-      if (!Array.isArray(state.unlockedAvatarAssetIds)) state.unlockedAvatarAssetIds = [];
-      if (typeof saved.avatarPoints !== "number") state.avatarPoints = state.xp;
-      if (!state.history.length) state.history = [{ id: "history-joined", type: "joined", title: "Joined SkulKid", detail: state.xp || state.stars ? "Earlier progress was imported when achievement history was introduced." : "Your learning adventure begins here.", xp: state.xp, stars: state.stars, rank: rankForXp(state.xp), createdAt: new Date().toISOString() }];
-      currentGameState = state.lastStreakDate && dayDifference(state.lastStreakDate, localDate()) > 1 ? { ...state, streak: 0 } : state;
-      gameStateHydrated = true;
-      return currentGameState;
+      return applyServerGameState(payload.state ?? {});
     } catch { return currentGameState; }
     finally { gameStateRequest = null; }
   })();
   return gameStateRequest;
+}
+
+/** Hydrate client progress from a server-authored state (e.g. after a class quiz). */
+export function applyServerGameState(saved: Partial<GameState> | Record<string, unknown> | null | undefined): GameState {
+  const state = { ...initialState, ...(saved ?? {}) } as GameState;
+  if (!Array.isArray(state.completedVideoPromptIds)) state.completedVideoPromptIds = [];
+  if (!Array.isArray(state.unlockedAvatarAssetIds)) state.unlockedAvatarAssetIds = [];
+  if (typeof (saved as Partial<GameState> | null | undefined)?.avatarPoints !== "number") state.avatarPoints = state.xp;
+  if (!Array.isArray(state.history) || !state.history.length) {
+    state.history = [{
+      id: "history-joined",
+      type: "joined",
+      title: "Joined SkulKid",
+      detail: state.xp || state.stars ? "Earlier progress was imported when achievement history was introduced." : "Your learning adventure begins here.",
+      xp: state.xp,
+      stars: state.stars,
+      rank: rankForXp(state.xp),
+      createdAt: new Date().toISOString()
+    }];
+  }
+  currentGameState = state.lastStreakDate && dayDifference(state.lastStreakDate, localDate()) > 1
+    ? { ...state, streak: 0 }
+    : state;
+  gameStateHydrated = true;
+  window.dispatchEvent(new CustomEvent(gameChangedEvent, { detail: currentGameState }));
+  return currentGameState;
 }
 function save(state: GameState) {
   currentGameState = state;

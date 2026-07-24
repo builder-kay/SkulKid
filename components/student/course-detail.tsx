@@ -97,7 +97,7 @@ export function CourseDetail({ subjectSlug }: CourseDetailProps) {
   const subject = courses.find((candidate) => candidate.slug === subjectSlug);
 
   if (loading) {
-    return <StudentShell activeItem="courses"><main className="mx-auto grid min-h-72 w-full max-w-6xl place-items-center"><p className="font-bold text-muted">Loading course…</p></main></StudentShell>;
+    return <StudentShell activeItem="courses"><main className="mx-auto grid min-h-72 w-full max-w-6xl place-items-center"><p className="font-bold text-muted">Loading subject…</p></main></StudentShell>;
   }
   if (!subject) {
     notFound();
@@ -125,10 +125,10 @@ export function CourseDetail({ subjectSlug }: CourseDetailProps) {
         <main className="mx-auto w-full max-w-5xl space-y-5">
           <StudentPageNav
             backHref="/courses"
-            backLabel="Back to courses"
+            backLabel="Back to subjects"
             crumbs={[
               { label: "Home", href: "/dashboard" },
-              { label: "Courses", href: "/courses" },
+              { label: "Subjects", href: "/courses" },
               { label: subject.name }
             ]}
           />
@@ -142,7 +142,7 @@ export function CourseDetail({ subjectSlug }: CourseDetailProps) {
               className="mt-6 inline-flex min-h-11 items-center gap-2 rounded-xl bg-white px-5 font-black text-slate-900"
               href="/courses"
             >
-              Browse courses
+              Browse subjects
             </Link>
           </section>
         </main>
@@ -169,7 +169,7 @@ export function CourseDetail({ subjectSlug }: CourseDetailProps) {
                 {unit?.description ?? subject.description}
               </p>
               <div className="mt-5 flex flex-wrap gap-2">
-                <HeroChip icon={Flag} label={topic?.title ?? "Course path"} />
+                <HeroChip icon={Flag} label={topic?.title ?? "Subject path"} />
                 <HeroChip icon={Clock} label={`${course.totalMinutes} min`} />
                 <HeroChip icon={Zap} label={`${course.totalXp} XP`} accent />
                 <HeroChip icon={Star} label={`${earnedStars}/${maxStars} stars`} accent />
@@ -229,10 +229,10 @@ export function CourseDetail({ subjectSlug }: CourseDetailProps) {
 
         <StudentPageNav
           backHref="/courses"
-          backLabel="Back to courses"
+          backLabel="Back to subjects"
           crumbs={[
             { label: "Home", href: "/dashboard" },
-            { label: "Courses", href: "/courses" },
+            { label: "Subjects", href: "/courses" },
             { label: subject.name, href: `/courses/${subject.slug}` },
             { label: unit?.title ?? "Mission path" }
           ]}
@@ -268,6 +268,9 @@ export function CourseDetail({ subjectSlug }: CourseDetailProps) {
               const isNext = nextLesson?.id === lesson.id;
               const lessonUnit = subject.units.find((candidate) => candidate.id === lesson.unitId);
               const lessonTopic = lessonUnit?.topics.find((candidate) => candidate.id === lesson.topicId);
+              const moduleLessonNumber = lessonUnit
+                ? course.lessons.filter((candidate) => candidate.unitId === lesson.unitId).findIndex((candidate) => candidate.id === lesson.id) + 1
+                : index + 1;
               const isLast = index === course.lessons.length - 1;
 
               return (
@@ -317,7 +320,11 @@ export function CourseDetail({ subjectSlug }: CourseDetailProps) {
                       <span className={cn("rounded-full px-2.5 py-1 text-xs font-black", statusCopy[status].tone)}>
                         {statusCopy[status].label}
                       </span>
-                      {subject.units.length > 1 && lessonTopic ? (
+                      {lessonUnit ? (
+                        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700">
+                          {lessonUnit.title} · Lesson {moduleLessonNumber}
+                        </span>
+                      ) : subject.units.length > 1 && lessonTopic ? (
                         <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700">
                           {lessonTopic.title}
                         </span>

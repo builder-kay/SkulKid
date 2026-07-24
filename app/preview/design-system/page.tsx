@@ -45,7 +45,7 @@ export default function DesignSystemPreviewPage() {
             A living foundation for accessible, friendly and reliable learning interfaces.
           </p>
         </div>
-        <Link className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-300 bg-white px-4 text-sm font-bold hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" href="/admin">Back to admin</Link>
+        <Link className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-300 bg-white px-4 text-sm font-bold hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" href="/teacher">Back to teacher workspace</Link>
       </header>
 
       <div className="grid gap-6">
@@ -119,7 +119,7 @@ export default function DesignSystemPreviewPage() {
         <Section title="Progress, Feedback And Badges">
           <div className="grid gap-4 lg:grid-cols-3">
             <SkulKidCard className="space-y-4 p-5">
-              <ProgressBar label="Course progress" value={66} />
+              <ProgressBar label="Subject progress" value={66} />
               <ProgressRing label="Daily goal" value={72} />
             </SkulKidCard>
             <SkulKidCard className="space-y-3 p-5">
