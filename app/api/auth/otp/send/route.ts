@@ -8,6 +8,7 @@ import {
   findSupabaseUserByUsername
 } from "@/lib/auth/student-identity";
 import { findSupabaseUserByPhone } from "@/lib/auth/supabase-phone-user";
+import { platformActionUrl } from "@/lib/auth/sms-links";
 
 const signupSchema = z.object({
   purpose: z.literal("signup"),
@@ -64,7 +65,11 @@ async function handleSignupOtp(input: z.infer<typeof signupSchema>, request: Req
     }
   }
 
-  await sendOtp(phone, "signup");
+  await sendOtp(
+    phone,
+    input.role === "teacher" ? "teacher-signup" : "learner-signup",
+    platformActionUrl(request, input.role === "teacher" ? "/signup/teacher" : "/signup/student")
+  );
   return NextResponse.json({ ok: true });
 }
 
@@ -90,7 +95,7 @@ async function handlePasswordResetOtp(input: z.infer<typeof resetSchema>, reques
     if (!allowOtpRequest(`${forwardedFor}:${phone}`)) {
       return NextResponse.json({ error: "Too many codes requested. Please wait 10 minutes." }, { status: 429 });
     }
-    await sendOtp(phone, "password-reset");
+    await sendOtp(phone, "learner-password-reset", platformActionUrl(request, "/forgot-password"));
     return NextResponse.json({ ok: true, phoneHint: maskPhone(phone) });
   }
 
@@ -110,7 +115,7 @@ async function handlePasswordResetOtp(input: z.infer<typeof resetSchema>, reques
       actions: ["signup"]
     }, { status: 404 });
   }
-  await sendOtp(phone, "password-reset");
+  await sendOtp(phone, "teacher-password-reset", platformActionUrl(request, "/forgot-password/teacher"));
   return NextResponse.json({ ok: true });
 }
 

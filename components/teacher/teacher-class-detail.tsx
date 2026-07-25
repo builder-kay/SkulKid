@@ -437,6 +437,10 @@ export function TeacherClassDetail({ classId }: { classId: string }) {
 
       {tab === "quizzes" ? (
         <section className="grid gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-[1.5rem] bg-gradient-to-r from-violet-700 to-blue-700 p-5 text-white">
+            <div><h2 className="text-xl font-black">Reusable quiz library</h2><p className="mt-1 text-sm text-violet-100">Assign an existing challenge to this class or several classes at once.</p></div>
+            <Link className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-white px-4 text-sm font-black text-violet-800" href="/teacher/quizzes"><ClipboardList className="size-4" />Open quiz library</Link>
+          </div>
           <form className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm" onSubmit={createQuiz}>
             <h2 className="text-xl font-black">Create a class quiz</h2>
             <p className="mt-1 text-sm text-slate-600">Set a deadline, XP reward, attempts and passing score. Results feed into student gamification.</p>

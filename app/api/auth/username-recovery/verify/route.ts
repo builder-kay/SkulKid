@@ -9,6 +9,7 @@ import {
 } from "@/lib/auth/username-recovery-matching";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getRecoveryAttempt, updateRecoveryAttempt } from "@/lib/auth/username-recovery";
+import { platformActionUrl, recoveredUsernameSms } from "@/lib/auth/sms-links";
 
 const schema = z.object({
   attemptId: z.string().uuid(),
@@ -61,7 +62,7 @@ export async function POST(request: Request) {
     try {
       await sendSms(
         attempt.phone,
-        `Your SkulKid username is: ${username}. Use it to sign in. Do not share this message.`
+        recoveredUsernameSms(username, platformActionUrl(request, "/login/student"))
       );
     } catch (error) {
       await admin.from("UsernameRecoveryAttempt")

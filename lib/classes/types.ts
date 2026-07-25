@@ -10,6 +10,7 @@ export type ClassQuizQuestion = {
   type: "multiple_choice" | "true_false";
   options: string[];
   correctIndex: number;
+  explanation?: string;
 };
 
 export type TeacherClassSummary = {

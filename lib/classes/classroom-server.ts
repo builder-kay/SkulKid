@@ -1297,6 +1297,13 @@ export async function submitClassQuiz(input: {
     attemptsUsed: nextAttemptsUsed,
     maxAttempts
   });
+  const review = passed || !canRetake ? questions.map((question) => ({
+    questionId: question.id,
+    prompt: question.prompt,
+    correctIndex: question.correctIndex,
+    correctAnswer: question.options[question.correctIndex],
+    explanation: question.explanation ?? ""
+  })) : undefined;
 
   if (xpAwarded > 0 || starsAwarded > 0) {
     const { data: gameRow } = await admin.from("StudentGameState").select("state").eq("userId", input.studentId).maybeSingle();
@@ -1384,6 +1391,7 @@ export async function submitClassQuiz(input: {
       bestScore,
       gameState: nextState,
       appliesToPlatform: true as const
+      ,review
     };
   }
 
@@ -1398,6 +1406,7 @@ export async function submitClassQuiz(input: {
     canRetake,
     bestScore,
     appliesToPlatform: true as const
+    ,review
   };
 }
 

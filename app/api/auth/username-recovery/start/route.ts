@@ -14,6 +14,7 @@ import {
   getRecoveryAttempt,
   updateRecoveryAttempt
 } from "@/lib/auth/username-recovery";
+import { platformActionUrl } from "@/lib/auth/sms-links";
 
 const phoneSchema = z.object({
   action: z.literal("phone"),
@@ -55,7 +56,7 @@ export async function POST(request: Request) {
           stage: "otp",
           selectedUserId: students[0].id
         });
-        await sendRecoveryOtp(phone, requester);
+        await sendRecoveryOtp(phone, requester, platformActionUrl(request, "/forgot-username"));
         return NextResponse.json({ ok: true, attemptId: attempt.id, nextStep: "otp" });
       }
       const attempt = await createRecoveryAttempt({ phone, stage: "identity" });
@@ -96,7 +97,7 @@ export async function POST(request: Request) {
         grade: input.grade,
         identityAttempts: attempt.identityAttempts + 1
       });
-      await sendRecoveryOtp(attempt.phone, requester);
+      await sendRecoveryOtp(attempt.phone, requester, platformActionUrl(request, "/forgot-username"));
       return NextResponse.json({ ok: true, attemptId: attempt.id, nextStep: "otp" });
     }
 
@@ -127,7 +128,7 @@ export async function POST(request: Request) {
       learnerName: normalizeLearnerName(input.learnerName),
       identityAttempts: attempt.identityAttempts + 1
     });
-    await sendRecoveryOtp(attempt.phone, requester);
+    await sendRecoveryOtp(attempt.phone, requester, platformActionUrl(request, "/forgot-username"));
     return NextResponse.json({ ok: true, attemptId: attempt.id, nextStep: "otp" });
   } catch (error) {
     return NextResponse.json({
@@ -136,9 +137,9 @@ export async function POST(request: Request) {
   }
 }
 
-async function sendRecoveryOtp(phone: string, requester: string) {
+async function sendRecoveryOtp(phone: string, requester: string, actionUrl: string) {
   if (!allowOtpRequest(`username-recovery:${requester}:${phone}`)) {
     throw new Error("Too many codes requested. Please wait 10 minutes.");
   }
-  await sendOtp(phone, "username-recovery");
+  await sendOtp(phone, "username-recovery", actionUrl);
 }

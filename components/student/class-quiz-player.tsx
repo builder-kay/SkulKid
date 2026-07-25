@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ArrowLeft, CheckCircle2, Loader2, Trophy } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2, Loader2, Star, Trophy } from "lucide-react";
 import { StudentShell } from "@/components/student/student-shell";
 import { StudentPageNav } from "@/components/student/student-page-nav";
 import { applyServerGameState } from "@/lib/gamification/student-game";
@@ -41,6 +41,7 @@ type SubmitResult = {
   bestScore: number;
   gameState?: Partial<GameState>;
   appliesToPlatform?: boolean;
+  review?: Array<{questionId:string;prompt:string;correctAnswer:string;explanation:string}>;
 };
 
 export function ClassQuizPlayer({ classId, quizId }: { classId: string; quizId: string }) {
@@ -51,6 +52,7 @@ export function ClassQuizPlayer({ classId, quizId }: { classId: string; quizId: 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [questionIndex, setQuestionIndex] = useState(0);
 
   useEffect(() => {
     void (async () => {
@@ -160,6 +162,7 @@ export function ClassQuizPlayer({ classId, quizId }: { classId: string; quizId: 
     setResult(null);
     setRetaking(true);
     setError("");
+    setQuestionIndex(0);
   }
 
   if (loading) {
@@ -193,6 +196,7 @@ export function ClassQuizPlayer({ classId, quizId }: { classId: string; quizId: 
               : `Attempts used ${result?.attemptsUsed ?? payload.attemptsUsed} of ${payload.quiz.maxAttempts}`}
           </p>
           {payload.quiz.deadline ? <p className="mt-2 text-sm font-bold text-amber-700">Deadline {new Date(payload.quiz.deadline).toLocaleString()}</p> : null}
+          {showForm ? <div className="mt-4 flex items-center gap-3"><div className="h-2.5 flex-1 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-gradient-to-r from-violet-600 to-blue-500 transition-all motion-reduce:transition-none" style={{width:`${((questionIndex+1)/payload.quiz.questions.length)*100}%`}}/></div><span className="text-xs font-black">{questionIndex+1}/{payload.quiz.questions.length}</span></div>:null}
         </header>
         <StudentPageNav
           backHref={`/classes/${classId}`}
@@ -206,10 +210,11 @@ export function ClassQuizPlayer({ classId, quizId }: { classId: string; quizId: 
 
         {result && !retaking ? (
           <section className="rounded-[1.75rem] border border-emerald-200 bg-emerald-50 p-6 text-emerald-950">
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
               {result.passed ? <Trophy className="size-8 text-amber-500" /> : <CheckCircle2 className="size-8 text-emerald-600" />}
               <div>
                 <h2 className="text-2xl font-black">{result.passed ? "Great work!" : "Quiz submitted"}</h2>
+                <div className="mt-2 flex justify-center gap-1 sm:justify-start" aria-label={`${result.starsAwarded} stars earned`}>{[1,2,3].map(star=><Star className={`size-7 ${star<=result.starsAwarded?"fill-amber-400 text-amber-400":"text-slate-300"}`} key={star}/>)}</div>
                 <p className="text-sm">Score {result.scorePercentage}% · {result.xpAwarded} XP earned · {result.starsAwarded} stars earned</p>
                 <p className="mt-1 text-sm">Best score {result.bestScore}% · Attempt {result.attemptNumber} of {result.maxAttempts}</p>
                 {result.xpAwarded > 0 || result.starsAwarded > 0 ? (
@@ -227,10 +232,11 @@ export function ClassQuizPlayer({ classId, quizId }: { classId: string; quizId: 
               ) : null}
               <Link className="inline-flex rounded-xl border border-emerald-300 bg-white px-4 py-2 text-sm font-black text-emerald-900" href={`/classes/${classId}`}>Return to class</Link>
             </div>
+            {result.review?.length ? <div className="mt-6 grid gap-3 text-left">{result.review.map((item,index)=><article className="rounded-xl border border-emerald-200 bg-white p-4" key={item.questionId}><p className="text-xs font-black uppercase text-emerald-700">Question {index+1}</p><h3 className="mt-1 font-black">{item.prompt}</h3><p className="mt-2 text-sm"><b>Correct answer:</b> {item.correctAnswer}</p>{item.explanation?<p className="mt-1 text-sm text-slate-600">{item.explanation}</p>:null}</article>)}</div>:null}
           </section>
         ) : (
           <form className="grid gap-4" onSubmit={submit}>
-            {payload.quiz.questions.map((question, index) => (
+            {payload.quiz.questions.map((question, index) => index !== questionIndex ? null : (
               <fieldset className="rounded-[1.5rem] border border-slate-200 bg-white p-5" key={question.id}>
                 <legend className="px-1 text-sm font-black text-slate-500">Question {index + 1}</legend>
                 <p className="mt-1 font-black text-slate-950">{question.prompt}</p>
@@ -252,10 +258,11 @@ export function ClassQuizPlayer({ classId, quizId }: { classId: string; quizId: 
               </fieldset>
             ))}
             {error ? <p className="text-sm font-bold text-amber-800">{error}</p> : null}
-            <button className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-primary px-5 font-black text-white disabled:opacity-60" disabled={submitting} type="submit">
-              {submitting ? <Loader2 className="size-4 animate-spin" /> : <Trophy className="size-4" />}
-              Submit quiz
-            </button>
+            <div className="flex justify-between gap-3">
+              <button className="inline-flex min-h-12 items-center gap-2 rounded-xl border px-5 font-black disabled:opacity-40" disabled={questionIndex===0} onClick={()=>setQuestionIndex(i=>i-1)} type="button"><ArrowLeft className="size-4"/>Back</button>
+              {questionIndex < payload.quiz.questions.length-1 ? <button className="inline-flex min-h-12 items-center gap-2 rounded-xl bg-primary px-5 font-black text-white disabled:opacity-50" disabled={answers[payload.quiz.questions[questionIndex].id]===undefined} onClick={()=>setQuestionIndex(i=>i+1)} type="button">Next<ArrowRight className="size-4"/></button>:
+              <button className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-amber-400 px-5 font-black text-slate-950 disabled:opacity-60" disabled={submitting||Object.keys(answers).length<payload.quiz.questions.length} type="submit">{submitting?<Loader2 className="size-4 animate-spin"/>:<Trophy className="size-4"/>}Submit challenge</button>}
+            </div>
           </form>
         )}
       </main>

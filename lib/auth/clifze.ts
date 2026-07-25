@@ -1,4 +1,5 @@
 import "server-only";
+import { otpSmsMessage, type OtpSmsReason } from "@/lib/auth/sms-links";
 
 const baseUrl = "https://clifze.shop/api/v1";
 
@@ -23,13 +24,8 @@ async function request(path: string, fields: Record<string, string>) {
   return result;
 }
 
-export function sendOtp(recipient: string, purpose: "signup" | "password-reset" | "username-recovery") {
-  const message = purpose === "signup"
-    ? "Your SkulKid signup code is [otp]. It expires in 10 minutes."
-    : purpose === "password-reset"
-      ? "Your SkulKid password reset code is [otp]. It expires in 10 minutes."
-      : "Your SkulKid username recovery code is [otp]. It expires in 10 minutes.";
-  return request("/otp/send", { recipient, message, expiry: "10" });
+export function sendOtp(recipient: string, reason: OtpSmsReason, actionUrl: string) {
+  return request("/otp/send", { recipient, message: otpSmsMessage(reason, actionUrl), expiry: "10" });
 }
 
 export function verifyOtp(recipient: string, otpCode: string) {
