@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 import { buildCourseLessonOrder } from "@/lib/courses/module-lesson-order";
-import type { Subject, Topic, Unit } from "@/types/subject";
+import type { Subject } from "@/types/subject";
 
 export type CourseStatus = "draft" | "published";
 export type ManagedCourse = Subject & {
@@ -29,70 +29,10 @@ export type CourseInput = {
 const changedEvent = "skulkid:courses-changed";
 
 export async function readCourses(): Promise<ManagedCourse[]> {
-  const supabase = createBrowserSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  const [coursesResult, unitsResult, topicsResult, lessonsResult] = await Promise.all([
-    supabase.from("Subject").select("id,name,slug,description,icon,colourToken,coverUrl,gradeLevels,order,status,visibility,ownerClassId").order("order"),
-    supabase.from("Unit").select("id,subjectId,name,slug,description,order").order("order"),
-    supabase.from("Topic").select("id,unitId,name,slug,description,order").order("order"),
-    supabase.from("AdminLessonRecord").select("id,courseId,unitId,topicId,status").eq("status", "published").order("position")
-  ]);
-  const error = coursesResult.error ?? unitsResult.error ?? topicsResult.error ?? lessonsResult.error;
-  if (error) throw error;
-
-  const lessons = lessonsResult.data ?? [];
-  const topicsByUnit = new Map<string, Topic[]>();
-  for (const topic of topicsResult.data ?? []) {
-    const mapped: Topic = {
-      id: String(topic.id),
-      unitId: String(topic.unitId),
-      title: String(topic.name),
-      slug: String(topic.slug),
-      description: String(topic.description),
-      order: Number(topic.order),
-      lessonIds: lessons.filter((lesson) => lesson.topicId === topic.id).map((lesson) => String(lesson.id))
-    };
-    topicsByUnit.set(mapped.unitId, [...(topicsByUnit.get(mapped.unitId) ?? []), mapped]);
-  }
-
-  const unitsByCourse = new Map<string, Unit[]>();
-  for (const unit of unitsResult.data ?? []) {
-    const mapped: Unit = {
-      id: String(unit.id),
-      subjectId: String(unit.subjectId),
-      title: String(unit.name),
-      slug: String(unit.slug),
-      description: String(unit.description),
-      order: Number(unit.order),
-      topics: topicsByUnit.get(String(unit.id)) ?? []
-    };
-    unitsByCourse.set(mapped.subjectId, [...(unitsByCourse.get(mapped.subjectId) ?? []), mapped]);
-  }
-
-  let visibleCourses = coursesResult.data ?? [];
-  const role = user?.app_metadata?.role;
-  if (role === "teacher" && user) {
-    const { data: ownedClasses, error: classError } = await supabase.from("TeacherClass").select("id").eq("teacherId", user.id);
-    if (classError) throw classError;
-    const ownedIds = new Set((ownedClasses ?? []).map((item) => String(item.id)));
-    visibleCourses = visibleCourses.filter((course) => course.visibility !== "class" || ownedIds.has(String(course.ownerClassId)));
-  }
-
-  return visibleCourses.map((course) => ({
-    id: String(course.id),
-    name: String(course.name),
-    slug: String(course.slug),
-    description: String(course.description),
-    color: String(course.colourToken),
-    coverUrl: typeof course.coverUrl === "string" ? course.coverUrl : null,
-    gradeLevels: Array.isArray(course.gradeLevels) ? course.gradeLevels.map(Number) : [],
-    units: unitsByCourse.get(String(course.id)) ?? [],
-    status: course.status === "ACTIVE" ? "published" : "draft",
-    order: Number(course.order),
-    icon: String(course.icon),
-    visibility: course.visibility === "class" ? "class" : "platform",
-    ownerClassId: course.ownerClassId ? String(course.ownerClassId) : null
-  }));
+  const response = await fetch("/api/teacher/catalog", { cache: "no-store" });
+  const result = await response.json() as { courses?: ManagedCourse[]; error?: string };
+  if (!response.ok) throw new Error(result.error || "Could not load courses.");
+  return result.courses ?? [];
 }
 
 export async function saveCourse(input: CourseInput) {

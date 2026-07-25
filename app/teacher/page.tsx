@@ -4,7 +4,6 @@ import {
   Bot,
   CheckCircle2,
   CircleAlert,
-  Eye,
   FileText,
   Plus,
   Settings2,
@@ -36,7 +35,7 @@ export default function AdminDashboardPage() {
               Build learning paths pupils want to finish.
             </h1>
             <p className="mt-4 max-w-2xl text-base leading-7 text-slate-200 sm:text-lg">
-              Create lessons, transform official curricula, check quality and preview the complete pupil experience from one workspace.
+              Create lessons, transform official curricula and guide pupil learning from one workspace.
             </p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row xl:flex-col">
@@ -77,7 +76,6 @@ export default function AdminDashboardPage() {
             <QuickAction href="/teacher/lessons/new" icon={SquarePen} title="Write a lesson" text="Add teaching material, quizzes and rewards manually." />
             <QuickAction href="/teacher/lessons/new" icon={Bot} title="Extract a lesson with AI" text="Upload a lesson note and receive an editable lesson and quiz draft." />
             <QuickAction href="/teacher/curriculum" icon={FileText} title="Browse official curricula" text="Filter NaCCA sources by grade and subject." />
-            <QuickAction href="/preview/lessons" icon={Eye} title="Preview pupil lessons" text="Test published blocks and feedback states." />
           </div>
         </SkulKidCard>
 

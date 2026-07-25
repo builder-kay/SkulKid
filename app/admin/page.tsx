@@ -3,6 +3,8 @@ import {
   Activity,
   ArrowRight,
   BookOpenCheck,
+  Plus,
+  Scale,
   ShieldAlert,
   Users,
   Settings2,
@@ -16,7 +18,8 @@ export default function PlatformAdminHomePage() {
     <main className="mx-auto w-full max-w-[90rem] space-y-6">
       <header className="relative overflow-hidden rounded-[2rem] border border-emerald-200 bg-gradient-to-br from-slate-950 via-emerald-950 to-teal-800 p-6 text-white shadow-[var(--shadow-card)] sm:p-8 lg:p-10">
         <div className="pointer-events-none absolute -right-20 -top-24 size-80 rounded-full bg-emerald-400/20 blur-3xl" />
-        <div className="relative">
+        <div className="relative flex flex-col gap-7 lg:flex-row lg:items-end lg:justify-between">
+          <div>
           <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-black uppercase tracking-wider text-emerald-100">
             <Sparkles className="size-4" />
             Platform control centre
@@ -27,18 +30,27 @@ export default function PlatformAdminHomePage() {
           <p className="mt-4 max-w-2xl text-base leading-7 text-emerald-50/90 sm:text-lg">
             Manage users, review teacher subjects, moderate content, configure system settings and monitor platform activity.
           </p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <Link className="inline-flex min-h-12 items-center gap-2 rounded-xl bg-white px-5 font-black text-slate-950 shadow-lg hover:bg-emerald-50" href="/admin/moderation"><ShieldAlert className="size-4" />Review content</Link>
+            <Link className="inline-flex min-h-12 items-center gap-2 rounded-xl border border-white/25 bg-white/10 px-5 font-black text-white hover:bg-white/15" href="/teacher/lessons/new"><Plus className="size-4" />Create lesson</Link>
+          </div>
         </div>
       </header>
 
       <PlatformAdminOverview />
 
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div><p className="text-xs font-black uppercase tracking-wider text-emerald-700">Common tasks</p><h2 className="mt-1 text-2xl font-black">Manage the platform</h2></div>
+        <Link className="inline-flex items-center gap-1 text-sm font-bold text-emerald-700" href="/admin/activity">See all activity <ArrowRight className="size-4" /></Link>
+      </div>
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <AdminCard href="/admin/users" icon={Users} title="Manage users" text="View learners, teachers and admins. Update roles and account status." />
         <AdminCard href="/admin/courses" icon={BookOpenCheck} title="Teacher subjects" text="Review subjects and learning paths published by teachers." />
         <AdminCard href="/admin/moderation" icon={ShieldAlert} title="Moderate content" text="Approve, flag or take down lessons and drafts that need review." />
+        <AdminCard href="/admin/point-disputes" icon={Scale} title="Resolve point disputes" text="Review learner reports and restore points when a deduction should be reversed." />
         <AdminCard href="/admin/activity" icon={Activity} title="Platform activity" text="Monitor recent publishing, enrolments and system health signals." />
         <AdminCard href="/admin/settings" icon={Settings2} title="System settings" text="Configure platform defaults, feature flags and operational controls." />
-        <AdminCard href="/teacher" icon={ArrowRight} title="Teacher workspace" text="Jump into the content authoring tools used by teachers." />
       </section>
     </main>
   );

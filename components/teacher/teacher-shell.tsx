@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { BellRing, BookOpenCheck, LayoutDashboard, Library, LogOut, PlayCircle, Settings2, SquarePen, Users } from "lucide-react";
+import { BellRing, BookOpenCheck, LayoutDashboard, Library, LogOut, Settings2, SquarePen, Users } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { SkulKidLogo } from "@/components/shared/skulkid-logo";
 import { SignOutConfirmation } from "@/components/shared/sign-out-confirmation";
@@ -16,7 +16,6 @@ const navItems: Array<{ href: string; label: string; shortLabel: string; icon: L
   { href: "/teacher/curriculum", label: "Curriculum", shortLabel: "Subjects", icon: BookOpenCheck, match: "exact" },
   { href: "/teacher/lessons", label: "Lessons", shortLabel: "Lessons", icon: Library, match: "exact" },
   { href: "/teacher/lessons/new", label: "Create Lesson", shortLabel: "Create", icon: SquarePen, match: "exact" },
-  { href: "/preview/lessons", label: "Lesson preview", shortLabel: "Preview", icon: PlayCircle, match: "prefix" },
   { href: "/teacher/settings", label: "Learner dashboard", shortLabel: "Settings", icon: Settings2, match: "prefix" }
 ];
 

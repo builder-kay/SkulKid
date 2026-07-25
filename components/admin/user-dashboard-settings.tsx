@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import { CheckCircle2, Eye, Palette, RotateCcw, Save, Settings2 } from "lucide-react";
+import { CheckCircle2, Eye, RotateCcw, Save, Settings2 } from "lucide-react";
 import { Checkbox, Input, Select } from "@/components/design-system/form-controls";
 import { SkulKidButton } from "@/components/shared/skulkid-button";
 import { SkulKidCard } from "@/components/shared/skulkid-card";
@@ -54,7 +53,7 @@ export function UserDashboardSettings() {
         <div className="flex flex-wrap gap-3"><SkulKidButton type="button" size="lg" onClick={save}><Save className="size-5" />Save settings</SkulKidButton><SkulKidButton type="button" size="lg" variant="outline" onClick={reset}><RotateCcw className="size-5" />Restore defaults</SkulKidButton>{saved ? <span role="status" className="inline-flex min-h-12 items-center gap-2 rounded-xl bg-green-100 px-4 font-bold text-green-900"><CheckCircle2 className="size-5" />Saved to Supabase</span> : null}</div>
       </div>
 
-      <aside className="space-y-5"><SkulKidCard className="p-5"><div className="flex items-center gap-2"><Eye className="size-5 text-violet-700" /><h2 className="font-black">Visible sections</h2></div><ul className="mt-4 space-y-2 text-sm">{[[settings.showXp, "XP and level"], [settings.showStars, "Stars"], [settings.showStreak, "Learning streak"], [settings.showDailyGoal, `Daily goal: ${settings.dailyGoalXp} XP`], [settings.showRecommendations, "Recommendations"]].filter(([visible]) => visible).map(([, label]) => <li key={String(label)} className="rounded-xl bg-slate-50 p-3 font-bold">{String(label)}</li>)}</ul></SkulKidCard><Link href="/dashboard" className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 font-bold text-white hover:bg-violet-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-600"><Eye className="size-5" />Preview user dashboard</Link><Link href="/preview/design-system" className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-bold hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"><Palette className="size-4" />Internal design-system preview</Link></aside>
+      <aside className="space-y-5"><SkulKidCard className="p-5"><div className="flex items-center gap-2"><Eye className="size-5 text-violet-700" /><h2 className="font-black">Visible sections</h2></div><ul className="mt-4 space-y-2 text-sm">{[[settings.showXp, "XP and level"], [settings.showStars, "Stars"], [settings.showStreak, "Learning streak"], [settings.showDailyGoal, `Daily goal: ${settings.dailyGoalXp} XP`], [settings.showRecommendations, "Recommendations"]].filter(([visible]) => visible).map(([, label]) => <li key={String(label)} className="rounded-xl bg-slate-50 p-3 font-bold">{String(label)}</li>)}</ul></SkulKidCard></aside>
     </div>
   </main>;
 }
