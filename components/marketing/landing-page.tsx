@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, BookOpen, Check, FlaskConical, Gamepad2, Play, Sparkles, Star, Trophy, Zap } from "lucide-react";
+import { ArrowRight, BookOpen, BookOpenCheck, Check, FlaskConical, Gamepad2, GraduationCap, KeyRound, ShieldCheck, Sparkles, Star, Trophy, UserRound, UsersRound, Zap } from "lucide-react";
 import { CharacterAvatar } from "@/components/student/character-avatar";
 import { SkulKidLogo } from "@/components/shared/skulkid-logo";
 import type { AvatarConfig } from "@/lib/student/student-profile";
@@ -27,12 +27,13 @@ export function LandingPage() {
           </Link>
           <nav className="hidden items-center gap-7 text-sm font-extrabold text-slate-600 md:flex" aria-label="Landing page">
             <a className="transition hover:text-blue-700" href="#how-it-works">How it works</a>
+            <a className="transition hover:text-blue-700" href="#for-everyone">For families & teachers</a>
             <a className="transition hover:text-blue-700" href="#subjects">Subjects</a>
             <a className="transition hover:text-blue-700" href="#rewards">Rewards</a>
           </nav>
           <div className="flex items-center gap-2">
-            <Link className="hidden min-h-11 items-center rounded-xl px-4 text-sm font-black text-blue-700 transition hover:bg-blue-50 sm:inline-flex" href="/login">Sign in</Link>
-            <Link className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-black text-white shadow-[0_10px_25px_rgba(37,99,235,.22)] transition hover:-translate-y-0.5 hover:bg-blue-700 sm:px-5" href="/signup">Join free <ArrowRight className="hidden size-4 sm:block" /></Link>
+            <Link className="inline-flex min-h-11 items-center rounded-xl border border-blue-200 bg-white px-3 text-sm font-black text-blue-700 transition hover:border-blue-300 hover:bg-blue-50 sm:px-4" href="/login">Sign in</Link>
+            <Link className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-blue-600 px-3 text-sm font-black text-white shadow-[0_10px_25px_rgba(37,99,235,.22)] transition hover:-translate-y-0.5 hover:bg-blue-700 sm:px-5" href="/signup">Join free <ArrowRight className="hidden size-4 sm:block" /></Link>
           </div>
         </header>
 
@@ -46,12 +47,18 @@ export function LandingPage() {
               Turn every lesson into a <span className="relative whitespace-nowrap text-blue-600">new adventure<span className="absolute -bottom-1 left-1/2 -z-10 h-2 w-[94%] -translate-x-1/2 rounded-full bg-amber-300/80" />.</span>
             </h1>
             <p className="mx-auto mt-5 max-w-xl text-base font-medium leading-7 text-slate-600 sm:text-lg sm:leading-8 lg:mx-0">
-              Friendly primary lessons, playful quizzes and rewards that make children excited to keep learning.
+              Friendly primary lessons, playful quizzes and rewards for children—with simple family sign-up and a dedicated workspace for teachers.
             </p>
             <div className="mt-7 flex flex-col justify-center gap-3 sm:flex-row lg:justify-start">
-              <Link className="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-blue-600 px-6 font-black text-white shadow-[0_15px_32px_rgba(37,99,235,.24)] transition hover:-translate-y-1 hover:bg-blue-700" href="/signup">Start learning free <ArrowRight className="size-5" /></Link>
-              <a className="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl border border-blue-200 bg-white px-6 font-black text-slate-800 shadow-sm transition hover:-translate-y-1 hover:border-blue-300 hover:bg-blue-50" href="#how-it-works"><Play className="size-5 fill-blue-600 text-blue-600" />See how it works</a>
+              <Link className="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-blue-600 px-6 font-black text-white shadow-[0_15px_32px_rgba(37,99,235,.24)] transition hover:-translate-y-1 hover:bg-blue-700" href="/signup/student">Create learner account <ArrowRight className="size-5" /></Link>
+              <Link className="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl border border-violet-200 bg-white px-6 font-black text-violet-700 shadow-sm transition hover:-translate-y-1 hover:border-violet-300 hover:bg-violet-50" href="/signup/teacher"><GraduationCap className="size-5" />Join as a teacher</Link>
             </div>
+            <p className="mt-4 text-sm font-bold text-slate-600">
+              Already have an account?{" "}
+              <Link className="inline-flex items-center gap-1 font-black text-blue-700 hover:text-blue-800" href="/login">
+                Sign in here <ArrowRight className="size-3.5" />
+              </Link>
+            </p>
             <div className="mt-6 flex flex-wrap justify-center gap-x-5 gap-y-2 text-sm font-bold text-slate-600 lg:justify-start">
               <span className="inline-flex items-center gap-1.5"><Check className="size-4 rounded-full bg-emerald-100 p-0.5 text-emerald-700" />Primary 1–6</span>
               <span className="inline-flex items-center gap-1.5"><Check className="size-4 rounded-full bg-emerald-100 p-0.5 text-emerald-700" />Ghana curriculum</span>
@@ -75,6 +82,59 @@ export function LandingPage() {
           <Feature number="01" icon={BookOpen} title="Learn in short missions" copy="Friendly explanations, examples and videos made for primary learners." tone="blue" />
           <Feature number="02" icon={Zap} title="Play and earn XP" copy="Quizzes, streaks and instant progress turn effort into momentum." tone="violet" />
           <Feature number="03" icon={Trophy} title="Build your world" copy="Unlock avatar styles, achievements and new reasons to keep going." tone="amber" />
+        </div>
+      </section>
+
+      <section className="relative overflow-hidden border-y border-blue-100 bg-white py-16 sm:py-24" id="for-everyone">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_10%_20%,rgba(219,234,254,.65),transparent_24%),radial-gradient(circle_at_90%_80%,rgba(237,233,254,.7),transparent_26%)]" />
+        <div className="relative mx-auto max-w-7xl px-5 sm:px-8">
+          <div className="mx-auto max-w-3xl text-center">
+            <p className="text-sm font-black uppercase tracking-[0.18em] text-blue-700">One learning community</p>
+            <h2 className="mt-3 text-4xl font-black tracking-[-.04em] sm:text-5xl">Made for children, families and teachers.</h2>
+            <p className="mt-4 text-lg leading-8 text-slate-600">Everyone gets a clear way to take part, while each learner keeps their own account and progress.</p>
+          </div>
+
+          <div className="mt-10 grid gap-5 lg:grid-cols-3">
+            <AudienceCard
+              icon={UserRound}
+              eyebrow="For children"
+              title="Your own learning adventure"
+              copy="Sign in with your username, explore lessons, take quizzes and build confidence through rewards and progress."
+              points={["Primary 1–6 learning", "XP, stars, streaks and avatars", "Username recovery by SMS"]}
+              href="/signup/student"
+              action="Create learner account"
+              tone="blue"
+            />
+            <AudienceCard
+              icon={UsersRound}
+              eyebrow="For parents & guardians"
+              title="Simple account help for the family"
+              copy="A child can use their own phone or a trusted guardian’s number. Brothers, sisters and twins can share one guardian number while keeping separate usernames."
+              points={["One guardian number can support siblings", "Each child keeps a separate account", "Forgotten usernames are sent privately by SMS"]}
+              href="/signup/student"
+              action="Help a child join"
+              tone="emerald"
+            />
+            <AudienceCard
+              icon={BookOpenCheck}
+              eyebrow="For teachers"
+              title="Teach, create and guide"
+              copy="Use the teacher workspace to organise classes, build and share learning materials, set quizzes and encourage learners."
+              points={["Create classes and learning paths", "Prepare lessons and quizzes", "Guide learners with messages and feedback"]}
+              href="/signup/teacher"
+              action="Create teacher account"
+              tone="violet"
+            />
+          </div>
+
+          <div className="mt-6 grid gap-4 rounded-[1.75rem] border border-amber-200 bg-amber-50 p-5 sm:grid-cols-[auto_1fr_auto] sm:items-center sm:p-6">
+            <span className="grid size-12 place-items-center rounded-2xl bg-amber-400 text-slate-950"><KeyRound className="size-6" /></span>
+            <div>
+              <h3 className="text-lg font-black">Forgot a learner username?</h3>
+              <p className="mt-1 leading-6 text-slate-700">Confirm the learner’s details and the correct username will be sent to the registered phone by SMS. It will not be shown on the website.</p>
+            </div>
+            <Link className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 text-sm font-black text-white" href="/forgot-username">Recover username <ArrowRight className="size-4" /></Link>
+          </div>
         </div>
       </section>
 
@@ -125,6 +185,7 @@ export function LandingPage() {
 
             <nav aria-label="Footer" className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm font-bold text-slate-700">
               <a className="transition hover:text-blue-700" href="#how-it-works">How it works</a>
+              <a className="transition hover:text-blue-700" href="#for-everyone">Families & teachers</a>
               <a className="transition hover:text-blue-700" href="#subjects">Subjects</a>
               <a className="transition hover:text-blue-700" href="#rewards">Rewards</a>
               <Link className="transition hover:text-blue-700" href="/login">Sign in</Link>
@@ -198,4 +259,35 @@ function SubjectCard({ icon: Icon, label, eyebrow, colour, className = "" }: { i
 
 function Reward({ value, label, icon: Icon }: { value: string; label: string; icon: React.ElementType }) {
   return <div className="rounded-2xl bg-white/10 p-4 text-center ring-1 ring-white/15 backdrop-blur"><Icon className="mx-auto size-5 text-amber-300" /><p className="mt-2 text-2xl font-black">{value}</p><p className="mt-1 text-xs font-bold text-blue-100">{label}</p></div>;
+}
+
+const audienceTones = {
+  blue: { icon: "bg-blue-600 text-white", eyebrow: "text-blue-700", button: "bg-blue-600 hover:bg-blue-700" },
+  emerald: { icon: "bg-emerald-600 text-white", eyebrow: "text-emerald-700", button: "bg-emerald-600 hover:bg-emerald-700" },
+  violet: { icon: "bg-violet-600 text-white", eyebrow: "text-violet-700", button: "bg-violet-600 hover:bg-violet-700" }
+};
+
+function AudienceCard({ icon: Icon, eyebrow, title, copy, points, href, action, tone }: {
+  icon: React.ElementType;
+  eyebrow: string;
+  title: string;
+  copy: string;
+  points: string[];
+  href: string;
+  action: string;
+  tone: keyof typeof audienceTones;
+}) {
+  const colours = audienceTones[tone];
+  return (
+    <article className="flex flex-col rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_18px_50px_rgba(15,23,42,.07)]">
+      <span className={`grid size-13 place-items-center rounded-2xl shadow-lg ${colours.icon}`}><Icon className="size-6" /></span>
+      <p className={`mt-5 text-xs font-black uppercase tracking-[.16em] ${colours.eyebrow}`}>{eyebrow}</p>
+      <h3 className="mt-2 text-2xl font-black">{title}</h3>
+      <p className="mt-3 leading-7 text-slate-600">{copy}</p>
+      <ul className="mt-5 grid gap-3 text-sm font-bold text-slate-700">
+        {points.map((point) => <li className="flex items-start gap-2" key={point}><ShieldCheck className={`mt-0.5 size-4 shrink-0 ${colours.eyebrow}`} />{point}</li>)}
+      </ul>
+      <Link className={`mt-6 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 text-sm font-black text-white transition ${colours.button}`} href={href}>{action}<ArrowRight className="size-4" /></Link>
+    </article>
+  );
 }
