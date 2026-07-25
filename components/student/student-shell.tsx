@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { Award, BookOpen, LayoutDashboard, LogOut, Trophy, UserRound, Users, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Award, BookMarked, BookOpen, LayoutDashboard, LogOut, Menu, Trophy, UserRound, Users, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { GamificationArena } from "@/components/gamification/gamification-arena";
 import { CharacterAvatar } from "@/components/student/character-avatar";
@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 import { useStudentGame } from "@/lib/gamification/student-game";
 import { useStudentProfile } from "@/lib/student/student-profile";
 
-export type StudentNavItem = "dashboard" | "courses" | "classes" | "mathematics" | "preview" | "leaderboard" | "achievements" | "profile";
+export type StudentNavItem = "dashboard" | "courses" | "classes" | "pasco" | "mathematics" | "preview" | "leaderboard" | "achievements" | "profile";
 
 export type StudentShellProps = {
   activeItem: StudentNavItem;
@@ -34,6 +34,7 @@ const navItems: Array<{
   { id: "dashboard", href: "/dashboard", label: "Dashboard", mobileLabel: "Home", icon: LayoutDashboard },
   { id: "courses", href: "/courses", label: "Subjects", mobileLabel: "Subjects", icon: BookOpen },
   { id: "classes", href: "/classes", label: "My Classes", mobileLabel: "Classes", icon: Users },
+  { id: "pasco", href: "/pasco", label: "PASCO", mobileLabel: "PASCO", icon: BookMarked },
   { id: "leaderboard", href: "/leaderboard", label: "Leaderboard", mobileLabel: "League", icon: Trophy },
   { id: "achievements", href: "/achievements", label: "Rewards & Achievements", mobileLabel: "Rewards", icon: Award },
   { id: "profile", href: "/profile", label: "My Avatar", mobileLabel: "Avatar", icon: UserRound }
@@ -43,6 +44,9 @@ const navItems: Array<{
 export function StudentShell({ activeItem, children, mobileAside }: StudentShellProps) {
   const [rewardsNavOpen, setRewardsNavOpen] = useState(false);
   const [signOutOpen, setSignOutOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const morePanelRef = useRef<HTMLDivElement>(null);
+  const moreButtonRef = useRef<HTMLButtonElement>(null);
   const { state } = useStudentGame();
   const { profile } = useStudentProfile();
   const studentLevel = getStudentLevel(state.xp);
@@ -57,6 +61,27 @@ export function StudentShell({ activeItem, children, mobileAside }: StudentShell
     document.addEventListener("keydown", closeOnEscape);
     return () => document.removeEventListener("keydown", closeOnEscape);
   }, [rewardsNavOpen]);
+
+  useEffect(() => {
+    if (!moreOpen) return;
+    const panel = morePanelRef.current;
+    const first = panel?.querySelector<HTMLElement>("a,button");
+    first?.focus();
+    function handleKey(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setMoreOpen(false);
+        moreButtonRef.current?.focus();
+        return;
+      }
+      if (event.key !== "Tab" || !panel) return;
+      const items = [...panel.querySelectorAll<HTMLElement>('a,button:not([disabled])')];
+      if (!items.length) return;
+      if (event.shiftKey && document.activeElement === items[0]) { event.preventDefault(); items.at(-1)?.focus(); }
+      else if (!event.shiftKey && document.activeElement === items.at(-1)) { event.preventDefault(); items[0].focus(); }
+    }
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [moreOpen]);
 
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[18.5rem_1fr]">
@@ -196,14 +221,25 @@ export function StudentShell({ activeItem, children, mobileAside }: StudentShell
         {children}
       </div>
 
+      <div aria-hidden={!moreOpen} className={cn("fixed inset-0 z-40 bg-slate-950/45 backdrop-blur-[2px] transition lg:hidden", moreOpen ? "opacity-100" : "pointer-events-none opacity-0")} onClick={() => setMoreOpen(false)} />
+      <div aria-hidden={!moreOpen} aria-labelledby="student-more-title" aria-modal="true" className={cn("fixed inset-x-3 bottom-[calc(5.7rem+env(safe-area-inset-bottom))] z-50 rounded-[1.75rem] bg-white p-4 shadow-2xl transition duration-200 lg:hidden", moreOpen ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-5 opacity-0")} ref={morePanelRef} role="dialog">
+        <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-wider text-violet-700">Student space</p><h2 className="text-xl font-black" id="student-more-title">More</h2></div><button aria-label="Close More menu" className="grid size-10 place-items-center rounded-xl bg-slate-100" onClick={() => { setMoreOpen(false); moreButtonRef.current?.focus(); }} type="button"><X className="size-5" /></button></div>
+        <nav aria-label="More student pages" className="mt-4 grid gap-2">{[
+          { id: "pasco" as const, href: "/pasco", label: "PASCO", text: "Review and practise past quizzes", icon: BookMarked },
+          { id: "profile" as const, href: "/profile", label: "My Avatar", text: "Update your learner character", icon: UserRound },
+          { id: "achievements" as const, href: "/achievements", label: "Rewards & Achievements", text: "See your progress collection", icon: Award }
+        ].map((item) => { const Icon = item.icon; const active = activeItem === item.id; return <Link aria-current={active ? "page" : undefined} className={cn("flex min-h-16 items-center gap-3 rounded-2xl border p-3", active ? "border-violet-400 bg-violet-50 text-violet-950" : "border-slate-200 bg-slate-50 text-slate-800")} href={item.href} key={item.id} onClick={() => setMoreOpen(false)}><span className={cn("grid size-10 shrink-0 place-items-center rounded-xl", active ? "bg-violet-600 text-white" : "bg-white text-violet-700")}><Icon className="size-5" /></span><span><b className="block">{item.label}</b><span className="text-xs text-slate-500">{item.text}</span></span></Link>; })}</nav>
+      </div>
+
       <nav
         aria-label="Mobile student navigation"
         className="fixed inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-40 rounded-[1.6rem] border border-white/90 bg-white/95 p-2 shadow-[0_18px_50px_rgba(15,23,42,0.18)] backdrop-blur lg:hidden"
       >
         <div className="grid grid-cols-5 gap-1">
-          {navItems.filter((item) => ["dashboard", "courses", "classes", "leaderboard", "profile"].includes(item.id)).map((item) => (
+          {navItems.filter((item) => ["dashboard", "courses", "classes", "leaderboard"].includes(item.id)).map((item) => (
             <MobileNavLink active={activeItem === item.id} item={item} key={item.id} />
           ))}
+          <button aria-expanded={moreOpen} aria-haspopup="dialog" className={cn("flex min-h-14 flex-col items-center justify-center gap-1 rounded-2xl px-1 text-[11px] font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary", ["pasco", "profile", "achievements"].includes(activeItem) ? "bg-primary text-white shadow-sm" : "text-text-secondary hover:bg-slate-100")} onClick={() => setMoreOpen(true)} ref={moreButtonRef} type="button"><Menu className="size-5" /><span>More</span></button>
         </div>
       </nav>
     </div>

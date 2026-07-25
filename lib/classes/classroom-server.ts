@@ -985,6 +985,10 @@ export async function getStudentClassDetail(studentId: string, classId: string) 
       gradeLevel: Number(classroom.gradeLevel),
       teacherName: displayNameFrom(teacher.user, "Teacher")
     },
+    pastQuizCount: (quizzes ?? []).filter((row) =>
+      row.status === "closed"
+      || (row.status === "published" && row.deadline && new Date(row.deadline as string).getTime() <= Date.now())
+    ).length,
     courses: (courses ?? []).map((row) => {
       const subject = subjectById.get(row.courseId as string);
       const visibility = courseVisibility(subject?.visibility);
@@ -999,7 +1003,10 @@ export async function getStudentClassDetail(studentId: string, classId: string) 
         isClassOnly: visibility === "class"
       };
     }),
-    quizzes: (quizzes ?? []).map((row) => {
+    quizzes: (quizzes ?? []).filter((row) =>
+      row.status === "published"
+      && (!row.deadline || new Date(row.deadline as string).getTime() > Date.now())
+    ).map((row) => {
       const quizAttempts = attemptsByQuiz.get(row.id as string) ?? [];
       const bestAttempt = bestAttemptFrom(quizAttempts);
       const maxAttempts = Number(row.maxAttempts ?? 3);

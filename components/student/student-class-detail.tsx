@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
+  BookMarked,
   BookOpen,
   ClipboardList,
   Loader2,
@@ -20,6 +21,7 @@ import { cn } from "@/lib/utils";
 
 type Detail = {
   classroom: { id: string; name: string; description: string; gradeLevel: number; teacherName: string };
+  pastQuizCount: number;
   courses: Array<{
     id: string;
     courseId: string;
@@ -276,8 +278,9 @@ export function StudentClassDetail({ classId }: { classId: string }) {
 
             {section === "quizzes" ? (
               <section className="grid gap-4" id="class-quizzes">
+                {detail.pastQuizCount > 0 ? <Link className="flex min-h-16 items-center justify-between gap-3 rounded-[1.25rem] border border-orange-200 bg-gradient-to-r from-amber-50 to-orange-50 p-4 text-orange-950 shadow-sm" href={`/pasco?classId=${classId}`}><span className="flex items-center gap-3"><span className="grid size-10 place-items-center rounded-xl bg-orange-500 text-white"><BookMarked className="size-5" /></span><span><b className="block">Review past quizzes in PASCO</b><span className="text-xs font-bold text-orange-700">{detail.pastQuizCount} ended quiz{detail.pastQuizCount === 1 ? "" : "zes"} from this class</span></span></span><ArrowRight className="size-5" /></Link> : null}
                 {detail.quizzes.length === 0 ? (
-                  <EmptyBlock title="No quizzes yet" text="Your teacher has not published a class quiz. Check back soon." />
+                  <EmptyBlock title="No active quizzes" text={detail.pastQuizCount ? "Ended quizzes have moved to PASCO for revision." : "Your teacher has not published a class quiz. Check back soon."} />
                 ) : detail.quizzes.map((quiz) => {
                   const best = quiz.bestAttempt ?? quiz.attempt;
                   const overdue = quiz.deadline ? new Date(quiz.deadline).getTime() < Date.now() : false;

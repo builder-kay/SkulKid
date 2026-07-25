@@ -12,7 +12,7 @@ const questionSchema = z.object({
   correctIndex: z.number().int().min(0).max(5)
 });
 
-const createSchema = z.object({
+const quizFieldsSchema = z.object({
   title: z.string().trim().min(2).max(120),
   description: z.string().trim().max(500).optional(),
   questions: z.array(questionSchema).min(1).max(30),
@@ -23,11 +23,15 @@ const createSchema = z.object({
   passingScore: z.number().int().min(0).max(100).optional(),
   maxAttempts: z.number().int().min(1).max(20).optional(),
   status: z.enum(["draft", "published", "closed"]).optional()
-}).superRefine((value, context) => {
+});
+
+function validateSchedule(value: { startAt?: string | null; deadline?: string | null }, context: z.RefinementCtx) {
   if (value.startAt && value.deadline && new Date(value.startAt) >= new Date(value.deadline)) {
     context.addIssue({ code: "custom", path: ["deadline"], message: "The end time must be after the start time." });
   }
-});
+}
+
+const createSchema = quizFieldsSchema.superRefine(validateSchedule);
 
 export async function GET(_: Request, context: { params: Promise<{ classId: string }> }) {
   try {
@@ -81,7 +85,7 @@ export async function POST(request: Request, context: { params: Promise<{ classI
   }
 }
 
-const patchSchema = createSchema.partial().extend({ quizId: z.string().uuid() });
+const patchSchema = quizFieldsSchema.partial().extend({ quizId: z.string().uuid() }).superRefine(validateSchedule);
 
 export async function PATCH(request: Request, context: { params: Promise<{ classId: string }> }) {
   try {

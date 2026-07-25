@@ -172,11 +172,13 @@ export function ClassQuizPlayer({ classId, quizId }: { classId: string; quizId: 
   }
 
   if (!payload) {
+    const ended = error.trim().toLowerCase() === "quiz ended";
     return (
       <StudentShell activeItem="classes">
         <div className="rounded-[1.5rem] border border-amber-200 bg-amber-50 p-6">
-          <p className="font-black text-amber-950">{error || "Quiz not found."}</p>
-          <Link className="mt-3 inline-flex items-center gap-2 text-sm font-bold text-primary" href={`/classes/${classId}`}><ArrowLeft className="size-4" />Back to class</Link>
+          <p className="text-xl font-black text-amber-950">{error || "Quiz not found."}</p>
+          <p className="mt-2 text-sm text-amber-900">{ended ? "This challenge has moved to PASCO, where you can review every answer and practise again." : "Return to your class and choose another activity."}</p>
+          <div className="mt-4 flex flex-wrap gap-3">{ended ? <Link className="inline-flex min-h-11 items-center rounded-xl bg-orange-600 px-4 text-sm font-black text-white" href={`/pasco/${quizId}`}>Open in PASCO</Link> : null}<Link className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-amber-300 bg-white px-4 text-sm font-bold text-primary" href={`/classes/${classId}`}><ArrowLeft className="size-4" />Back to class</Link></div>
         </div>
       </StudentShell>
     );
