@@ -63,7 +63,12 @@ export async function updateTeacherQuiz(teacherId: string, quizId: string, input
   if (error) throw new Error(error.message);
 }
 
-export async function assignTeacherQuiz(teacherId: string, quizId: string, classIds: string[], deadline: string | null) {
+export async function assignTeacherQuiz(
+  teacherId: string,
+  quizId: string,
+  classIds: string[],
+  schedule: { startAt: string | null; deadline: string | null; offPlatformReward: string }
+) {
   const admin = createAdminClient();
   const [{ data: quiz }, { data: classes, error: classError }] = await Promise.all([
     admin.from("TeacherQuiz").select("*").eq("id", quizId).eq("createdBy", teacherId).maybeSingle(),
@@ -78,7 +83,8 @@ export async function assignTeacherQuiz(teacherId: string, quizId: string, class
   }
   const rows = classes.map((classroom) => ({
     classId: classroom.id, createdBy: teacherId, sourceQuizId: quiz.id, sourceVersion: quiz.version,
-    title: quiz.title, description: quiz.description, questions: quiz.questions, deadline,
+    title: quiz.title, description: quiz.description, questions: quiz.questions,
+    startAt: schedule.startAt, deadline: schedule.deadline, offPlatformReward: schedule.offPlatformReward,
     baseXpReward: quiz.baseXpReward, passingScore: quiz.passingScore, maxAttempts: quiz.maxAttempts, status: "published"
   }));
   const { data, error } = await admin.from("ClassQuiz").insert(rows).select("id,classId");

@@ -15,7 +15,9 @@ type QuizPayload = {
     classId: string;
     title: string;
     description: string;
+    startAt: string | null;
     deadline: string | null;
+    offPlatformReward: string;
     baseXpReward: number;
     passingScore: number;
     maxAttempts: number;
@@ -196,6 +198,8 @@ export function ClassQuizPlayer({ classId, quizId }: { classId: string; quizId: 
               : `Attempts used ${result?.attemptsUsed ?? payload.attemptsUsed} of ${payload.quiz.maxAttempts}`}
           </p>
           {payload.quiz.deadline ? <p className="mt-2 text-sm font-bold text-amber-700">Deadline {new Date(payload.quiz.deadline).toLocaleString()}</p> : null}
+          {!payload.quiz.deadline ? <p className="mt-2 text-sm font-bold text-sky-700">Available until your teacher ends it</p> : null}
+          {payload.quiz.offPlatformReward ? <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950"><Trophy className="mr-2 inline size-4 text-amber-600" /><b>Class reward:</b> {payload.quiz.offPlatformReward}</div> : null}
           {showForm ? <div className="mt-4 flex items-center gap-3"><div className="h-2.5 flex-1 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-gradient-to-r from-violet-600 to-blue-500 transition-all motion-reduce:transition-none" style={{width:`${((questionIndex+1)/payload.quiz.questions.length)*100}%`}}/></div><span className="text-xs font-black">{questionIndex+1}/{payload.quiz.questions.length}</span></div>:null}
         </header>
         <StudentPageNav

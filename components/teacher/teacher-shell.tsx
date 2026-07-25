@@ -17,7 +17,7 @@ const navItems: Array<{ href: string; label: string; shortLabel: string; icon: L
   { href: "/teacher/curriculum", label: "Curriculum", shortLabel: "Subjects", icon: BookOpenCheck, match: "exact" },
   { href: "/teacher/lessons", label: "Lessons", shortLabel: "Lessons", icon: Library, match: "exact" },
   { href: "/teacher/lessons/new", label: "Create Lesson", shortLabel: "Create", icon: SquarePen, match: "exact" },
-  { href: "/teacher/settings", label: "Learner dashboard", shortLabel: "Settings", icon: Settings2, match: "prefix" }
+  { href: "/teacher/settings", label: "Teacher settings", shortLabel: "Settings", icon: Settings2, match: "prefix" }
 ];
 
 

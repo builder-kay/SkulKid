@@ -70,11 +70,13 @@ function bestAttemptFrom(attempts: ClassQuizAttemptSummary[]): ClassQuizAttemptS
 
 function canRetakeQuiz(input: {
   status: QuizStatus;
+  startAt?: string | null;
   deadline: string | null;
   attemptsUsed: number;
   maxAttempts: number;
 }) {
   if (input.status !== "published") return false;
+  if (input.startAt && new Date(input.startAt).getTime() > Date.now()) return false;
   if (input.deadline && new Date(input.deadline).getTime() < Date.now()) return false;
   return input.attemptsUsed < input.maxAttempts;
 }
@@ -514,7 +516,7 @@ export async function listClassQuizzes(teacherId: string, classId: string): Prom
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("ClassQuiz")
-    .select("id,classId,title,description,questions,deadline,baseXpReward,passingScore,maxAttempts,status,createdAt")
+    .select("id,classId,title,description,questions,startAt,deadline,offPlatformReward,baseXpReward,passingScore,maxAttempts,status,createdAt")
     .eq("classId", classId)
     .order("createdAt", { ascending: false });
   if (error) throw new Error(error.message);
@@ -531,7 +533,9 @@ export async function listClassQuizzes(teacherId: string, classId: string): Prom
     title: row.title as string,
     description: (row.description as string) ?? "",
     questions: (row.questions as ClassQuizQuestion[]) ?? [],
+    startAt: (row.startAt as string | null) ?? null,
     deadline: (row.deadline as string | null) ?? null,
+    offPlatformReward: (row.offPlatformReward as string) ?? "",
     baseXpReward: Number(row.baseXpReward),
     passingScore: Number(row.passingScore),
     maxAttempts: Number(row.maxAttempts ?? 3),
@@ -547,7 +551,9 @@ export async function createClassQuiz(input: {
   title: string;
   description?: string;
   questions: ClassQuizQuestion[];
+  startAt?: string | null;
   deadline?: string | null;
+  offPlatformReward?: string;
   baseXpReward?: number;
   passingScore?: number;
   maxAttempts?: number;
@@ -565,7 +571,9 @@ export async function createClassQuiz(input: {
       title: input.title.trim(),
       description: (input.description ?? "").trim(),
       questions,
+      startAt: input.startAt || null,
       deadline: input.deadline || null,
+      offPlatformReward: input.offPlatformReward?.trim() || "",
       baseXpReward: input.baseXpReward ?? 40,
       passingScore: input.passingScore ?? 70,
       maxAttempts: input.maxAttempts ?? 3,
@@ -585,7 +593,9 @@ export async function updateClassQuiz(
     title: string;
     description: string;
     questions: ClassQuizQuestion[];
+    startAt: string | null;
     deadline: string | null;
+    offPlatformReward: string;
     baseXpReward: number;
     passingScore: number;
     maxAttempts: number;
@@ -597,7 +607,9 @@ export async function updateClassQuiz(
   if (patch.title !== undefined) updates.title = patch.title.trim();
   if (patch.description !== undefined) updates.description = patch.description.trim();
   if (patch.questions !== undefined) updates.questions = normalizeQuestions(patch.questions);
+  if (patch.startAt !== undefined) updates.startAt = patch.startAt;
   if (patch.deadline !== undefined) updates.deadline = patch.deadline;
+  if (patch.offPlatformReward !== undefined) updates.offPlatformReward = patch.offPlatformReward.trim();
   if (patch.baseXpReward !== undefined) updates.baseXpReward = patch.baseXpReward;
   if (patch.passingScore !== undefined) updates.passingScore = patch.passingScore;
   if (patch.maxAttempts !== undefined) updates.maxAttempts = patch.maxAttempts;
@@ -923,7 +935,7 @@ export async function getStudentClassDetail(studentId: string, classId: string) 
   const { data: teacher } = await admin.auth.admin.getUserById(classroom.teacherId as string);
   const [{ data: courses }, { data: quizzes }, { data: attempts }, { data: adviceRows }, { data: deductionRows }, { data: messageRows }, leaderboard] = await Promise.all([
     admin.from("ClassCourseAssignment").select("id,courseId,note,assignedAt").eq("classId", classId),
-    admin.from("ClassQuiz").select("id,classId,title,description,questions,deadline,baseXpReward,passingScore,maxAttempts,status,createdAt").eq("classId", classId).in("status", ["published", "closed"]).order("createdAt", { ascending: false }),
+    admin.from("ClassQuiz").select("id,classId,title,description,questions,startAt,deadline,offPlatformReward,baseXpReward,passingScore,maxAttempts,status,createdAt").eq("classId", classId).in("status", ["published", "closed"]).order("createdAt", { ascending: false }),
     admin.from("ClassQuizAttempt").select("quizId,attemptNumber,scorePercentage,passed,starsAwarded,xpAwarded,submittedAt").eq("studentId", studentId).order("attemptNumber", { ascending: true }),
     admin.from("ClassAdvice").select("id,classId,message,suggestionType,createdAt,readAt,teacherId").eq("classId", classId).eq("studentId", studentId).order("createdAt", { ascending: false }),
     admin.from("PointDeduction").select("id,classId,amount,reason,balanceBefore,balanceAfter,status,createdAt,teacherId").eq("classId", classId).eq("studentId", studentId).order("createdAt", { ascending: false }),
@@ -993,6 +1005,7 @@ export async function getStudentClassDetail(studentId: string, classId: string) 
       const maxAttempts = Number(row.maxAttempts ?? 3);
       const attemptsUsed = quizAttempts.length;
       const status = row.status as QuizStatus;
+      const startAt = (row.startAt as string | null) ?? null;
       const deadline = (row.deadline as string | null) ?? null;
       return {
         id: row.id as string,
@@ -1000,13 +1013,15 @@ export async function getStudentClassDetail(studentId: string, classId: string) 
         title: row.title as string,
         description: (row.description as string) ?? "",
         questionCount: Array.isArray(row.questions) ? row.questions.length : 0,
+        startAt,
         deadline,
+        offPlatformReward: (row.offPlatformReward as string) ?? "",
         baseXpReward: Number(row.baseXpReward),
         passingScore: Number(row.passingScore),
         maxAttempts,
         status,
         attemptsUsed,
-        canRetake: canRetakeQuiz({ status, deadline, attemptsUsed, maxAttempts }),
+        canRetake: canRetakeQuiz({ status, startAt, deadline, attemptsUsed, maxAttempts }),
         bestAttempt,
         attempts: quizAttempts,
         attempt: bestAttempt
@@ -1151,12 +1166,17 @@ export async function getStudentQuizForAttempt(studentId: string, classId: strin
   const admin = createAdminClient();
   const { data: quiz, error } = await admin
     .from("ClassQuiz")
-    .select("id,classId,title,description,questions,deadline,baseXpReward,passingScore,maxAttempts,status")
+    .select("id,classId,title,description,questions,startAt,deadline,offPlatformReward,baseXpReward,passingScore,maxAttempts,status")
     .eq("id", quizId)
     .eq("classId", classId)
     .maybeSingle();
   if (error) throw new Error(error.message);
   if (!quiz || quiz.status === "draft") throw new Error("Quiz not found.");
+  if (quiz.status === "closed") throw new Error("Quiz Ended");
+  const startAt = (quiz.startAt as string | null) ?? null;
+  const deadline = (quiz.deadline as string | null) ?? null;
+  if (startAt && new Date(startAt).getTime() > Date.now()) throw new Error(`Quiz Not Started. It opens ${new Date(startAt).toLocaleString()}.`);
+  if (deadline && new Date(deadline).getTime() <= Date.now()) throw new Error("Quiz Ended");
   const { data: attemptRows } = await admin
     .from("ClassQuizAttempt")
     .select("attemptNumber,scorePercentage,passed,starsAwarded,xpAwarded,submittedAt")
@@ -1176,8 +1196,7 @@ export async function getStudentQuizForAttempt(studentId: string, classId: strin
   const maxAttempts = Number(quiz.maxAttempts ?? 3);
   const attemptsUsed = attempts.length;
   const status = quiz.status as QuizStatus;
-  const deadline = (quiz.deadline as string | null) ?? null;
-  const canRetake = canRetakeQuiz({ status, deadline, attemptsUsed, maxAttempts });
+  const canRetake = canRetakeQuiz({ status, startAt, deadline, attemptsUsed, maxAttempts });
 
   const questions = ((quiz.questions as ClassQuizQuestion[]) ?? []).map(({ correctIndex: _correctIndex, ...question }) => question);
   return {
@@ -1186,7 +1205,9 @@ export async function getStudentQuizForAttempt(studentId: string, classId: strin
       classId: quiz.classId as string,
       title: quiz.title as string,
       description: (quiz.description as string) ?? "",
+      startAt,
       deadline,
+      offPlatformReward: (quiz.offPlatformReward as string) ?? "",
       baseXpReward: Number(quiz.baseXpReward),
       passingScore: Number(quiz.passingScore),
       maxAttempts,
@@ -1227,14 +1248,17 @@ export async function submitClassQuiz(input: {
   const admin = createAdminClient();
   const { data: quiz, error } = await admin
     .from("ClassQuiz")
-    .select("id,questions,deadline,baseXpReward,passingScore,maxAttempts,status,title")
+    .select("id,questions,startAt,deadline,offPlatformReward,baseXpReward,passingScore,maxAttempts,status,title")
     .eq("id", input.quizId)
     .eq("classId", input.classId)
     .maybeSingle();
   if (error) throw new Error(error.message);
   if (!quiz || quiz.status !== "published") throw new Error("This quiz is not open for attempts.");
-  if (quiz.deadline && new Date(quiz.deadline as string).getTime() < Date.now()) {
-    throw new Error("The deadline for this quiz has passed.");
+  if (quiz.startAt && new Date(quiz.startAt as string).getTime() > Date.now()) {
+    throw new Error("This quiz has not started yet.");
+  }
+  if (quiz.deadline && new Date(quiz.deadline as string).getTime() <= Date.now()) {
+    throw new Error("Quiz Ended");
   }
 
   const maxAttempts = Number(quiz.maxAttempts ?? 3);
@@ -1293,6 +1317,7 @@ export async function submitClassQuiz(input: {
   );
   const canRetake = canRetakeQuiz({
     status: "published",
+    startAt: (quiz.startAt as string | null) ?? null,
     deadline: (quiz.deadline as string | null) ?? null,
     attemptsUsed: nextAttemptsUsed,
     maxAttempts

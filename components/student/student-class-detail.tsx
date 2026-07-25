@@ -34,7 +34,9 @@ type Detail = {
     title: string;
     description: string;
     questionCount: number;
+    startAt: string | null;
     deadline: string | null;
+    offPlatformReward: string;
     baseXpReward: number;
     passingScore: number;
     maxAttempts: number;
@@ -149,7 +151,12 @@ export function StudentClassDetail({ classId }: { classId: string }) {
     [detail]
   );
   const openQuizzes = useMemo(
-    () => detail?.quizzes.filter((quiz) => quiz.status !== "closed" && (quiz.canRetake || !quiz.attemptsUsed)).length ?? 0,
+    () => detail?.quizzes.filter((quiz) => {
+      const now = Date.now();
+      const started = !quiz.startAt || new Date(quiz.startAt).getTime() <= now;
+      const notEnded = !quiz.deadline || new Date(quiz.deadline).getTime() > now;
+      return quiz.status !== "closed" && started && notEnded && (quiz.canRetake || !quiz.attemptsUsed);
+    }).length ?? 0,
     [detail]
   );
   const leaderboard = detail?.leaderboard ?? [];
@@ -274,16 +281,17 @@ export function StudentClassDetail({ classId }: { classId: string }) {
                 ) : detail.quizzes.map((quiz) => {
                   const best = quiz.bestAttempt ?? quiz.attempt;
                   const overdue = quiz.deadline ? new Date(quiz.deadline).getTime() < Date.now() : false;
+                  const upcoming = quiz.startAt ? new Date(quiz.startAt).getTime() > Date.now() : false;
                   return (
                     <article className="overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white shadow-sm" key={quiz.id}>
                       <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
                             <h3 className="text-lg font-black text-slate-950">{quiz.title}</h3>
-                            {quiz.status === "closed" ? (
-                              <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-black uppercase text-slate-600">Closed</span>
-                            ) : overdue ? (
-                              <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-[11px] font-black uppercase text-amber-800">Past due</span>
+                            {quiz.status === "closed" || overdue ? (
+                              <span className="rounded-full bg-slate-900 px-2.5 py-0.5 text-[11px] font-black uppercase text-white">Quiz Ended</span>
+                            ) : upcoming ? (
+                              <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-[11px] font-black uppercase text-blue-800">Coming soon</span>
                             ) : !quiz.attemptsUsed ? (
                               <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-black uppercase text-emerald-800">New</span>
                             ) : null}
@@ -291,18 +299,21 @@ export function StudentClassDetail({ classId }: { classId: string }) {
                           <p className="mt-1 text-sm text-slate-600">
                             {quiz.questionCount} questions · {quiz.baseXpReward} XP · pass {quiz.passingScore}% · {quiz.attemptsUsed}/{quiz.maxAttempts} attempts
                           </p>
+                          {quiz.startAt ? <p className="mt-1 text-xs font-bold text-blue-700">Starts {new Date(quiz.startAt).toLocaleString()}</p> : null}
                           {quiz.deadline ? (
                             <p className={cn("mt-1 text-xs font-bold", overdue ? "text-amber-700" : "text-sky-700")}>
                               Due {new Date(quiz.deadline).toLocaleString()}
                             </p>
                           ) : null}
+                          {!quiz.startAt && !quiz.deadline ? <p className="mt-1 text-xs font-bold text-sky-700">Available until your teacher ends it</p> : null}
+                          {quiz.offPlatformReward ? <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950"><b>Class reward:</b> {quiz.offPlatformReward}</div> : null}
                           {best ? (
                             <p className="mt-2 text-sm font-bold text-emerald-700">
                               Best {best.scorePercentage}% · {best.xpAwarded} XP · {best.starsAwarded} stars
                             </p>
                           ) : null}
                         </div>
-                        {quiz.status === "closed" ? null : !quiz.attemptsUsed ? (
+                        {quiz.status === "closed" || overdue ? <span className="rounded-xl bg-slate-100 px-5 py-3 text-sm font-black text-slate-600">Quiz Ended</span> : upcoming ? <span className="rounded-xl bg-blue-50 px-5 py-3 text-sm font-black text-blue-800">Opens {new Date(quiz.startAt!).toLocaleString()}</span> : !quiz.attemptsUsed ? (
                           <Link className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-sky-600 px-5 text-sm font-black text-white hover:bg-sky-700" href={`/classes/${classId}/quizzes/${quiz.id}`}>
                             Take quiz <ArrowRight className="size-4" />
                           </Link>

@@ -90,7 +90,9 @@ export type ClassQuizView = {
   title: string;
   description: string;
   questions: ClassQuizQuestion[];
+  startAt: string | null;
   deadline: string | null;
+  offPlatformReward: string;
   baseXpReward: number;
   passingScore: number;
   maxAttempts: number;

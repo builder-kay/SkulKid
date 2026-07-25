@@ -34,7 +34,9 @@ export function TeacherClassDetail({ classId }: { classId: string }) {
   const [classOnlyDescription, setClassOnlyDescription] = useState("");
   const [quizTitle, setQuizTitle] = useState("");
   const [quizDescription, setQuizDescription] = useState("");
+  const [quizStartAt, setQuizStartAt] = useState("");
   const [quizDeadline, setQuizDeadline] = useState("");
+  const [quizOffPlatformReward, setQuizOffPlatformReward] = useState("");
   const [quizXp, setQuizXp] = useState(40);
   const [quizPass, setQuizPass] = useState(70);
   const [quizMaxAttempts, setQuizMaxAttempts] = useState(3);
@@ -179,25 +181,50 @@ export function TeacherClassDetail({ classId }: { classId: string }) {
           title: quizTitle,
           description: quizDescription,
           questions,
+          startAt: quizStartAt ? new Date(quizStartAt).toISOString() : null,
           deadline: quizDeadline ? new Date(quizDeadline).toISOString() : null,
+          offPlatformReward: quizOffPlatformReward,
           baseXpReward: quizXp,
           passingScore: quizPass,
           maxAttempts: quizMaxAttempts,
           status: "published"
         })
       });
-      const payload = await response.json() as { quizzes?: ClassQuizView[]; error?: string };
+      const payload = await response.json() as { quizzes?: ClassQuizView[]; sms?: { sent: number; failed: number; skipped: number }; error?: string };
       if (!response.ok) throw new Error(payload.error || "Unable to create quiz.");
       setQuizzes(payload.quizzes ?? []);
       setQuizTitle("");
       setQuizDescription("");
+      setQuizStartAt("");
       setQuizDeadline("");
+      setQuizOffPlatformReward("");
       setQuizMaxAttempts(3);
       setQuestions([{ id: "q-1", prompt: "", type: "multiple_choice", options: ["", "", "", ""], correctIndex: 0 }]);
-      setMessage("Quiz published for the class.");
+      setMessage(payload.sms?.failed
+        ? `Quiz published. ${payload.sms.failed} SMS message${payload.sms.failed === 1 ? "" : "s"} could not be delivered.`
+        : `Quiz published and ${payload.sms?.sent ?? 0} learner SMS message${payload.sms?.sent === 1 ? "" : "s"} sent.`);
       setTab("quizzes");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to create quiz.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function endQuiz(quizId: string) {
+    setBusy(true); setError(""); setMessage("");
+    try {
+      const response = await fetch(`/api/teacher/classes/${classId}/quizzes`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ quizId, status: "closed" })
+      });
+      const payload = await response.json() as { quizzes?: ClassQuizView[]; error?: string };
+      if (!response.ok) throw new Error(payload.error || "Unable to end quiz.");
+      setQuizzes(payload.quizzes ?? []);
+      setMessage("Quiz ended. Learners can no longer access it.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to end quiz.");
     } finally {
       setBusy(false);
     }
@@ -443,14 +470,16 @@ export function TeacherClassDetail({ classId }: { classId: string }) {
           </div>
           <form className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm" onSubmit={createQuiz}>
             <h2 className="text-xl font-black">Create a class quiz</h2>
-            <p className="mt-1 text-sm text-slate-600">Set a deadline, XP reward, attempts and passing score. Results feed into student gamification.</p>
+            <p className="mt-1 text-sm text-slate-600">Choose an optional schedule, platform rewards and a real-world class reward. Publishing sends learners an SMS with the direct link.</p>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <label className="grid gap-1.5 text-sm font-bold">Title<input className="min-h-11 rounded-xl border border-slate-300 px-3" onChange={(event) => setQuizTitle(event.target.value)} required value={quizTitle} /></label>
-              <label className="grid gap-1.5 text-sm font-bold">Deadline<input className="min-h-11 rounded-xl border border-slate-300 px-3" onChange={(event) => setQuizDeadline(event.target.value)} type="datetime-local" value={quizDeadline} /></label>
+              <label className="grid gap-1.5 text-sm font-bold">Starts at (optional)<input className="min-h-11 rounded-xl border border-slate-300 px-3" onChange={(event) => setQuizStartAt(event.target.value)} type="datetime-local" value={quizStartAt} /></label>
+              <label className="grid gap-1.5 text-sm font-bold">Ends / take by (optional)<input className="min-h-11 rounded-xl border border-slate-300 px-3" onChange={(event) => setQuizDeadline(event.target.value)} type="datetime-local" value={quizDeadline} /></label>
               <label className="grid gap-1.5 text-sm font-bold">XP reward<input className="min-h-11 rounded-xl border border-slate-300 px-3" max={500} min={0} onChange={(event) => setQuizXp(Number(event.target.value))} type="number" value={quizXp} /></label>
               <label className="grid gap-1.5 text-sm font-bold">Passing score %<input className="min-h-11 rounded-xl border border-slate-300 px-3" max={100} min={0} onChange={(event) => setQuizPass(Number(event.target.value))} type="number" value={quizPass} /></label>
               <label className="grid gap-1.5 text-sm font-bold">Max attempts<input className="min-h-11 rounded-xl border border-slate-300 px-3" max={20} min={1} onChange={(event) => setQuizMaxAttempts(Number(event.target.value))} type="number" value={quizMaxAttempts} /></label>
               <label className="grid gap-1.5 text-sm font-bold sm:col-span-2">Description<textarea className="min-h-20 rounded-xl border border-slate-300 px-3 py-2" onChange={(event) => setQuizDescription(event.target.value)} value={quizDescription} /></label>
+              <label className="grid gap-1.5 text-sm font-bold sm:col-span-2">Real-world reward (optional)<textarea className="min-h-20 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2" maxLength={500} onChange={(event) => setQuizOffPlatformReward(event.target.value)} placeholder="e.g. Highest score gets a standing clap or no sweeping for a week." value={quizOffPlatformReward} /><span className="text-xs font-normal text-slate-500">Learners will see this alongside XP and stars.</span></label>
             </div>
             <div className="mt-5 grid gap-4">
               {questions.map((question, index) => (
@@ -528,10 +557,12 @@ export function TeacherClassDetail({ classId }: { classId: string }) {
                   <div>
                     <h3 className="font-black text-slate-950">{quiz.title}</h3>
                     <p className="text-sm text-slate-600">{quiz.questions.length} questions · {quiz.baseXpReward} XP · pass {quiz.passingScore}% · {quiz.maxAttempts} attempts</p>
-                    <p className="mt-1 text-xs font-bold uppercase tracking-wider text-teal-700">{quiz.status}{quiz.deadline ? ` · due ${new Date(quiz.deadline).toLocaleString()}` : ""}</p>
+                    <p className="mt-1 text-xs font-bold uppercase tracking-wider text-teal-700">{quiz.status}{quiz.startAt ? ` · opens ${new Date(quiz.startAt).toLocaleString()}` : ""}{quiz.deadline ? ` · ends ${new Date(quiz.deadline).toLocaleString()}` : " · open until ended"}</p>
+                    {quiz.offPlatformReward ? <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm font-bold text-amber-900">Class reward: {quiz.offPlatformReward}</p> : null}
                   </div>
                   <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-700">{quiz.attemptCount} attempts</span>
                 </div>
+                {quiz.status === "published" ? <button className="mt-3 inline-flex min-h-10 items-center rounded-xl border border-rose-200 px-4 text-sm font-black text-rose-700 hover:bg-rose-50 disabled:opacity-50" disabled={busy} onClick={() => void endQuiz(quiz.id)} type="button">End quiz now</button> : null}
               </article>
             ))}
           </div>
