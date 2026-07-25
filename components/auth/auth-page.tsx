@@ -319,7 +319,12 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
                   </Field>
                 ) : null}
                 {step === "verify" ? <Field label="6-digit verification code"><input autoComplete="one-time-code" className="text-center text-2xl font-black tracking-[.45em]" inputMode="numeric" maxLength={6} onChange={(event) => setOtp(event.target.value.replace(/\D/g, ""))} pattern="\d{6}" placeholder="000000" required value={otp} /></Field> : null}
-                {mode === "login" ? <div className="-mt-1 flex justify-end"><Link className="text-sm font-black text-primary hover:text-primary-dark" href={isTeacher ? "/forgot-password/teacher" : "/forgot-password"}>Forgot password?</Link></div> : null}
+                {mode === "login" ? (
+                  <div className="-mt-1 flex flex-wrap justify-end gap-x-4 gap-y-2">
+                    {!isTeacher ? <Link className="text-sm font-black text-primary hover:text-primary-dark" href="/forgot-username">Forgot username?</Link> : null}
+                    <Link className="text-sm font-black text-primary hover:text-primary-dark" href={isTeacher ? "/forgot-password/teacher" : "/forgot-password"}>Forgot password?</Link>
+                  </div>
+                ) : null}
                 {error ? (
                   <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3.5 text-amber-950" role="alert">
                     <div className="flex items-start gap-2.5">

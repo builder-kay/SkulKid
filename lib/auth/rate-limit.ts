@@ -1,5 +1,6 @@
 type Attempt = { count: number; resetAt: number };
 const attempts = new Map<string, Attempt>();
+const recoveryLookups = new Map<string, Attempt>();
 
 export function allowOtpRequest(key: string) {
   const now = Date.now();
@@ -9,6 +10,18 @@ export function allowOtpRequest(key: string) {
     return true;
   }
   if (current.count >= 3) return false;
+  current.count += 1;
+  return true;
+}
+
+export function allowUsernameRecoveryLookup(key: string) {
+  const now = Date.now();
+  const current = recoveryLookups.get(key);
+  if (!current || current.resetAt <= now) {
+    recoveryLookups.set(key, { count: 1, resetAt: now + 10 * 60_000 });
+    return true;
+  }
+  if (current.count >= 10) return false;
   current.count += 1;
   return true;
 }
