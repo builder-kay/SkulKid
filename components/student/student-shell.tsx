@@ -106,16 +106,7 @@ export function StudentShell({ activeItem, children, mobileAside }: StudentShell
         role="dialog"
       >
         <div className="flex shrink-0 items-center justify-between gap-3 bg-slate-50 px-4 pb-2 pt-[calc(0.75rem+env(safe-area-inset-top))]">
-          <button
-            className="group inline-flex min-h-11 items-center gap-2.5 rounded-2xl border border-red-100 bg-gradient-to-br from-red-50 to-orange-50/70 px-3 text-sm font-bold text-red-700 shadow-sm transition hover:border-red-200 hover:from-red-100 hover:to-orange-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/35"
-            onClick={() => setSignOutOpen(true)}
-            type="button"
-          >
-            <span className="grid size-8 place-items-center rounded-xl bg-white text-red-600 ring-1 ring-red-100 transition group-hover:bg-red-600 group-hover:text-white group-hover:ring-red-600">
-              <LogOut aria-hidden="true" className="size-4" strokeWidth={2.5} />
-            </span>
-            Sign out
-          </button>
+          <p className="text-sm font-black text-slate-800">{mobileAside ? "Class board" : "Rewards"}</p>
           <button
             aria-label="Close rewards navigation"
             className="grid size-11 place-items-center rounded-2xl bg-white text-text-secondary shadow-sm hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
@@ -125,8 +116,23 @@ export function StudentShell({ activeItem, children, mobileAside }: StudentShell
             <X aria-hidden="true" className="size-6" />
           </button>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+        <div className="min-h-0 flex-1 overflow-y-auto px-3">
           {rewardsNavOpen ? (mobileAside ?? <GamificationArena idPrefix="mobile-" />) : null}
+        </div>
+        <div className="shrink-0 border-t border-slate-200/90 bg-slate-50 px-3 pb-[calc(0.85rem+env(safe-area-inset-bottom))] pt-3">
+          <button
+            className="group flex w-full min-h-12 items-center gap-3 rounded-2xl border border-red-100 bg-gradient-to-br from-red-50 to-orange-50/70 px-3 text-left text-sm font-bold text-red-700 shadow-sm transition hover:border-red-200 hover:from-red-100 hover:to-orange-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/35 active:scale-[0.98]"
+            onClick={() => setSignOutOpen(true)}
+            type="button"
+          >
+            <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-white text-red-600 ring-1 ring-red-100 transition group-hover:bg-red-600 group-hover:text-white group-hover:ring-red-600">
+              <LogOut aria-hidden="true" className="size-4" strokeWidth={2.5} />
+            </span>
+            <span className="min-w-0">
+              <span className="block leading-tight">Sign out</span>
+              <span className="block text-[11px] font-semibold text-red-600/70">End this session</span>
+            </span>
+          </button>
         </div>
       </aside>
 
