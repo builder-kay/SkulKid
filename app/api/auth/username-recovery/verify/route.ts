@@ -75,8 +75,12 @@ export async function POST(request: Request) {
       message: "Student username sent to the registered number. Please check your SMS."
     });
   } catch (error) {
+    const rawMessage = error instanceof Error ? error.message : "";
+    const message = rawMessage === "fetch failed"
+      ? "We verified your code, but could not send the SMS. Please check your connection and try recovery again."
+      : rawMessage || "Unable to verify the recovery code.";
     return NextResponse.json({
-      error: error instanceof Error ? error.message : "Unable to verify the recovery code."
+      error: message
     }, { status: 400 });
   }
 }

@@ -36,28 +36,6 @@ export function verifyOtp(recipient: string, otpCode: string) {
   return request("/otp/verify", { recipient, otp_code: otpCode });
 }
 
-export async function sendSms(recipient: string, message: string) {
-  const { apiKey, senderId } = config();
-  const response = await fetch("https://api.clifzesms.com/send-sms", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      to: recipient,
-      message,
-      ...(senderId ? { sender_id: senderId } : {})
-    }),
-    cache: "no-store"
-  });
-  const result = await response.json().catch(() => null) as {
-    status?: string;
-    success?: boolean;
-    message?: string;
-  } | null;
-  if (!response.ok || result?.success === false || result?.status === "error") {
-    throw new Error(result?.message || "The SMS provider could not complete the request.");
-  }
-  return result;
+export function sendSms(recipient: string, message: string) {
+  return request("/send", { recipient, message });
 }
