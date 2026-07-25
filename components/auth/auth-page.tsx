@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { ArrowRight, AtSign, BookOpen, BookOpenCheck, CheckCircle2, CircleAlert, Eye, EyeOff, Home, KeyRound, Loader2, LockKeyhole, Phone, RotateCcw, ShieldCheck, Sparkles, Star, Trophy, UserPlus, UserRound, UsersRound, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { SkulKidLogo } from "@/components/shared/skulkid-logo";
 import { roleHome, type AppRole } from "@/lib/auth/roles";
+import { normalizeGhanaPhone } from "@/lib/auth/phone";
 
 type Mode = "login" | "signup" | "reset";
 type Audience = "student" | "teacher";
@@ -15,7 +16,7 @@ type AuthAction = "login" | "password-reset" | "signup";
 type PhoneOwner = "self" | "guardian";
 
 class AuthFlowError extends Error {
-  constructor(message: string, readonly actions: AuthAction[] = []) {
+  constructor(message: string, readonly actions: AuthAction[] = [], readonly code = "") {
     super(message);
   }
 }
@@ -43,10 +44,13 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [guardianInfoOpen, setGuardianInfoOpen] = useState(false);
+  const [learnerSignupStep, setLearnerSignupStep] = useState<1 | 2 | 3 | 4 | 5>(1);
+  const learnerHeadingRef = useRef<HTMLHeadingElement>(null);
 
   const isTeacher = audience === "teacher";
   const isSignup = mode === "signup";
   const isReset = mode === "reset";
+  const isLearnerSteppedSignup = isSignup && !isTeacher;
   const isGuardianPhone = !isTeacher && phoneOwner === "guardian";
   const loginPath = isTeacher ? "/login/teacher" : "/login/student";
   const signupPath = isTeacher ? "/signup/teacher" : "/signup/student";
@@ -70,6 +74,44 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
   const asideCopy = isTeacher
     ? "Create curriculum-aligned lessons, publish subjects and guide learners across Ghana."
     : "Build confidence, collect rewards and create an avatar that grows with your learning.";
+  const learnerStepCopy = [
+    { title: "Let’s meet you!", description: "Choose the name and username you’ll use on SkulKid." },
+    { title: "Tell us about your learning", description: "This helps us show lessons that fit your level." },
+    { title: "Choose a safe phone", description: "Use your phone or ask a parent or guardian to help." },
+    { title: "Create your secret password", description: "Choose something you can remember but others cannot guess." },
+    { title: "Ask for the code", description: "Enter the six-digit code sent to the registered phone." }
+  ][learnerSignupStep - 1];
+
+  useEffect(() => {
+    if (!isLearnerSteppedSignup) return;
+    window.history.replaceState({ ...window.history.state, skulkidSignupStep: 1 }, "");
+    const onPopState = (event: PopStateEvent) => {
+      const next = Number(event.state?.skulkidSignupStep);
+      if (next >= 1 && next <= 5) {
+        setLearnerSignupStep(next as 1 | 2 | 3 | 4 | 5);
+        setError("");
+        setSuggestedActions([]);
+      }
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [isLearnerSteppedSignup]);
+
+  useEffect(() => {
+    if (!isLearnerSteppedSignup) return;
+    learnerHeadingRef.current?.focus();
+  }, [isLearnerSteppedSignup, learnerSignupStep]);
+
+  function advanceLearnerSignup(next: 2 | 3 | 4 | 5) {
+    window.history.pushState({ ...window.history.state, skulkidSignupStep: next }, "");
+    setLearnerSignupStep(next);
+    setError("");
+    setSuggestedActions([]);
+  }
+
+  function previousLearnerSignupStep() {
+    if (learnerSignupStep > 1) window.history.back();
+  }
 
   async function post(url: string, body: unknown) {
     const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -82,13 +124,65 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
       actions?: AuthAction[];
       phoneHint?: string;
       username?: string;
+      available?: boolean;
+      code?: string;
     };
-    if (!response.ok) throw new AuthFlowError(result.error || "Something went wrong.", result.actions);
+    if (!response.ok) throw new AuthFlowError(result.error || "Something went wrong.", result.actions, result.code);
     return result;
   }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
+    if (isLearnerSteppedSignup) {
+      setBusy(true); setError(""); setSuggestedActions([]); setSuccess("");
+      try {
+        if (learnerSignupStep === 1) {
+          const result = await post("/api/auth/username/availability", { username });
+          if (!result.available) throw new Error("That username is already taken. Try another one.");
+          advanceLearnerSignup(2);
+          return;
+        }
+        if (learnerSignupStep === 2) {
+          advanceLearnerSignup(3);
+          return;
+        }
+        if (learnerSignupStep === 3) {
+          normalizeGhanaPhone(phone);
+          advanceLearnerSignup(4);
+          return;
+        }
+        if (learnerSignupStep === 4) {
+          if (password !== confirmPassword) throw new Error("The passwords do not match. Please enter them again.");
+          await post("/api/auth/otp/send", { purpose: "signup", role: "student", phone, phoneOwner });
+          advanceLearnerSignup(5);
+          return;
+        }
+        const result = await post("/api/auth/signup", {
+          role: "student", phone, phoneOwner, username, password, otp, displayName, gender, age, grade
+        });
+        if (result.requiresSignIn) {
+          setSuccess(result.message || "Your account is ready! Please sign in with your username.");
+          window.setTimeout(() => router.replace(`${loginPath}?created=success`), 1800);
+          return;
+        }
+        setSuccess("Amazing work! Your learner account is ready.");
+        window.setTimeout(() => {
+          router.replace(roleHome(result.role ?? "student"));
+          router.refresh();
+        }, 1400);
+        return;
+      } catch (cause) {
+        if (cause instanceof AuthFlowError && learnerSignupStep === 4 && cause.code === "ACCOUNT_EXISTS") {
+          window.history.replaceState({ ...window.history.state, skulkidSignupStep: 3 }, "");
+          setLearnerSignupStep(3);
+        }
+        setError(cause instanceof Error ? cause.message : "Something went wrong.");
+        setSuggestedActions(cause instanceof AuthFlowError ? cause.actions : []);
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
     if (((isSignup && step === "details") || (isReset && step === "details")) && password !== confirmPassword) {
       setError("The passwords do not match. Please enter them again.");
       return;
@@ -215,12 +309,19 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
             <div className="mx-auto max-w-md">
               <div className="flex items-center justify-between gap-3">
                 <span className={`grid size-11 place-items-center rounded-2xl sm:size-12 ${isTeacher ? "bg-violet-100 text-violet-700" : "bg-blue-100 text-primary"}`}>{mode === "login" ? <KeyRound className="size-5" /> : isSignup ? <UserRound className="size-5" /> : <LockKeyhole className="size-5" />}</span>
-                {mode !== "login" ? <div className="flex items-center gap-2" aria-label={`Step ${step === "details" ? 1 : 2} of 2`}><span className="grid size-7 place-items-center rounded-full bg-primary text-xs font-black text-white">1</span><span className={`h-1 w-8 rounded-full ${step === "verify" ? "bg-primary" : "bg-slate-200"}`} /><span className={`grid size-7 place-items-center rounded-full text-xs font-black ${step === "verify" ? "bg-primary text-white" : "bg-slate-100 text-muted"}`}>2</span></div> : null}
+                {isLearnerSteppedSignup ? (
+                  <div aria-label={`Step ${learnerSignupStep} of 5`} className="text-right">
+                    <p className="text-xs font-black uppercase tracking-wider text-primary">Step {learnerSignupStep} of 5</p>
+                    <div className="mt-2 flex gap-1.5" aria-hidden="true">
+                      {[1, 2, 3, 4, 5].map((item) => <span className={`h-1.5 w-7 rounded-full transition-colors motion-reduce:transition-none ${item <= learnerSignupStep ? "bg-primary" : "bg-slate-200"}`} key={item} />)}
+                    </div>
+                  </div>
+                ) : mode !== "login" ? <div className="flex items-center gap-2" aria-label={`Step ${step === "details" ? 1 : 2} of 2`}><span className="grid size-7 place-items-center rounded-full bg-primary text-xs font-black text-white">1</span><span className={`h-1 w-8 rounded-full ${step === "verify" ? "bg-primary" : "bg-slate-200"}`} /><span className={`grid size-7 place-items-center rounded-full text-xs font-black ${step === "verify" ? "bg-primary text-white" : "bg-slate-100 text-muted"}`}>2</span></div> : null}
               </div>
-              <h1 className="mt-3 text-2xl font-black tracking-tight text-slate-950 sm:mt-4 sm:text-3xl">{title}</h1>
-              <p className="mt-1.5 text-sm leading-5 text-text-secondary sm:text-base sm:leading-6">{description}</p>
+              <h1 className="mt-3 text-2xl font-black tracking-tight text-slate-950 outline-none sm:mt-4 sm:text-3xl" ref={isLearnerSteppedSignup ? learnerHeadingRef : undefined} tabIndex={isLearnerSteppedSignup ? -1 : undefined}>{isLearnerSteppedSignup ? learnerStepCopy.title : title}</h1>
+              <p className="mt-1.5 text-sm leading-5 text-text-secondary sm:text-base sm:leading-6">{isLearnerSteppedSignup ? learnerStepCopy.description : description}</p>
 
-              {step === "verify" ? (
+              {(step === "verify" || (isLearnerSteppedSignup && learnerSignupStep === 5)) ? (
                 <div className="mt-3 flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
                   <CheckCircle2 className="mt-0.5 size-5 shrink-0" />
                   <span>
@@ -237,7 +338,84 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
               ) : null}
 
               <form className="mt-4 grid gap-3" onSubmit={submit}>
-                {isSignup && step === "details" && !isTeacher ? (
+                {isLearnerSteppedSignup && learnerSignupStep === 1 ? (
+                  <>
+                    <Field label="What should we call you?">
+                      <input autoComplete="name" maxLength={50} minLength={2} onChange={(event) => setDisplayName(event.target.value)} placeholder="Your name" required value={displayName} />
+                    </Field>
+                    <Field label="Choose your username">
+                      <div className="relative w-full">
+                        <span className="pointer-events-none absolute inset-y-0 left-0 z-10 grid w-12 place-items-center text-muted"><AtSign className="size-5" /></span>
+                        <input autoComplete="username" className="!pl-12" maxLength={20} minLength={3} onChange={(event) => setUsername(event.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))} pattern="[a-z0-9_]{3,20}" placeholder="e.g. ama_b4" required value={username} />
+                      </div>
+                      <span className="text-xs font-medium text-muted">Use 3–20 letters, numbers or underscores. You’ll use this name to sign in.</span>
+                    </Field>
+                  </>
+                ) : null}
+
+                {isLearnerSteppedSignup && learnerSignupStep === 2 ? (
+                  <>
+                    <Field label="Are you a boy or girl?">
+                      <div className="grid grid-cols-2 gap-3">
+                        {(["male", "female"] as const).map((value) => (
+                          <button className={`min-h-12 rounded-xl border-2 px-4 font-black transition motion-reduce:transition-none ${gender === value ? "border-primary bg-blue-50 text-primary" : "border-slate-200 bg-white text-slate-600 hover:border-blue-200"}`} key={value} onClick={() => setGender(value)} type="button">
+                            {value === "male" ? "Boy" : "Girl"}
+                          </button>
+                        ))}
+                      </div>
+                    </Field>
+                    <div className="grid grid-cols-2 gap-3">
+                      <Field label="Your age"><input max={18} min={5} onChange={(event) => setAge(Number(event.target.value))} required type="number" value={age} /></Field>
+                      <Field label="Primary level"><select onChange={(event) => setGrade(Number(event.target.value))} value={grade}>{[1, 2, 3, 4, 5, 6].map((item) => <option key={item} value={item}>Basic {item}</option>)}</select></Field>
+                    </div>
+                  </>
+                ) : null}
+
+                {isLearnerSteppedSignup && learnerSignupStep === 3 ? (
+                  <>
+                    <Field label="Whose phone will you use?">
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <button className={`min-h-14 rounded-xl border-2 p-3 text-left ${phoneOwner === "self" ? "border-primary bg-blue-50 text-primary" : "border-slate-200"}`} onClick={() => setPhoneOwner("self")} type="button"><b className="block">My own phone</b><span className="text-xs font-medium">The number belongs to me</span></button>
+                        <button className={`min-h-14 rounded-xl border-2 p-3 text-left ${phoneOwner === "guardian" ? "border-primary bg-blue-50 text-primary" : "border-slate-200"}`} onClick={() => setPhoneOwner("guardian")} type="button"><b className="block">Parent or guardian</b><span className="text-xs font-medium">Ask an adult to help</span></button>
+                      </div>
+                    </Field>
+                    <Field label={isGuardianPhone ? "Parent or guardian phone" : "Your Ghana phone number"}>
+                      <div className="relative w-full">
+                        <span className="pointer-events-none absolute inset-y-0 left-0 z-10 grid w-12 place-items-center text-muted"><Phone className="size-5" /></span>
+                        <input autoComplete="tel" className="!pl-12 !pr-16" inputMode="tel" onChange={(event) => setPhone(event.target.value)} placeholder="024 123 4567" required value={phone} />
+                        <span className="pointer-events-none absolute inset-y-0 right-3 grid place-items-center text-xs font-black text-emerald-700">+233</span>
+                      </div>
+                      <span className="text-xs font-medium text-muted">{isGuardianPhone ? "Brothers, sisters and twins can share this number. Each child keeps a different username." : "You can enter 024… or +23324…."}</span>
+                    </Field>
+                  </>
+                ) : null}
+
+                {isLearnerSteppedSignup && learnerSignupStep === 4 ? (
+                  <>
+                    <Field label="Create a password">
+                      <div className="relative w-full">
+                        <span className="pointer-events-none absolute inset-y-0 left-0 z-10 grid w-12 place-items-center text-muted"><LockKeyhole className="size-5" /></span>
+                        <input autoComplete="new-password" className="!pl-12 !pr-12" minLength={8} onChange={(event) => setPassword(event.target.value)} required type={showPassword ? "text" : "password"} value={password} />
+                        <button aria-label={showPassword ? "Hide password" : "Show password"} className="absolute inset-y-0 right-1 z-10 my-auto grid size-10 place-items-center rounded-lg text-muted hover:bg-slate-100" onClick={() => setShowPassword((visible) => !visible)} type="button">{showPassword ? <EyeOff className="size-5" /> : <Eye className="size-5" />}</button>
+                      </div>
+                      <span className="text-xs font-medium text-muted">Use at least 8 characters. Keep it secret.</span>
+                    </Field>
+                    <Field label="Type it one more time">
+                      <div className="relative w-full">
+                        <span className="pointer-events-none absolute inset-y-0 left-0 z-10 grid w-12 place-items-center text-muted"><LockKeyhole className="size-5" /></span>
+                        <input autoComplete="new-password" className="!pl-12 !pr-12" minLength={8} onChange={(event) => setConfirmPassword(event.target.value)} required type={showConfirmPassword ? "text" : "password"} value={confirmPassword} />
+                        <button aria-label={showConfirmPassword ? "Hide password confirmation" : "Show password confirmation"} className="absolute inset-y-0 right-1 z-10 my-auto grid size-10 place-items-center rounded-lg text-muted hover:bg-slate-100" onClick={() => setShowConfirmPassword((visible) => !visible)} type="button">{showConfirmPassword ? <EyeOff className="size-5" /> : <Eye className="size-5" />}</button>
+                      </div>
+                      {confirmPassword && password === confirmPassword ? <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700"><CheckCircle2 className="size-3.5" />Great—your passwords match!</span> : null}
+                    </Field>
+                  </>
+                ) : null}
+
+                {isLearnerSteppedSignup && learnerSignupStep === 5 ? (
+                  <Field label="6-digit verification code"><input autoComplete="one-time-code" className="text-center text-2xl font-black tracking-[.45em]" inputMode="numeric" maxLength={6} onChange={(event) => setOtp(event.target.value.replace(/\D/g, ""))} pattern="\d{6}" placeholder="000000" required value={otp} /></Field>
+                ) : null}
+
+                {isSignup && step === "details" && !isTeacher && !isLearnerSteppedSignup ? (
                   <>
                     <Field label="Learner name"><input autoComplete="name" onChange={(event) => setDisplayName(event.target.value)} placeholder="What should we call you?" required value={displayName} /></Field>
                     <Field label="Username">
@@ -271,7 +449,7 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
                   </Field>
                 ) : null}
 
-                {(isTeacher && (mode === "login" || step === "details")) || (isSignup && step === "details") ? (
+                {(isTeacher && (mode === "login" || step === "details")) || (isSignup && step === "details" && !isLearnerSteppedSignup) ? (
                   <Field label={isTeacher ? "Ghana phone number" : isGuardianPhone ? "Parent or guardian phone" : "Your Ghana phone number"}>
                     <div className="relative w-full">
                       <span className="pointer-events-none absolute inset-y-0 left-0 z-10 grid w-12 place-items-center text-muted"><Phone className="size-5" /></span>
@@ -298,7 +476,7 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
                   </Field>
                 ) : null}
 
-                {mode === "login" || (isSignup && step === "details") || (isReset && step === "details") ? (
+                {mode === "login" || (isSignup && step === "details" && !isLearnerSteppedSignup) || (isReset && step === "details") ? (
                   <Field label={isReset ? "New password" : "Password"}>
                     <div className="relative w-full">
                       <span className="pointer-events-none absolute inset-y-0 left-0 z-10 grid w-12 place-items-center text-muted"><LockKeyhole className="size-5" /></span>
@@ -308,7 +486,7 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
                     {mode !== "login" ? <span className="text-xs font-medium text-muted">Use at least 8 characters.</span> : null}
                   </Field>
                 ) : null}
-                {(isSignup && step === "details") || (isReset && step === "details") ? (
+                {(isSignup && step === "details" && !isLearnerSteppedSignup) || (isReset && step === "details") ? (
                   <Field label="Confirm password">
                     <div className="relative w-full">
                       <span className="pointer-events-none absolute inset-y-0 left-0 z-10 grid w-12 place-items-center text-muted"><LockKeyhole className="size-5" /></span>
@@ -318,7 +496,7 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
                     {confirmPassword && password === confirmPassword ? <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700"><CheckCircle2 className="size-3.5" />Passwords match</span> : null}
                   </Field>
                 ) : null}
-                {step === "verify" ? <Field label="6-digit verification code"><input autoComplete="one-time-code" className="text-center text-2xl font-black tracking-[.45em]" inputMode="numeric" maxLength={6} onChange={(event) => setOtp(event.target.value.replace(/\D/g, ""))} pattern="\d{6}" placeholder="000000" required value={otp} /></Field> : null}
+                {step === "verify" && !isLearnerSteppedSignup ? <Field label="6-digit verification code"><input autoComplete="one-time-code" className="text-center text-2xl font-black tracking-[.45em]" inputMode="numeric" maxLength={6} onChange={(event) => setOtp(event.target.value.replace(/\D/g, ""))} pattern="\d{6}" placeholder="000000" required value={otp} /></Field> : null}
                 {mode === "login" ? (
                   <div className="-mt-1 flex flex-wrap justify-end gap-x-4 gap-y-2">
                     {!isTeacher ? <Link className="text-sm font-black text-primary hover:text-primary-dark" href="/forgot-username">Forgot username?</Link> : null}
@@ -353,10 +531,26 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
                   </div>
                 ) : null}
                 <button className="group inline-flex min-h-13 items-center justify-center gap-2 rounded-xl bg-primary px-5 font-black text-white shadow-[0_10px_25px_rgba(37,99,235,.24)] transition hover:-translate-y-0.5 hover:bg-primary-dark disabled:translate-y-0 disabled:opacity-60" disabled={busy || Boolean(success)} type="submit">
-                  {success ? <CheckCircle2 className="size-5" /> : busy ? <Loader2 className="size-5 animate-spin" /> : step === "verify" ? <ShieldCheck className="size-5" /> : <ArrowRight className="size-5 transition group-hover:translate-x-0.5" />}
-                  {success ? "Taking you to sign in..." : busy ? "Please wait" : mode === "login" ? "Sign in and continue" : step === "details" ? "Send verification code" : isSignup ? "Verify and create account" : "Verify and reset password"}
+                  {success ? <CheckCircle2 className="size-5" /> : busy ? <Loader2 className="size-5 animate-spin" /> : step === "verify" || (isLearnerSteppedSignup && learnerSignupStep === 5) ? <ShieldCheck className="size-5" /> : <ArrowRight className="size-5 transition group-hover:translate-x-0.5" />}
+                  {success
+                    ? "Taking you to sign in..."
+                    : busy
+                      ? learnerSignupStep === 1 && isLearnerSteppedSignup ? "Checking username..." : "Please wait"
+                      : isLearnerSteppedSignup
+                        ? learnerSignupStep === 4
+                          ? "Send my code"
+                          : learnerSignupStep === 5
+                            ? "Verify and create my account"
+                            : "Continue"
+                        : mode === "login"
+                          ? "Sign in and continue"
+                          : step === "details"
+                            ? "Send verification code"
+                            : isSignup ? "Verify and create account" : "Verify and reset password"}
                 </button>
-                {step === "verify" ? <button className="text-sm font-bold text-primary" onClick={() => { setStep("details"); setOtp(""); setError(""); setSuggestedActions([]); setPhoneHint(""); }} type="button">{isReset && !isTeacher ? "Change username" : "Go back"}</button> : null}
+                {isLearnerSteppedSignup && learnerSignupStep > 1 ? (
+                  <button className="text-sm font-bold text-primary" onClick={previousLearnerSignupStep} type="button">← Back</button>
+                ) : step === "verify" ? <button className="text-sm font-bold text-primary" onClick={() => { setStep("details"); setOtp(""); setError(""); setSuggestedActions([]); setPhoneHint(""); }} type="button">{isReset && !isTeacher ? "Change username" : "Go back"}</button> : null}
               </form>
               <div className="mt-4 border-t border-slate-200 pt-4 text-center text-sm text-text-secondary">
                 {mode === "login" ? (
