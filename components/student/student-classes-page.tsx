@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
   BookOpen,
@@ -11,7 +11,8 @@ import {
   MessageSquareHeart,
   Sparkles,
   Users,
-  UsersRound
+  UsersRound,
+  X
 } from "lucide-react";
 import { StudentPageNav } from "@/components/student/student-page-nav";
 import { StudentShell } from "@/components/student/student-shell";
@@ -32,6 +33,8 @@ export function StudentClassesPage() {
   const [code, setCode] = useState("");
   const [joining, setJoining] = useState(false);
   const [joinFocused, setJoinFocused] = useState(false);
+  const [joinModalOpen, setJoinModalOpen] = useState(false);
+  const joinInputRef = useRef<HTMLInputElement>(null);
 
   async function load() {
     setLoading(true);
@@ -48,6 +51,22 @@ export function StudentClassesPage() {
   }
 
   useEffect(() => { void load(); }, []);
+
+  useEffect(() => {
+    if (!joinModalOpen) return;
+    const timer = window.setTimeout(() => joinInputRef.current?.focus(), 50);
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape" && !joining) setJoinModalOpen(false);
+    }
+    document.addEventListener("keydown", onKeyDown);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [joinModalOpen, joining]);
 
   const totals = useMemo(() => ({
     classes: classes.length,
@@ -68,6 +87,7 @@ export function StudentClassesPage() {
       const payload = await response.json() as { classroom?: { id: string }; error?: string };
       if (!response.ok) throw new Error(payload.error || "Unable to join class.");
       setCode("");
+      setJoinModalOpen(false);
       await load();
       if (payload.classroom?.id) window.location.href = `/classes/${payload.classroom.id}`;
     } catch (cause) {
@@ -77,10 +97,22 @@ export function StudentClassesPage() {
     }
   }
 
-  function focusJoin() {
-    setJoinFocused(true);
-    document.getElementById("join-class-panel")?.scrollIntoView({ behavior: "smooth", block: "center" });
-    window.setTimeout(() => document.getElementById("join-code-input")?.focus(), 350);
+  function openJoin() {
+    setError("");
+    const isDesktop = typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches;
+    if (isDesktop) {
+      setJoinFocused(true);
+      document.getElementById("join-class-panel")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      window.setTimeout(() => document.getElementById("join-code-input-desktop")?.focus(), 350);
+      return;
+    }
+    setJoinModalOpen(true);
+  }
+
+  function closeJoinModal() {
+    if (joining) return;
+    setJoinModalOpen(false);
+    setJoinFocused(false);
   }
 
   return (
@@ -121,7 +153,7 @@ export function StudentClassesPage() {
             </div>
             <button
               className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-amber-300 px-5 text-base font-black text-slate-950 shadow-[0_12px_30px_rgba(252,211,77,.3)] transition duration-200 hover:-translate-y-0.5 hover:bg-amber-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-              onClick={focusJoin}
+              onClick={openJoin}
               type="button"
             >
               <KeyRound className="size-5" />
@@ -155,7 +187,7 @@ export function StudentClassesPage() {
               <p className="mt-1 text-sm text-text-secondary">
                 {classes.length
                   ? "Open a class for quizzes, subjects and teacher tips."
-                  : "Ask your teacher for a join link or enter a code on the right."}
+                  : "Ask your teacher for a join link, or tap Join with a code."}
               </p>
             </div>
 
@@ -166,7 +198,7 @@ export function StudentClassesPage() {
                 ))}
               </div>
             ) : classes.length === 0 ? (
-              <EmptyClasses onJoin={focusJoin} />
+              <EmptyClasses onJoin={openJoin} />
             ) : (
               <div className="grid gap-4 sm:grid-cols-2">
                 {classes.map((classroom, index) => (
@@ -176,84 +208,179 @@ export function StudentClassesPage() {
             )}
           </section>
 
-          <aside className="space-y-4 lg:sticky lg:top-8">
-            <form
-              className={cn(
-                "overflow-hidden rounded-[1.75rem] border bg-white shadow-[var(--shadow-card)] transition duration-200",
-                joinFocused || error ? "border-sky-300 ring-4 ring-sky-100" : "border-slate-200"
-              )}
-              id="join-class-panel"
+          <aside className="hidden space-y-4 lg:sticky lg:top-8 lg:block">
+            <JoinCodeForm
+              code={code}
+              error={error}
+              highlighted={joinFocused || Boolean(error)}
+              idPrefix="desktop"
+              joining={joining}
+              onBlur={() => setJoinFocused(false)}
+              onCodeChange={setCode}
+              onFocus={() => setJoinFocused(true)}
               onSubmit={joinByCode}
-            >
-              <div className="bg-gradient-to-br from-sky-700 to-cyan-800 px-5 py-4 text-white">
-                <div className="flex items-center gap-3">
+            />
+            <HowClassesWork />
+          </aside>
+        </div>
+
+        {joinModalOpen ? (
+          <div
+            aria-labelledby="join-class-modal-title"
+            aria-modal="true"
+            className="fixed inset-0 z-[90] grid place-items-end bg-slate-950/50 p-3 sm:place-items-center sm:p-4 lg:hidden"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) closeJoinModal();
+            }}
+            role="dialog"
+          >
+            <div className="w-full max-w-md overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-[0_24px_60px_rgba(15,23,42,.28)]">
+              <div className="relative bg-gradient-to-br from-sky-700 to-cyan-800 px-5 py-4 text-white">
+                <button
+                  aria-label="Close join class"
+                  className="absolute right-3 top-3 grid size-10 place-items-center rounded-xl bg-white/10 text-white hover:bg-white/20 disabled:opacity-50"
+                  disabled={joining}
+                  onClick={closeJoinModal}
+                  type="button"
+                >
+                  <X className="size-5" />
+                </button>
+                <div className="flex items-center gap-3 pr-10">
                   <span className="grid size-11 place-items-center rounded-2xl bg-white/15 ring-1 ring-white/20">
                     <KeyRound className="size-5" />
                   </span>
                   <div>
                     <p className="text-xs font-black uppercase tracking-wider text-sky-100">Join a class</p>
-                    <h3 className="text-lg font-black">Enter your code</h3>
+                    <h3 className="text-lg font-black" id="join-class-modal-title">Enter your code</h3>
                   </div>
                 </div>
               </div>
-              <div className="grid gap-3 p-5">
-                <p className="text-sm leading-6 text-text-secondary">
-                  Your teacher shares an 8-character code or a link. Paste the code here to get in.
-                </p>
-                <label className="grid gap-1.5 text-sm font-black text-slate-700" htmlFor="join-code-input">
-                  Class code
-                  <input
-                    autoCapitalize="characters"
-                    autoComplete="off"
-                    className="min-h-12 rounded-xl border border-slate-300 bg-slate-50 px-4 text-center text-lg font-black uppercase tracking-[0.28em] text-slate-950 outline-none transition focus:border-sky-500 focus:bg-white focus:ring-4 focus:ring-sky-100"
-                    id="join-code-input"
-                    onBlur={() => setJoinFocused(false)}
-                    onChange={(event) => setCode(event.target.value.toUpperCase())}
-                    onFocus={() => setJoinFocused(true)}
-                    placeholder="ABCD1234"
-                    required
-                    spellCheck={false}
-                    value={code}
-                  />
-                </label>
-                {error ? (
-                  <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-bold text-amber-900" role="alert">
-                    {error}
-                  </p>
-                ) : null}
-                <button
-                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-sky-600 px-5 font-black text-white shadow-[0_10px_24px_rgba(2,132,199,.28)] transition hover:bg-sky-700 disabled:opacity-60"
-                  disabled={joining || !code.trim()}
-                  type="submit"
-                >
-                  {joining ? <Loader2 className="size-5 animate-spin" /> : <Users className="size-5" />}
-                  {joining ? "Joining…" : "Join this class"}
-                </button>
-              </div>
-            </form>
-
-            <div className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm">
-              <h3 className="font-black text-slate-950">How classes work</h3>
-              <ol className="mt-4 grid gap-3">
-                {[
-                  "Join with a code or teacher link",
-                  "Complete class quizzes for XP and stars",
-                  "Follow subjects your teacher assigns",
-                  "Read tips and climb the class board"
-                ].map((step, index) => (
-                  <li className="flex gap-3 text-sm leading-6 text-slate-600" key={step}>
-                    <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-sky-50 text-xs font-black text-sky-800">
-                      {index + 1}
-                    </span>
-                    <span>{step}</span>
-                  </li>
-                ))}
-              </ol>
+              <JoinCodeForm
+                code={code}
+                error={error}
+                highlighted={Boolean(error)}
+                idPrefix="mobile"
+                inputRef={joinInputRef}
+                joining={joining}
+                onCodeChange={setCode}
+                onSubmit={joinByCode}
+                plain
+              />
             </div>
-          </aside>
-        </div>
+          </div>
+        ) : null}
       </main>
     </StudentShell>
+  );
+}
+
+function JoinCodeForm({
+  code,
+  error,
+  joining,
+  highlighted = false,
+  idPrefix,
+  plain = false,
+  inputRef,
+  onCodeChange,
+  onFocus,
+  onBlur,
+  onSubmit
+}: {
+  code: string;
+  error: string;
+  joining: boolean;
+  highlighted?: boolean;
+  idPrefix: string;
+  plain?: boolean;
+  inputRef?: React.RefObject<HTMLInputElement | null>;
+  onCodeChange: (value: string) => void;
+  onFocus?: () => void;
+  onBlur?: () => void;
+  onSubmit: (event: React.FormEvent) => void;
+}) {
+  const inputId = `join-code-input-${idPrefix}`;
+  return (
+    <form
+      className={cn(
+        plain ? "" : "overflow-hidden rounded-[1.75rem] border bg-white shadow-[var(--shadow-card)] transition duration-200",
+        !plain && (highlighted ? "border-sky-300 ring-4 ring-sky-100" : "border-slate-200")
+      )}
+      id={plain ? undefined : "join-class-panel"}
+      onSubmit={onSubmit}
+    >
+      {!plain ? (
+        <div className="bg-gradient-to-br from-sky-700 to-cyan-800 px-5 py-4 text-white">
+          <div className="flex items-center gap-3">
+            <span className="grid size-11 place-items-center rounded-2xl bg-white/15 ring-1 ring-white/20">
+              <KeyRound className="size-5" />
+            </span>
+            <div>
+              <p className="text-xs font-black uppercase tracking-wider text-sky-100">Join a class</p>
+              <h3 className="text-lg font-black">Enter your code</h3>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      <div className="grid gap-3 p-5">
+        <p className="text-sm leading-6 text-text-secondary">
+          Your teacher shares an 8-character code or a link. Paste the code here to get in.
+        </p>
+        <label className="grid gap-1.5 text-sm font-black text-slate-700" htmlFor={inputId}>
+          Class code
+          <input
+            autoCapitalize="characters"
+            autoComplete="off"
+            className="min-h-12 rounded-xl border border-slate-300 bg-slate-50 px-4 text-center text-lg font-black uppercase tracking-[0.28em] text-slate-950 outline-none transition focus:border-sky-500 focus:bg-white focus:ring-4 focus:ring-sky-100"
+            id={inputId}
+            onBlur={onBlur}
+            onChange={(event) => onCodeChange(event.target.value.toUpperCase())}
+            onFocus={onFocus}
+            placeholder="ABCD1234"
+            ref={inputRef}
+            required
+            spellCheck={false}
+            value={code}
+          />
+        </label>
+        {error ? (
+          <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-bold text-amber-900" role="alert">
+            {error}
+          </p>
+        ) : null}
+        <button
+          className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-sky-600 px-5 font-black text-white shadow-[0_10px_24px_rgba(2,132,199,.28)] transition hover:bg-sky-700 disabled:opacity-60"
+          disabled={joining || !code.trim()}
+          type="submit"
+        >
+          {joining ? <Loader2 className="size-5 animate-spin" /> : <Users className="size-5" />}
+          {joining ? "Joining…" : "Join this class"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function HowClassesWork() {
+  return (
+    <div className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm">
+      <h3 className="font-black text-slate-950">How classes work</h3>
+      <ol className="mt-4 grid gap-3">
+        {[
+          "Join with a code or teacher link",
+          "Complete class quizzes for XP and stars",
+          "Follow subjects your teacher assigns",
+          "Read tips and climb the class board"
+        ].map((step, index) => (
+          <li className="flex gap-3 text-sm leading-6 text-slate-600" key={step}>
+            <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-sky-50 text-xs font-black text-sky-800">
+              {index + 1}
+            </span>
+            <span>{step}</span>
+          </li>
+        ))}
+      </ol>
+    </div>
   );
 }
 
@@ -336,7 +463,7 @@ function EmptyClasses({ onJoin }: { onJoin: () => void }) {
           </span>
           <h3 className="mt-4 text-2xl font-black text-slate-950">No classes yet</h3>
           <p className="mt-2 max-w-md text-sm leading-6 text-slate-600">
-            When your teacher shares a join code or link, enter it here and your classroom will appear.
+            When your teacher shares a join code or link, tap Join with a code to enter it.
           </p>
           <button
             className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl bg-sky-600 px-4 font-black text-white hover:bg-sky-700"
