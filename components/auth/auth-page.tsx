@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { ArrowRight, BookOpen, BookOpenCheck, CheckCircle2, CircleAlert, Eye, EyeOff, Home, KeyRound, Loader2, LockKeyhole, Phone, RotateCcw, ShieldCheck, Sparkles, Star, Trophy, UserPlus, UserRound, UsersRound, X } from "lucide-react";
+import { ArrowRight, AtSign, BookOpen, BookOpenCheck, CheckCircle2, CircleAlert, Eye, EyeOff, Home, KeyRound, Loader2, LockKeyhole, Phone, RotateCcw, ShieldCheck, Sparkles, Star, Trophy, UserPlus, UserRound, UsersRound, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { SkulKidLogo } from "@/components/shared/skulkid-logo";
 import { roleHome, type AppRole } from "@/lib/auth/roles";
@@ -12,6 +12,7 @@ import { roleHome, type AppRole } from "@/lib/auth/roles";
 type Mode = "login" | "signup" | "reset";
 type Audience = "student" | "teacher";
 type AuthAction = "login" | "password-reset" | "signup";
+type PhoneOwner = "self" | "guardian";
 
 class AuthFlowError extends Error {
   constructor(message: string, readonly actions: AuthAction[] = []) {
@@ -27,6 +28,9 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
   const [suggestedActions, setSuggestedActions] = useState<AuthAction[]>([]);
   const [success, setSuccess] = useState("");
   const [phone, setPhone] = useState("");
+  const [username, setUsername] = useState("");
+  const [phoneOwner, setPhoneOwner] = useState<PhoneOwner>("self");
+  const [phoneHint, setPhoneHint] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [otp, setOtp] = useState("");
@@ -43,6 +47,7 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
   const isTeacher = audience === "teacher";
   const isSignup = mode === "signup";
   const isReset = mode === "reset";
+  const isGuardianPhone = !isTeacher && phoneOwner === "guardian";
   const loginPath = isTeacher ? "/login/teacher" : "/login/student";
   const signupPath = isTeacher ? "/signup/teacher" : "/signup/student";
   const title = mode === "login"
@@ -51,10 +56,16 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
       ? (isTeacher ? "Create your teacher account" : "Create your learner account")
       : "Choose a new password";
   const description = mode === "login"
-    ? (isTeacher ? "Continue building subjects, lessons and learning paths." : "Continue learning, earning XP and building your avatar.")
+    ? (isTeacher ? "Continue building subjects, lessons and learning paths." : "Sign in with your username and password.")
     : isSignup
-      ? (isTeacher ? "Use a Ghana phone number to join the SkulKid teacher workspace." : "Use a Ghana phone number to begin your learning adventure.")
-      : "We will verify your phone before changing your password.";
+      ? (isTeacher
+        ? "Use a Ghana phone number to join the SkulKid teacher workspace."
+        : isGuardianPhone
+          ? "Use a parent or guardian phone for verification. You will sign in with your username."
+          : "Choose a username and verify with your Ghana phone number.")
+      : (isTeacher
+        ? "We will verify your phone before changing your password."
+        : "Enter your username. We will send a code to your linked phone.");
   const asideTitle = isTeacher ? "Teach with purpose." : "Every lesson is a new adventure.";
   const asideCopy = isTeacher
     ? "Create curriculum-aligned lessons, publish subjects and guide learners across Ghana."
@@ -62,21 +73,32 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
 
   async function post(url: string, body: unknown) {
     const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    const result = await response.json() as { ok?: boolean; error?: string; message?: string; requiresSignIn?: boolean; role?: AppRole; actions?: AuthAction[] };
+    const result = await response.json() as {
+      ok?: boolean;
+      error?: string;
+      message?: string;
+      requiresSignIn?: boolean;
+      role?: AppRole;
+      actions?: AuthAction[];
+      phoneHint?: string;
+      username?: string;
+    };
     if (!response.ok) throw new AuthFlowError(result.error || "Something went wrong.", result.actions);
     return result;
   }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (((isSignup && step === "details") || (isReset && step === "verify")) && password !== confirmPassword) {
+    if (((isSignup && step === "details") || (isReset && step === "details")) && password !== confirmPassword) {
       setError("The passwords do not match. Please enter them again.");
       return;
     }
     setBusy(true); setError(""); setSuggestedActions([]); setSuccess("");
     try {
       if (mode === "login") {
-        const result = await post("/api/auth/login", { phone, password });
+        const result = await post("/api/auth/login", isTeacher
+          ? { role: "teacher", phone, password }
+          : { role: "student", username, password });
         const home = roleHome(result.role ?? "student");
         const safeNext = nextPath?.startsWith("/") && !nextPath.startsWith("//") ? nextPath : null;
         const blockedStaffPath =
@@ -85,26 +107,48 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
         router.replace(destination); router.refresh();
         return;
       }
+
       if (step === "details") {
-        await post("/api/auth/otp/send", { phone, purpose: isSignup ? "signup" : "password-reset" });
+        if (isReset && !isTeacher) {
+          const result = await post("/api/auth/otp/send", {
+            purpose: "password-reset",
+            role: "student",
+            username
+          });
+          setPhoneHint(result.phoneHint || "");
+          setStep("verify");
+          return;
+        }
+        if (isReset && isTeacher) {
+          await post("/api/auth/otp/send", { purpose: "password-reset", role: "teacher", phone });
+          setStep("verify");
+          return;
+        }
+        await post("/api/auth/otp/send", isTeacher
+          ? { purpose: "signup", role: "teacher", phone }
+          : { purpose: "signup", role: "student", phone, phoneOwner });
         setStep("verify");
         return;
       }
+
       if (isSignup) {
         const payload = isTeacher
           ? { role: "teacher", phone, password, otp, displayName, school, subjectsTaught }
-          : { role: "student", phone, password, otp, displayName, gender, age, grade };
+          : { role: "student", phone, phoneOwner, username, password, otp, displayName, gender, age, grade };
         const result = await post("/api/auth/signup", payload);
         if (result.requiresSignIn) {
-          setSuccess(result.message || (isTeacher ? "Your teacher account is ready! Please sign in." : "Your account is ready! Please sign in to start learning."));
+          setSuccess(result.message || (isTeacher ? "Your teacher account is ready! Please sign in." : "Your account is ready! Please sign in with your username."));
           window.setTimeout(() => router.replace(`${loginPath}?created=success`), 1800);
           return;
         }
         router.replace(roleHome(result.role ?? (isTeacher ? "teacher" : "student"))); router.refresh();
-      } else {
-        await post("/api/auth/password-reset", { phone, password, otp });
-        router.replace("/login?reset=success");
+        return;
       }
+
+      await post("/api/auth/password-reset", isTeacher
+        ? { role: "teacher", phone, password, otp }
+        : { role: "student", username, password, otp });
+      router.replace(`${loginPath}?reset=success`);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Something went wrong.");
       setSuggestedActions(cause instanceof AuthFlowError ? cause.actions : []);
@@ -176,12 +220,33 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
               <h1 className="mt-3 text-2xl font-black tracking-tight text-slate-950 sm:mt-4 sm:text-3xl">{title}</h1>
               <p className="mt-1.5 text-sm leading-5 text-text-secondary sm:text-base sm:leading-6">{description}</p>
 
-              {step === "verify" ? <div className="mt-3 flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900"><CheckCircle2 className="mt-0.5 size-5 shrink-0" /><span><b className="block">Verification code sent</b><span className="block text-emerald-800">Enter the code sent to {phone}.</span></span></div> : null}
+              {step === "verify" ? (
+                <div className="mt-3 flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
+                  <CheckCircle2 className="mt-0.5 size-5 shrink-0" />
+                  <span>
+                    <b className="block">Verification code sent</b>
+                    <span className="block text-emerald-800">
+                      {isReset && !isTeacher && phoneHint
+                        ? `Enter the code sent to ${phoneHint}.`
+                        : isTeacher || phone
+                          ? `Enter the code sent to ${phone}.`
+                          : "Enter the code sent to your linked phone."}
+                    </span>
+                  </span>
+                </div>
+              ) : null}
 
               <form className="mt-4 grid gap-3" onSubmit={submit}>
                 {isSignup && step === "details" && !isTeacher ? (
                   <>
                     <Field label="Learner name"><input autoComplete="name" onChange={(event) => setDisplayName(event.target.value)} placeholder="What should we call you?" required value={displayName} /></Field>
+                    <Field label="Username">
+                      <div className="relative w-full">
+                        <span className="pointer-events-none absolute inset-y-0 left-0 z-10 grid w-12 place-items-center text-muted"><AtSign className="size-5" /></span>
+                        <input autoComplete="username" className="!pl-12" maxLength={20} minLength={3} onChange={(event) => setUsername(event.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))} pattern="[a-z0-9_]{3,20}" placeholder="e.g. ama_b4" required value={username} />
+                      </div>
+                      <span className="text-xs font-medium text-muted">3–20 characters. Letters, numbers and underscores. You will use this to sign in.</span>
+                    </Field>
                     <div className="grid grid-cols-3 gap-3">
                       <Field label="Gender"><select onChange={(event) => setGender(event.target.value as "male" | "female")} value={gender}><option value="male">Boy</option><option value="female">Girl</option></select></Field>
                       <Field label="Age"><input max={18} min={5} onChange={(event) => setAge(Number(event.target.value))} required type="number" value={age} /></Field>
@@ -196,18 +261,44 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
                     <Field label="Main subject"><select onChange={(event) => setSubjectsTaught(event.target.value)} value={subjectsTaught}><option>Mathematics</option><option>English</option><option>Science</option><option>Multiple subjects</option></select></Field>
                   </>
                 ) : null}
-                {step === "details" || mode === "login" ? (
-                  <Field label="Ghana phone number">
+
+                {!isTeacher && (mode === "login" || (isReset && step === "details")) ? (
+                  <Field label="Username">
+                    <div className="relative w-full">
+                      <span className="pointer-events-none absolute inset-y-0 left-0 z-10 grid w-12 place-items-center text-muted"><AtSign className="size-5" /></span>
+                      <input autoComplete="username" className="!pl-12" maxLength={20} minLength={3} onChange={(event) => setUsername(event.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))} pattern="[a-z0-9_]{3,20}" placeholder="your_username" required value={username} />
+                    </div>
+                  </Field>
+                ) : null}
+
+                {(isTeacher && (mode === "login" || step === "details")) || (isSignup && step === "details") ? (
+                  <Field label={isTeacher ? "Ghana phone number" : isGuardianPhone ? "Parent or guardian phone" : "Your Ghana phone number"}>
                     <div className="relative w-full">
                       <span className="pointer-events-none absolute inset-y-0 left-0 z-10 grid w-12 place-items-center text-muted"><Phone className="size-5" /></span>
                       <input autoComplete="tel" className="!pl-12 !pr-16" inputMode="tel" onChange={(event) => setPhone(event.target.value)} placeholder="024 123 4567" required value={phone} />
                       <span className="pointer-events-none absolute inset-y-0 right-3 grid place-items-center text-xs font-black text-emerald-700">+233</span>
                     </div>
-                    <span className="text-xs font-medium text-muted">You can enter 024… or +23324… — we will format it securely.</span>
-                    {isSignup && !isTeacher ? <button className="mt-0.5 inline-flex w-fit items-center gap-1.5 text-left text-sm font-black text-primary hover:text-primary-dark" onClick={() => setGuardianInfoOpen(true)} type="button"><UsersRound className="size-4" />Don&apos;t have a personal number?</button> : null}
+                    {isSignup && !isTeacher ? (
+                      isGuardianPhone ? (
+                        <span className="text-xs font-medium text-muted">
+                          Siblings can share this number. Each child still needs their own username to sign in.{" "}
+                          <button className="font-black text-primary hover:text-primary-dark" onClick={() => setPhoneOwner("self")} type="button">I have my own number</button>
+                        </span>
+                      ) : (
+                        <span className="text-xs font-medium text-muted">
+                          You can enter 024… or +23324….{" "}
+                          <button className="inline-flex items-center gap-1 font-black text-primary hover:text-primary-dark" onClick={() => { setPhoneOwner("guardian"); setGuardianInfoOpen(true); }} type="button">
+                            <UsersRound className="size-3.5" />Don&apos;t have a personal number?
+                          </button>
+                        </span>
+                      )
+                    ) : (
+                      <span className="text-xs font-medium text-muted">You can enter 024… or +23324… — we will format it securely.</span>
+                    )}
                   </Field>
                 ) : null}
-                {mode === "login" || (isSignup && step === "details") || (isReset && step === "verify") ? (
+
+                {mode === "login" || (isSignup && step === "details") || (isReset && step === "details") ? (
                   <Field label={isReset ? "New password" : "Password"}>
                     <div className="relative w-full">
                       <span className="pointer-events-none absolute inset-y-0 left-0 z-10 grid w-12 place-items-center text-muted"><LockKeyhole className="size-5" /></span>
@@ -217,7 +308,7 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
                     {mode !== "login" ? <span className="text-xs font-medium text-muted">Use at least 8 characters.</span> : null}
                   </Field>
                 ) : null}
-                {(isSignup && step === "details") || (isReset && step === "verify") ? (
+                {(isSignup && step === "details") || (isReset && step === "details") ? (
                   <Field label="Confirm password">
                     <div className="relative w-full">
                       <span className="pointer-events-none absolute inset-y-0 left-0 z-10 grid w-12 place-items-center text-muted"><LockKeyhole className="size-5" /></span>
@@ -228,7 +319,7 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
                   </Field>
                 ) : null}
                 {step === "verify" ? <Field label="6-digit verification code"><input autoComplete="one-time-code" className="text-center text-2xl font-black tracking-[.45em]" inputMode="numeric" maxLength={6} onChange={(event) => setOtp(event.target.value.replace(/\D/g, ""))} pattern="\d{6}" placeholder="000000" required value={otp} /></Field> : null}
-                {mode === "login" ? <div className="-mt-1 flex justify-end"><Link className="text-sm font-black text-primary hover:text-primary-dark" href="/forgot-password">Forgot password?</Link></div> : null}
+                {mode === "login" ? <div className="-mt-1 flex justify-end"><Link className="text-sm font-black text-primary hover:text-primary-dark" href={isTeacher ? "/forgot-password/teacher" : "/forgot-password"}>Forgot password?</Link></div> : null}
                 {error ? (
                   <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3.5 text-amber-950" role="alert">
                     <div className="flex items-start gap-2.5">
@@ -240,9 +331,9 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
                     </div>
                     {suggestedActions.length ? (
                       <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                        {suggestedActions.includes("login") ? <Link className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-primary px-3 text-sm font-black text-white" href="/login"><KeyRound className="size-4" />Sign in</Link> : null}
-                        {suggestedActions.includes("password-reset") ? <Link className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-amber-300 bg-white px-3 text-sm font-black text-amber-950" href="/forgot-password"><RotateCcw className="size-4" />Reset password</Link> : null}
-                        {suggestedActions.includes("signup") ? <Link className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-primary px-3 text-sm font-black text-white sm:col-span-2" href="/signup"><UserPlus className="size-4" />Create an account</Link> : null}
+                        {suggestedActions.includes("login") ? <Link className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-primary px-3 text-sm font-black text-white" href={loginPath}><KeyRound className="size-4" />Sign in</Link> : null}
+                        {suggestedActions.includes("password-reset") ? <Link className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-amber-300 bg-white px-3 text-sm font-black text-amber-950" href={isTeacher ? "/forgot-password/teacher" : "/forgot-password"}><RotateCcw className="size-4" />Reset password</Link> : null}
+                        {suggestedActions.includes("signup") ? <Link className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-primary px-3 text-sm font-black text-white sm:col-span-2" href={signupPath}><UserPlus className="size-4" />Create an account</Link> : null}
                       </div>
                     ) : null}
                   </div>
@@ -260,11 +351,13 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
                   {success ? <CheckCircle2 className="size-5" /> : busy ? <Loader2 className="size-5 animate-spin" /> : step === "verify" ? <ShieldCheck className="size-5" /> : <ArrowRight className="size-5 transition group-hover:translate-x-0.5" />}
                   {success ? "Taking you to sign in..." : busy ? "Please wait" : mode === "login" ? "Sign in and continue" : step === "details" ? "Send verification code" : isSignup ? "Verify and create account" : "Verify and reset password"}
                 </button>
-                {step === "verify" ? <button className="text-sm font-bold text-primary" onClick={() => { setStep("details"); setOtp(""); setError(""); setSuggestedActions([]); }} type="button">Change phone number</button> : null}
+                {step === "verify" ? <button className="text-sm font-bold text-primary" onClick={() => { setStep("details"); setOtp(""); setError(""); setSuggestedActions([]); setPhoneHint(""); }} type="button">{isReset && !isTeacher ? "Change username" : "Go back"}</button> : null}
               </form>
               <div className="mt-4 border-t border-slate-200 pt-4 text-center text-sm text-text-secondary">
                 {mode === "login" ? (
                   <>New to SkulKid? <Link className="font-black text-primary hover:text-primary-dark" href={signupPath}>{isTeacher ? "Create a teacher account" : "Create a learner account"}</Link></>
+                ) : mode === "reset" ? (
+                  <>Remembered it? <Link className="font-black text-primary hover:text-primary-dark" href={loginPath}>Sign in</Link></>
                 ) : (
                   <>Already have an account? <Link className="font-black text-primary hover:text-primary-dark" href={loginPath}>Sign in</Link></>
                 )}
@@ -274,14 +367,66 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
         </section>
       </div>
       {guardianInfoOpen ? (
-        <div className="fixed inset-0 z-50 grid place-items-end bg-slate-950/55 p-3 backdrop-blur-sm sm:place-items-center sm:p-6" onMouseDown={(event) => { if (event.currentTarget === event.target) setGuardianInfoOpen(false); }}>
-          <section aria-labelledby="guardian-phone-title" aria-modal="true" className="w-full max-w-md rounded-[2rem] bg-white p-5 shadow-2xl sm:p-7" role="dialog">
-            <div className="flex items-start justify-between gap-4"><span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-violet-100 text-violet-700"><UsersRound className="size-6" /></span><button aria-label="Close information" className="grid size-10 place-items-center rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200" onClick={() => setGuardianInfoOpen(false)} type="button"><X className="size-5" /></button></div>
-            <h2 className="mt-5 text-2xl font-black text-slate-950" id="guardian-phone-title">Ask a parent or guardian</h2>
-            <p className="mt-2 leading-7 text-text-secondary">You do not need to own a phone to use SkulKid. Ask a trusted parent or guardian to help you register with their Ghana phone number.</p>
-            <div className="mt-5 rounded-2xl border border-blue-200 bg-blue-50 p-4"><p className="font-black text-blue-950">What will happen?</p><ol className="mt-3 grid gap-3 text-sm leading-6 text-blue-900"><li className="flex gap-3"><b className="grid size-6 shrink-0 place-items-center rounded-full bg-blue-700 text-xs text-white">1</b>Enter your parent or guardian&apos;s phone number.</li><li className="flex gap-3"><b className="grid size-6 shrink-0 place-items-center rounded-full bg-blue-700 text-xs text-white">2</b>They will receive a six-digit verification code.</li><li className="flex gap-3"><b className="grid size-6 shrink-0 place-items-center rounded-full bg-blue-700 text-xs text-white">3</b>Ask them to enter or tell you the code so registration can finish.</li></ol></div>
-            <p className="mt-4 text-sm leading-6 text-muted">Use a number your family can access later. It may be needed to sign in or reset your password.</p>
-            <button className="mt-5 min-h-12 w-full rounded-xl bg-primary px-5 font-black text-white" onClick={() => setGuardianInfoOpen(false)} type="button">Okay, I&apos;ll ask an adult</button>
+        <div
+          className="fixed inset-0 z-50 grid place-items-end bg-slate-950/40 p-3 sm:place-items-center sm:p-6"
+          onMouseDown={(event) => {
+            if (event.currentTarget === event.target) setGuardianInfoOpen(false);
+          }}
+        >
+          <section
+            aria-labelledby="guardian-phone-title"
+            aria-modal="true"
+            className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white shadow-[0_20px_50px_rgba(15,23,42,.18)]"
+            role="dialog"
+          >
+            <header className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4 sm:px-6">
+              <div>
+                <h2 className="text-lg font-bold text-slate-950" id="guardian-phone-title">
+                  Use a guardian phone
+                </h2>
+                <p className="mt-1 text-sm leading-6 text-slate-500">
+                  The phone is only for verification. You sign in with your username.
+                </p>
+              </div>
+              <button
+                aria-label="Close information"
+                className="grid size-9 shrink-0 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+                onClick={() => setGuardianInfoOpen(false)}
+                type="button"
+              >
+                <X className="size-5" />
+              </button>
+            </header>
+
+            <div className="space-y-5 px-5 py-5 sm:px-6">
+              <ol className="space-y-4">
+                {[
+                  "Enter a parent or guardian Ghana phone number.",
+                  "They receive a 6-digit code to approve signup.",
+                  "Brothers and sisters can share the same number — each child needs their own username."
+                ].map((stepText, index) => (
+                  <li className="flex gap-3" key={stepText}>
+                    <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full bg-slate-100 text-xs font-bold text-slate-700">
+                      {index + 1}
+                    </span>
+                    <p className="text-sm leading-6 text-slate-700">{stepText}</p>
+                  </li>
+                ))}
+              </ol>
+              <p className="text-xs leading-5 text-slate-500">
+                Choose a number your family can still access later for password reset.
+              </p>
+            </div>
+
+            <footer className="border-t border-slate-100 px-5 py-4 sm:px-6">
+              <button
+                className="min-h-11 w-full rounded-xl bg-primary px-5 text-sm font-semibold text-white hover:bg-primary-dark"
+                onClick={() => setGuardianInfoOpen(false)}
+                type="button"
+              >
+                Got it
+              </button>
+            </footer>
           </section>
         </div>
       ) : null}

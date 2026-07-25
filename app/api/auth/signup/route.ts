@@ -2,6 +2,12 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { verifyOtp } from "@/lib/auth/clifze";
 import { normalizeGhanaPhone } from "@/lib/auth/phone";
+import {
+  assertStudentPhoneAvailable,
+  findSupabaseUserByUsername,
+  normalizeUsername,
+  usernameIdentityEmail
+} from "@/lib/auth/student-identity";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { findSupabaseUserByPhone, phoneIdentityEmail } from "@/lib/auth/supabase-phone-user";
@@ -9,6 +15,8 @@ import { findSupabaseUserByPhone, phoneIdentityEmail } from "@/lib/auth/supabase
 const studentSchema = z.object({
   role: z.literal("student").default("student"),
   phone: z.string().min(9).max(20),
+  phoneOwner: z.enum(["self", "guardian"]).default("self"),
+  username: z.string().trim().min(3).max(20),
   otp: z.string().regex(/^\d{6}$/),
   password: z.string().min(8).max(72),
   displayName: z.string().trim().min(2).max(50),
@@ -33,59 +41,85 @@ export async function POST(request: Request) {
     const input = raw.role === "teacher" ? teacherSchema.parse(raw) : studentSchema.parse(raw);
     const phone = normalizeGhanaPhone(input.phone);
     await verifyOtp(phone, input.otp);
-    if (await findSupabaseUserByPhone(phone)) {
-      throw new Error("An account already exists for this phone number. Please sign in or reset the password.");
+
+    const admin = createAdminClient();
+
+    if (input.role === "teacher") {
+      if (await findSupabaseUserByPhone(phone)) {
+        throw new Error("An account already exists for this phone number. Please sign in or reset the password.");
+      }
+      const { data, error } = await admin.auth.admin.createUser({
+        email: phoneIdentityEmail(phone),
+        password: input.password,
+        email_confirm: true,
+        user_metadata: {
+          display_name: input.displayName,
+          school: input.school,
+          subjects_taught: input.subjectsTaught,
+          phone_e164: phone,
+          account_type: "teacher"
+        },
+        app_metadata: { role: "teacher" }
+      });
+      if (error || !data.user) throw new Error(error?.message || "Unable to create the account.");
+
+      const supabase = await createServerSupabaseClient();
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: phoneIdentityEmail(phone),
+        password: input.password
+      });
+      if (signInError) {
+        return NextResponse.json({
+          ok: true,
+          role: "teacher",
+          requiresSignIn: true,
+          message: "Your teacher account is ready! Please sign in to open your workspace."
+        }, { status: 201 });
+      }
+      return NextResponse.json({ ok: true, role: "teacher" });
     }
 
-    const isTeacher = input.role === "teacher";
-    const admin = createAdminClient();
-    let userMetadata: Record<string, string | number>;
-    if (input.role === "teacher") {
-      userMetadata = {
-        display_name: input.displayName,
-        school: input.school,
-        subjects_taught: input.subjectsTaught,
-        phone_e164: phone,
-        account_type: "teacher"
-      };
-    } else {
-      userMetadata = {
+    const username = normalizeUsername(input.username);
+    if (await findSupabaseUserByUsername(username)) {
+      throw new Error("That username is already taken. Please choose another.");
+    }
+    await assertStudentPhoneAvailable(phone, input.phoneOwner);
+
+    const { data, error } = await admin.auth.admin.createUser({
+      email: usernameIdentityEmail(username),
+      password: input.password,
+      email_confirm: true,
+      user_metadata: {
         display_name: input.displayName,
         gender: input.gender,
         age: input.age,
         grade: input.grade,
+        username,
         phone_e164: phone,
+        phone_owner: input.phoneOwner,
         account_type: "student"
-      };
-    }
-
-    const { data, error } = await admin.auth.admin.createUser({
-      email: phoneIdentityEmail(phone),
-      password: input.password,
-      email_confirm: true,
-      user_metadata: userMetadata,
-      app_metadata: { role: isTeacher ? "teacher" : "student" }
+      },
+      app_metadata: { role: "student" }
     });
     if (error || !data.user) throw new Error(error?.message || "Unable to create the account.");
 
     const supabase = await createServerSupabaseClient();
     const { error: signInError } = await supabase.auth.signInWithPassword({
-      email: phoneIdentityEmail(phone),
+      email: usernameIdentityEmail(username),
       password: input.password
     });
 
     if (signInError) {
       return NextResponse.json({
         ok: true,
-        role: isTeacher ? "teacher" : "student",
+        role: "student",
+        username,
         requiresSignIn: true,
-        message: isTeacher
-          ? "Your teacher account is ready! Please sign in to open your workspace."
-          : "Your account is ready! Please sign in to start learning."
+        message: `Your account is ready! Sign in with username “${username}”.`
       }, { status: 201 });
     }
 
-    return NextResponse.json({ ok: true, role: isTeacher ? "teacher" : "student" });
+    return NextResponse.json({ ok: true, role: "student", username });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to create the account.";
     return NextResponse.json({ error: message }, { status: 400 });

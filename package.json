@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "migrate:student-usernames": "tsx scripts/migrate-student-usernames.ts"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.4",

@@ -1,3 +1,5 @@
 import { AuthPage } from "@/components/auth/auth-page";
 
-export default function ForgotPasswordPage() { return <AuthPage mode="reset" />; }
+export default function ForgotPasswordPage() {
+  return <AuthPage mode="reset" audience="student" />;
+}
