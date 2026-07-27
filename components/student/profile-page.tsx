@@ -8,7 +8,7 @@ import { StudentPageNav } from "@/components/student/student-page-nav";
 import { getStudentLevel } from "@/lib/gamification/calculate-level";
 import { avatarShopAssets, type AvatarAsset } from "@/lib/student/avatar-shop";
 import { useStudentGame } from "@/lib/gamification/student-game";
-import { useStudentProfile, type AvatarConfig, type StudentProfileData } from "@/lib/student/student-profile";
+import { defaultAvatar, useStudentProfile, type AvatarConfig, type StudentProfileData } from "@/lib/student/student-profile";
 
 export function ProfilePage() {
   const { profile, save } = useStudentProfile();
@@ -22,7 +22,24 @@ export function ProfilePage() {
   useEffect(() => setForm(profile), [profile]);
 
   const update = <K extends keyof StudentProfileData>(field: K, value: StudentProfileData[K]) => { setForm((current) => ({ ...current, [field]: value })); setSaved(false); };
-  const updateGender = (gender: StudentProfileData["gender"]) => { setForm((current) => ({ ...current, gender, avatarUrl: null, avatar: { ...current.avatar, gender, hairStyle: gender === "female" && current.avatar.hairStyle === "mohawk" ? "ponytail" : current.avatar.hairStyle } })); setSaved(false); };
+  const updateGender = (gender: StudentProfileData["gender"]) => {
+    setForm((current) => {
+      const switchingToGirl = gender === "female" && current.gender !== "female";
+      const useGirlStarterHair = switchingToGirl
+        && (current.avatar.hairStyle === defaultAvatar.hairStyle || current.avatar.hairStyle === "mohawk");
+      return {
+        ...current,
+        gender,
+        avatarUrl: null,
+        avatar: {
+          ...current.avatar,
+          gender,
+          hairStyle: useGirlStarterHair ? "ponytail" : current.avatar.hairStyle
+        }
+      };
+    });
+    setSaved(false);
+  };
   const updateAvatar = <K extends keyof AvatarConfig>(field: K, value: AvatarConfig[K]) => { setForm((current) => ({ ...current, avatarUrl: null, avatar: { ...current.avatar, [field]: value } })); setSaved(false); };
   function submit(event: React.FormEvent) { event.preventDefault(); save(form); setSaved(true); }
   function equip(asset: AvatarAsset) { setForm((current) => { const next = { ...current, avatarUrl: null, avatar: { ...current.avatar, pantsStyle: asset.category === "bottoms" ? "shorts" as const : current.avatar.pantsStyle, equippedPremium: { ...current.avatar.equippedPremium, [asset.category]: asset.id } } }; void save(next); return next; }); setSaved(true); }

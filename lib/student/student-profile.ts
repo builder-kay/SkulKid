@@ -15,7 +15,30 @@ let profileRequest: Promise<StudentProfileData> | null = null;
 
 function mergeProfile(saved: Partial<StudentProfileData>): StudentProfileData {
   const gender = saved.gender ?? saved.avatar?.gender ?? initialProfile.gender;
-  return { ...initialProfile, ...saved, gender, avatar: { ...defaultAvatar, ...(saved.avatar ?? {}), gender, equippedPremium: { ...defaultAvatar.equippedPremium, ...(saved.avatar?.equippedPremium ?? {}) } } };
+  const genderDefaults: AvatarConfig = gender === "female"
+    ? {
+        ...defaultAvatar,
+        gender: "female",
+        headStyle: "round",
+        expression: "happy",
+        eyebrowStyle: "arched",
+        hairStyle: "ponytail"
+      }
+    : defaultAvatar;
+  return {
+    ...initialProfile,
+    ...saved,
+    gender,
+    avatar: {
+      ...genderDefaults,
+      ...(saved.avatar ?? {}),
+      gender,
+      equippedPremium: {
+        ...genderDefaults.equippedPremium,
+        ...(saved.avatar?.equippedPremium ?? {})
+      }
+    }
+  };
 }
 
 export async function readStudentProfile(): Promise<StudentProfileData> {

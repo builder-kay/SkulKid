@@ -39,10 +39,10 @@ export function CharacterAvatar({
   const outline = "#35211d";
   const female = avatar.gender === "female";
   const torsoHalf = female
-    ? avatar.bodyStyle === "slim" ? 26 : avatar.bodyStyle === "strong" ? 33 : 29
+    ? avatar.bodyStyle === "slim" ? 25 : avatar.bodyStyle === "strong" ? 32 : 28
     : avatar.bodyStyle === "slim" ? 27 : avatar.bodyStyle === "strong" ? 36 : 31;
-  const waistHalf = female ? Math.max(21, torsoHalf - 6) : torsoHalf - 3;
-  const hipHalf = female ? torsoHalf + 1 : torsoHalf - 1;
+  const waistHalf = female ? Math.max(18, torsoHalf - 8) : torsoHalf - 3;
+  const hipHalf = female ? torsoHalf + 5 : torsoHalf - 1;
   const torsoPath = female
     ? `M${100 - torsoHalf + 5} 111
        Q100 104 ${100 + torsoHalf - 5} 111
@@ -133,8 +133,8 @@ export function CharacterAvatar({
           stroke={outline}
           strokeOpacity=".45"
           strokeWidth="2"
-          width={female ? 22 : 25}
-          x={female ? 89 : 87.5}
+          width={female ? 20 : 25}
+          x={female ? 90 : 87.5}
           y="96"
         />
 
@@ -152,6 +152,7 @@ export function CharacterAvatar({
           noseStyle={avatar.noseStyle ?? "button"}
           outline={outline}
         />
+        {female ? <GirlDetails outline={outline} /> : null}
         {glasses ? <Glasses color={glasses.colour} /> : null}
       </g>
     </svg>
@@ -202,24 +203,33 @@ function Features({ eyebrowStyle, eyeColor, expression, gender, noseStyle, outli
   const browWidth = eyebrowStyle === "bold" ? 4.3 : 3;
   const eyeRy = surprised ? 11 : sleepy ? 6 : 9;
   const wink = expression === "wink";
+  const eyeRx = gender === "female" ? 13 : 12;
+  const browLift = gender === "female" ? browArch - 1 : browArch;
   return (
     <g strokeLinecap="round" strokeLinejoin="round">
-      <path d={`M66 52q12 ${browArch} 24 0M110 52q12 ${browArch} 24 0`} fill="none" stroke={outline} strokeWidth={browWidth} />
-      {wink ? <path d="M66 72q12 7 24 0" fill="none" stroke={outline} strokeWidth="2.5" /> : <Eye cx={78} cy={70} color={eyeColor} outline={outline} ry={eyeRy} />}
-      <Eye cx={122} cy={70} color={eyeColor} outline={outline} ry={eyeRy} />
-      {gender === "female" && !sleepy ? <path d="m67 65-5-3m8 1-2-5m64 7 5-3m-8 1 2-5" fill="none" stroke={outline} strokeWidth="1.6" /> : null}
+      <path d={`M66 52q12 ${browLift} 24 0M110 52q12 ${browLift} 24 0`} fill="none" stroke={outline} strokeWidth={gender === "female" ? Math.min(3, browWidth) : browWidth} />
+      {wink ? <path d="M66 72q12 7 24 0" fill="none" stroke={outline} strokeWidth="2.5" /> : <Eye cx={78} cy={70} color={eyeColor} outline={outline} rx={eyeRx} ry={eyeRy} />}
+      <Eye cx={122} cy={70} color={eyeColor} outline={outline} rx={eyeRx} ry={eyeRy} />
+      {gender === "female" && !sleepy ? (
+        <path
+          d="m66 66-6-3m9 0-3-6m7 5-1-6m62 10 6-3m-9 0 3-6m-7 5 1-6"
+          fill="none"
+          stroke={outline}
+          strokeWidth="2"
+        />
+      ) : null}
       <Nose outline={outline} style={noseStyle} />
-      <Mouth expression={expression} outline={outline} />
-      <ellipse cx="66" cy="94" fill="#fb7185" opacity=".12" rx="10" ry="4" />
-      <ellipse cx="134" cy="94" fill="#fb7185" opacity=".12" rx="10" ry="4" />
+      <Mouth expression={expression} gender={gender} outline={outline} />
+      <ellipse cx="66" cy="94" fill="#fb7185" opacity={gender === "female" ? ".2" : ".12"} rx={gender === "female" ? "11" : "10"} ry={gender === "female" ? "5" : "4"} />
+      <ellipse cx="134" cy="94" fill="#fb7185" opacity={gender === "female" ? ".2" : ".12"} rx={gender === "female" ? "11" : "10"} ry={gender === "female" ? "5" : "4"} />
     </g>
   );
 }
 
-function Eye({ color, cx, cy, outline, ry }: { color: string; cx: number; cy: number; outline: string; ry: number }) {
+function Eye({ color, cx, cy, outline, rx = 12, ry }: { color: string; cx: number; cy: number; outline: string; rx?: number; ry: number }) {
   return (
     <g>
-      <ellipse cx={cx} cy={cy} fill="#fff" rx="12" ry={ry} stroke={outline} strokeWidth="2" />
+      <ellipse cx={cx} cy={cy} fill="#fff" rx={rx} ry={ry} stroke={outline} strokeWidth="2" />
       <circle cx={cx} cy={cy + .5} fill={color} r={Math.min(7, ry - 1)} />
       <circle cx={cx} cy={cy + .5} fill="#211713" opacity=".72" r={Math.min(3.5, ry / 2)} />
       <circle cx={cx - 2.5} cy={cy - 2.5} fill="#fff" r="2" />
@@ -232,13 +242,25 @@ function Nose({ outline, style }: { outline: string; style: NonNullable<AvatarCo
   return <path d={path} fill="none" stroke={outline} strokeOpacity=".58" strokeWidth={style === "defined" ? 2.2 : 1.7} />;
 }
 
-function Mouth({ expression, outline }: { expression: AvatarConfig["expression"]; outline: string }) {
-  if (expression === "surprised") return <ellipse cx="103" cy="107" fill={outline} rx="7" ry="9" />;
-  if (expression === "happy") return <path d="M86 103q17 20 34 0-17 12-34 0Z" fill="#fff" stroke={outline} strokeWidth="2.2" />;
+function Mouth({ expression, gender, outline }: { expression: AvatarConfig["expression"]; gender: AvatarConfig["gender"]; outline: string }) {
+  const lip = gender === "female" ? "#be185d" : outline;
+  if (expression === "surprised") return <ellipse cx="103" cy="107" fill={gender === "female" ? "#9f1239" : outline} rx="7" ry="9" />;
+  if (expression === "happy") return <path d="M86 103q17 20 34 0-17 12-34 0Z" fill="#fff" stroke={lip} strokeWidth={gender === "female" ? "2.7" : "2.2"} />;
   if (expression === "silly") return <path d="M87 103q16 13 32 0m-20 8q5 16 12 0" fill="#fb7185" stroke={outline} strokeWidth="2" />;
-  if (expression === "sleepy") return <path d="M94 108q9 3 18 0" fill="none" stroke={outline} strokeWidth="2.2" />;
-  if (expression === "smirk" || expression === "cool") return <path d="M90 107q13 4 26-3" fill="none" stroke={outline} strokeWidth="2.5" />;
-  return <path d="M88 104q15 14 30 0" fill="none" stroke={outline} strokeWidth="2.5" />;
+  if (expression === "sleepy") return <path d="M94 108q9 3 18 0" fill="none" stroke={lip} strokeWidth="2.2" />;
+  if (expression === "smirk" || expression === "cool") return <path d="M90 107q13 4 26-3" fill="none" stroke={lip} strokeWidth="2.5" />;
+  return <path d="M88 104q15 14 30 0" fill="none" stroke={lip} strokeWidth={gender === "female" ? "2.8" : "2.5"} />;
+}
+
+function GirlDetails({ outline }: { outline: string }) {
+  return (
+    <g aria-label="Girl avatar details">
+      <circle cx="47" cy="84" fill="#fbbf24" r="3.6" stroke={outline} strokeOpacity=".45" strokeWidth="1.2" />
+      <circle cx="153" cy="84" fill="#fbbf24" r="3.6" stroke={outline} strokeOpacity=".45" strokeWidth="1.2" />
+      <circle cx="46.2" cy="83.2" fill="#fff" opacity=".7" r=".9" />
+      <circle cx="152.2" cy="83.2" fill="#fff" opacity=".7" r=".9" />
+    </g>
+  );
 }
 
 function BackHair({ color, style }: { color: string; style: AvatarConfig["hairStyle"] }) {
