@@ -7,13 +7,15 @@ import {
   Activity,
   BookOpenCheck,
   ChevronRight,
+  GraduationCap,
   LayoutDashboard,
   LogOut,
   Menu,
+  Search,
   Settings2,
-  Scale,
-  ShieldAlert,
+  ShieldCheck,
   Users,
+  Wrench,
   X
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -23,11 +25,12 @@ import { cn } from "@/lib/utils";
 
 const navItems: Array<{ href: string; label: string; shortLabel: string; icon: LucideIcon; match: "exact" | "prefix" }> = [
   { href: "/admin", label: "Overview", shortLabel: "Home", icon: LayoutDashboard, match: "exact" },
-  { href: "/admin/users", label: "Users", shortLabel: "Users", icon: Users, match: "prefix" },
-  { href: "/admin/courses", label: "Subjects", shortLabel: "Subjects", icon: BookOpenCheck, match: "prefix" },
-  { href: "/admin/moderation", label: "Moderation", shortLabel: "Moderate", icon: ShieldAlert, match: "prefix" },
-  { href: "/admin/point-disputes", label: "Point disputes", shortLabel: "Disputes", icon: Scale, match: "prefix" },
-  { href: "/admin/activity", label: "Activity", shortLabel: "Activity", icon: Activity, match: "prefix" },
+  { href: "/admin/users", label: "People", shortLabel: "People", icon: Users, match: "prefix" },
+  { href: "/admin/courses", label: "Learning & classes", shortLabel: "Learning", icon: GraduationCap, match: "prefix" },
+  { href: "/admin/moderation", label: "Moderation", shortLabel: "Review", icon: BookOpenCheck, match: "prefix" },
+  { href: "/admin/security", label: "Security & audit", shortLabel: "Security", icon: ShieldCheck, match: "prefix" },
+  { href: "/admin/operations", label: "Operations", shortLabel: "Ops", icon: Wrench, match: "prefix" },
+  { href: "/admin/activity", label: "Platform activity", shortLabel: "Activity", icon: Activity, match: "prefix" },
   { href: "/admin/settings", label: "System settings", shortLabel: "Settings", icon: Settings2, match: "prefix" }
 ];
 
@@ -71,7 +74,12 @@ export function PlatformAdminShell({ children }: { children: React.ReactNode }) 
               <span className="mt-1 block text-xs font-bold text-slate-400">Platform Admin</span>
             </span>
           </Link>
-          <nav aria-label="Platform admin navigation" className="mt-6 grid gap-1.5">
+          <form action="/admin/users" className="relative mt-6">
+            <label className="sr-only" htmlFor="global-admin-search">Search people</label>
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-500" />
+            <input id="global-admin-search" name="q" className="min-h-11 w-full rounded-xl border border-slate-700 bg-slate-900 pl-10 pr-3 text-sm font-semibold text-white outline-none placeholder:text-slate-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/30" placeholder="Search people…" />
+          </form>
+          <nav aria-label="Platform admin navigation" className="mt-5 grid gap-1.5">
             <p className="px-3 pb-1 text-xs font-black uppercase tracking-wider text-slate-500">Admin Center</p>
             {navItems.map((item) => {
               const active = item.match === "exact" ? pathname === item.href : pathname.startsWith(item.href);
