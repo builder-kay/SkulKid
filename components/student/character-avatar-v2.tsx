@@ -98,11 +98,11 @@ export function CharacterAvatar({
         <path d="M68 220h24m16 0h24" stroke="#fff" strokeLinecap="round" strokeOpacity=".55" strokeWidth="2" />
 
         {/* Curved arms, sleeves and torso form a single consistent silhouette. */}
-        <path d={`M${100 - torsoHalf + 5} 115Q58 111 51 131l-9 40q-3 10 7 13 10 1 13-9l11-30Z`} fill={`url(#${uid}-skin)`} stroke={outline} strokeLinejoin="round" strokeOpacity=".55" strokeWidth="2.2" />
-        <path d={`M${100 + torsoHalf - 5} 115q42-4 49 16l9 40q3 10-7 13-10 1-13-9l-11-30Z`} fill={`url(#${uid}-skin)`} stroke={outline} strokeLinejoin="round" strokeOpacity=".55" strokeWidth="2.2" />
+        <path d={`M${100 - torsoHalf + 5} 115 Q58 111 51 131 l-9 40 q-3 10 7 13 q10 1 13-9 l11-30 Z`} fill={`url(#${uid}-skin)`} stroke={outline} strokeLinejoin="round" strokeOpacity=".55" strokeWidth="2.2" />
+        <path d={`M${100 + torsoHalf - 5} 115 Q142 111 149 131 l9 40 q3 10-7 13 q-10 1-13-9 l-11-30 Z`} fill={`url(#${uid}-skin)`} stroke={outline} strokeLinejoin="round" strokeOpacity=".55" strokeWidth="2.2" />
         <path d={`M${100 - torsoHalf + 5} 111Q100 104 ${100 + torsoHalf - 5} 111Q${100 + torsoHalf + 8} 120 ${100 + torsoHalf - 3} 173Q100 180 ${100 - torsoHalf + 3} 173Q${100 - torsoHalf - 8} 120 ${100 - torsoHalf + 5} 111Z`} fill={`url(#${uid}-shirt)`} stroke={outline} strokeLinejoin="round" strokeOpacity=".58" strokeWidth="2.2" />
-        <path d={`M${100 - torsoHalf + 6} 113Q59 111 52 130l-4 15 20 6 8-25Z`} fill={`url(#${uid}-shirt)`} stroke={outline} strokeLinejoin="round" strokeOpacity=".5" strokeWidth="2" />
-        <path d={`M${100 + torsoHalf - 6} 113q41-2 48 17l4 15-20 6-8-25Z`} fill={`url(#${uid}-shirt)`} stroke={outline} strokeLinejoin="round" strokeOpacity=".5" strokeWidth="2" />
+        <path d={`M${100 - torsoHalf + 6} 113 Q59 111 52 130 l-4 15 20 6 8-25 Z`} fill={`url(#${uid}-shirt)`} stroke={outline} strokeLinejoin="round" strokeOpacity=".5" strokeWidth="2" />
+        <path d={`M${100 + torsoHalf - 6} 113 Q141 111 148 130 l4 15-20 6-8-25 Z`} fill={`url(#${uid}-shirt)`} stroke={outline} strokeLinejoin="round" strokeOpacity=".5" strokeWidth="2" />
         <path d="M83 116q17 10 34 0" fill="none" stroke="#fff" strokeLinecap="round" strokeOpacity=".26" strokeWidth="2" />
 
         <ShirtSymbol brand={shirt?.brand} style={avatar.shirtStyle} />
