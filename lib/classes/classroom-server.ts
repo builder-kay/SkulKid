@@ -19,6 +19,7 @@ import type {
   PointDeductionView,
   QuizStatus,
   StudentClassSummary,
+  StudentDashboardActivity,
   TeacherClassSummary
 } from "@/lib/classes/types";
 
@@ -918,6 +919,89 @@ export async function listStudentClasses(studentId: string): Promise<StudentClas
       unreadAdviceCount: unreadAdvice.get(classroom.id as string) ?? 0
     };
   });
+}
+
+export async function getStudentDashboardActivity(studentId: string): Promise<StudentDashboardActivity> {
+  const classes = await listStudentClasses(studentId);
+  if (!classes.length) return { classes: [], quizzes: [], subjects: [] };
+
+  const admin = createAdminClient();
+  const classIds = classes.map((classroom) => classroom.id);
+  const classNameById = new Map(classes.map((classroom) => [classroom.id, classroom.name]));
+  const [{ data: assignments, error: assignmentError }, { data: quizRows, error: quizError }] = await Promise.all([
+    admin.from("ClassCourseAssignment").select("id,classId,courseId,note,assignedAt").in("classId", classIds).order("assignedAt", { ascending: false }),
+    admin.from("ClassQuiz").select("id,classId,title,questions,startAt,deadline,baseXpReward,maxAttempts,status,createdAt").in("classId", classIds).eq("status", "published").order("createdAt", { ascending: false })
+  ]);
+  if (assignmentError) throw new Error(assignmentError.message);
+  if (quizError) throw new Error(quizError.message);
+
+  const courseIds = [...new Set((assignments ?? []).map((row) => row.courseId as string))];
+  const quizIds = (quizRows ?? []).map((row) => row.id as string);
+  const [{ data: subjectRows, error: subjectError }, { data: attemptRows, error: attemptError }] = await Promise.all([
+    courseIds.length
+      ? admin.from("Subject").select("id,name,slug,visibility").in("id", courseIds)
+      : Promise.resolve({ data: [], error: null }),
+    quizIds.length
+      ? admin.from("ClassQuizAttempt").select("quizId").eq("studentId", studentId).in("quizId", quizIds)
+      : Promise.resolve({ data: [], error: null })
+  ]);
+  if (subjectError) throw new Error(subjectError.message);
+  if (attemptError) throw new Error(attemptError.message);
+
+  const subjectById = new Map((subjectRows ?? []).map((subject) => [subject.id as string, subject]));
+  const attemptsByQuiz = new Map<string, number>();
+  for (const attempt of attemptRows ?? []) {
+    const quizId = attempt.quizId as string;
+    attemptsByQuiz.set(quizId, (attemptsByQuiz.get(quizId) ?? 0) + 1);
+  }
+
+  const now = Date.now();
+  const quizzes: StudentDashboardActivity["quizzes"] = (quizRows ?? [])
+    .filter((row) => !row.deadline || new Date(row.deadline as string).getTime() > now)
+    .map((row) => {
+      const startAt = (row.startAt as string | null) ?? null;
+      const attemptsUsed = attemptsByQuiz.get(row.id as string) ?? 0;
+      const maxAttempts = Number(row.maxAttempts ?? 3);
+      const upcoming = Boolean(startAt && new Date(startAt).getTime() > now);
+      return {
+        id: row.id as string,
+        classId: row.classId as string,
+        className: classNameById.get(row.classId as string) ?? "Class",
+        title: row.title as string,
+        questionCount: Array.isArray(row.questions) ? row.questions.length : 0,
+        startAt,
+        deadline: (row.deadline as string | null) ?? null,
+        baseXpReward: Number(row.baseXpReward ?? 0),
+        attemptsUsed,
+        maxAttempts,
+        state: upcoming ? "upcoming" as const : attemptsUsed >= maxAttempts ? "completed" as const : "open" as const
+      };
+    })
+    .sort((first, second) => {
+      const priority = { open: 0, upcoming: 1, completed: 2 };
+      const stateOrder = priority[first.state] - priority[second.state];
+      if (stateOrder) return stateOrder;
+      const firstTime = first.deadline ? new Date(first.deadline).getTime() : Number.MAX_SAFE_INTEGER;
+      const secondTime = second.deadline ? new Date(second.deadline).getTime() : Number.MAX_SAFE_INTEGER;
+      return firstTime - secondTime;
+    });
+
+  const subjects: StudentDashboardActivity["subjects"] = (assignments ?? []).map((row) => {
+    const subject = subjectById.get(row.courseId as string);
+    return {
+      id: row.id as string,
+      classId: row.classId as string,
+      className: classNameById.get(row.classId as string) ?? "Class",
+      courseId: row.courseId as string,
+      courseName: (subject?.name as string) ?? "Subject",
+      courseSlug: (subject?.slug as string) ?? "",
+      note: (row.note as string) ?? "",
+      assignedAt: row.assignedAt as string,
+      isClassOnly: courseVisibility(subject?.visibility) === "class"
+    };
+  });
+
+  return { classes, quizzes, subjects };
 }
 
 export async function getStudentClassDetail(studentId: string, classId: string) {

@@ -2,12 +2,14 @@ import { useId } from "react";
 import type { AvatarConfig } from "@/lib/student/student-profile";
 import { avatarShopAssets, type AvatarAsset, type AvatarAssetCategory } from "@/lib/student/avatar-shop";
 import { cn } from "@/lib/utils";
+import { AvatarBrandMark } from "@/components/student/avatar-brand-mark";
+export { CharacterAvatar } from "@/components/student/character-avatar-v2";
 
 /**
  * Expressive SkulKid portrait avatar with soft, friendly proportions.
  * Far limbs draw first; near limbs and the face sit on top for depth.
  */
-export function CharacterAvatar({ avatar, className = "size-24", label = "Custom student avatar", animated = true }: { avatar: AvatarConfig; className?: string; label?: string; animated?: boolean }) {
+function LegacyCharacterAvatar({ avatar, className = "size-24", label = "Custom student avatar", animated = true }: { avatar: AvatarConfig; className?: string; label?: string; animated?: boolean }) {
   const uid = useId().replace(/:/g, "");
   const skin = `${uid}-skin`;
   const skinFar = `${uid}-skin-far`;
@@ -799,8 +801,5 @@ function ShirtMark({ style, premiumBrand }: { style: AvatarConfig["shirtStyle"];
 }
 
 function BrandMark({ brand, x, y, scale = "1" }: { brand: AvatarAsset["brand"]; x: string; y: string; scale?: string }) {
-  const transform = `translate(${x} ${y}) scale(${scale})`;
-  if (brand === "Nike") return <g aria-label="Nike logo" fill="white" transform={transform}><path d="M1 13c7 5 13 5 20 1L39 3 23 10C14 14 8 15 1 13Z" /></g>;
-  if (brand === "Adidas") return <g aria-label="Adidas logo" fill="white" transform={transform}><path d="m2 14 7-4 6 10H9zm10-7 7-4 10 17h-7zm12-5 7-2 12 20h-7z" /><text fontFamily="Arial, sans-serif" fontSize="7" fontWeight="900" x="8" y="27">adidas</text></g>;
-  return <g aria-label="Puma logo" fill="white" transform={transform}><text fontFamily="Arial Black, Arial, sans-serif" fontSize="10" fontWeight="900" letterSpacing="-.5" x="0" y="16">PUMA</text><path d="M28 5c4-4 8-3 10 0l5 1-4 3-2 6-4-1-2-5-5 1z" /></g>;
+  return <AvatarBrandMark brand={brand} contrastPlate scale={scale} x={x} y={y} />;
 }

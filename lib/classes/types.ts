@@ -124,6 +124,34 @@ export type StudentClassSummary = {
   unreadAdviceCount: number;
 };
 
+export type StudentDashboardActivity = {
+  classes: StudentClassSummary[];
+  quizzes: Array<{
+    id: string;
+    classId: string;
+    className: string;
+    title: string;
+    questionCount: number;
+    startAt: string | null;
+    deadline: string | null;
+    baseXpReward: number;
+    attemptsUsed: number;
+    maxAttempts: number;
+    state: "upcoming" | "open" | "completed";
+  }>;
+  subjects: Array<{
+    id: string;
+    classId: string;
+    className: string;
+    courseId: string;
+    courseName: string;
+    courseSlug: string;
+    note: string;
+    assignedAt: string;
+    isClassOnly: boolean;
+  }>;
+};
+
 export type ClassLeaderboardEntry = {
   rank: number;
   studentId: string;

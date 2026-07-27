@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ArrowLeft, ArrowRight, CheckCircle2, Loader2, Star, Trophy } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2, Clock3, Loader2, Star, Trophy } from "lucide-react";
 import { StudentShell } from "@/components/student/student-shell";
 import { StudentPageNav } from "@/components/student/student-page-nav";
 import { applyServerGameState } from "@/lib/gamification/student-game";
@@ -55,6 +55,14 @@ export function ClassQuizPlayer({ classId, quizId }: { classId: string; quizId: 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [questionIndex, setQuestionIndex] = useState(0);
+  const [headerCompact, setHeaderCompact] = useState(false);
+
+  useEffect(() => {
+    const updateHeader = () => setHeaderCompact(window.scrollY > 88);
+    updateHeader();
+    window.addEventListener("scroll", updateHeader, { passive: true });
+    return () => window.removeEventListener("scroll", updateHeader);
+  }, []);
 
   useEffect(() => {
     void (async () => {
@@ -186,11 +194,33 @@ export function ClassQuizPlayer({ classId, quizId }: { classId: string; quizId: 
 
   const nextAttemptNumber = (result?.attemptsUsed ?? payload.attemptsUsed) + (retaking || !result ? 1 : 0);
   const showForm = !result || retaking;
+  const progressPercent = showForm ? ((questionIndex + 1) / payload.quiz.questions.length) * 100 : 100;
+  const endLabel = payload.quiz.deadline
+    ? `Ends ${new Date(payload.quiz.deadline).toLocaleString()}`
+    : "Teacher ends quiz";
 
   return (
     <StudentShell activeItem="classes">
       <main className="mx-auto grid w-full max-w-3xl gap-5">
-        <header className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm">
+        <header
+          className={`sticky top-[4.25rem] z-20 overflow-hidden border border-slate-200 bg-white/95 shadow-sm backdrop-blur transition-[padding,border-radius,box-shadow] duration-200 motion-reduce:transition-none lg:top-0 ${headerCompact ? "rounded-2xl px-4 py-3 shadow-[0_12px_30px_rgba(15,23,42,.14)]" : "rounded-[1.75rem] p-5"}`}
+          data-compact={headerCompact}
+        >
+          <div className={`grid transition-[grid-template-rows,opacity] duration-200 motion-reduce:transition-none ${headerCompact ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`} aria-hidden={!headerCompact}>
+            <div className="min-h-0 overflow-hidden">
+              <div className="flex items-center justify-between gap-3">
+                <p className="inline-flex min-w-0 items-center gap-1.5 truncate text-xs font-black text-amber-800 sm:text-sm">
+                  <Clock3 aria-hidden="true" className="size-4 shrink-0" />
+                  <span className="truncate">{endLabel}</span>
+                </p>
+                <span className="shrink-0 text-xs font-black text-slate-700">
+                  {showForm ? `${questionIndex + 1}/${payload.quiz.questions.length}` : "Complete"}
+                </span>
+              </div>
+            </div>
+          </div>
+          <div className={`grid transition-[grid-template-rows,opacity] duration-200 motion-reduce:transition-none ${headerCompact ? "grid-rows-[0fr] opacity-0" : "grid-rows-[1fr] opacity-100"}`} aria-hidden={headerCompact}>
+            <div className="min-h-0 overflow-hidden">
           <p className="text-xs font-black uppercase tracking-wider text-blue-700">Class quiz</p>
           <h1 className="mt-1 text-3xl font-black text-slate-950">{payload.quiz.title}</h1>
           <p className="mt-2 text-sm text-slate-600">{payload.quiz.description || `${payload.quiz.baseXpReward} XP · pass ${payload.quiz.passingScore}%`}</p>
@@ -202,7 +232,25 @@ export function ClassQuizPlayer({ classId, quizId }: { classId: string; quizId: 
           {payload.quiz.deadline ? <p className="mt-2 text-sm font-bold text-amber-700">Deadline {new Date(payload.quiz.deadline).toLocaleString()}</p> : null}
           {!payload.quiz.deadline ? <p className="mt-2 text-sm font-bold text-sky-700">Available until your teacher ends it</p> : null}
           {payload.quiz.offPlatformReward ? <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950"><Trophy className="mr-2 inline size-4 text-amber-600" /><b>Class reward:</b> {payload.quiz.offPlatformReward}</div> : null}
-          {showForm ? <div className="mt-4 flex items-center gap-3"><div className="h-2.5 flex-1 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-gradient-to-r from-violet-600 to-blue-500 transition-all motion-reduce:transition-none" style={{width:`${((questionIndex+1)/payload.quiz.questions.length)*100}%`}}/></div><span className="text-xs font-black">{questionIndex+1}/{payload.quiz.questions.length}</span></div>:null}
+            </div>
+          </div>
+          {showForm ? (
+            <div className={headerCompact ? "mt-2" : "mt-4"}>
+              <div className="flex items-center gap-3">
+                <div
+                  aria-label="Quiz progress"
+                  aria-valuemax={100}
+                  aria-valuemin={0}
+                  aria-valuenow={Math.round(progressPercent)}
+                  className={`flex-1 overflow-hidden rounded-full bg-slate-100 ${headerCompact ? "h-2" : "h-2.5"}`}
+                  role="progressbar"
+                >
+                  <div className="h-full rounded-full bg-gradient-to-r from-violet-600 to-blue-500 transition-all duration-300 motion-reduce:transition-none" style={{ width: `${progressPercent}%` }} />
+                </div>
+                {!headerCompact ? <span className="text-xs font-black">{questionIndex + 1}/{payload.quiz.questions.length}</span> : null}
+              </div>
+            </div>
+          ) : null}
         </header>
         <StudentPageNav
           backHref={`/classes/${classId}`}

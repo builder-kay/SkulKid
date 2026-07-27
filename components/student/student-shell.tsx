@@ -85,7 +85,7 @@ export function StudentShell({ activeItem, children, mobileAside }: StudentShell
 
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[18.5rem_1fr]">
-      <SignOutConfirmation open={signOutOpen} onClose={() => setSignOutOpen(false)} />
+      <SignOutConfirmation audience="student" open={signOutOpen} onClose={() => setSignOutOpen(false)} />
       <header className="sticky top-0 z-30 border-b border-white/80 bg-white/90 px-4 py-3 shadow-[0_8px_28px_rgba(15,23,42,0.08)] backdrop-blur lg:hidden">
         <div className="flex min-h-12 items-center justify-between gap-3">
           <Link

@@ -12,6 +12,7 @@ import { CourseCard } from "@/components/student/course-card";
 import { GamificationArena } from "@/components/gamification/gamification-arena";
 import { StudentShell } from "@/components/student/student-shell";
 import { CharacterAvatar } from "@/components/student/character-avatar";
+import { DashboardClassActivity } from "@/components/student/dashboard-class-activity";
 import { SkulKidCard } from "@/components/shared/skulkid-card";
 import { usePublishedCourses } from "@/lib/courses/published-courses";
 import { getStudentLevel } from "@/lib/gamification/calculate-level";
@@ -81,6 +82,8 @@ export function StudentDashboard() {
             tone="blue"
           />
         </section>
+
+        <DashboardClassActivity />
 
         <section aria-labelledby="course-heading" className="space-y-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
