@@ -32,7 +32,7 @@ const navItems: Array<{
   icon: LucideIcon;
 }> = [
   { id: "dashboard", href: "/dashboard", label: "Dashboard", mobileLabel: "Home", icon: LayoutDashboard },
-  { id: "courses", href: "/courses", label: "Subjects", mobileLabel: "Subjects", icon: BookOpen },
+  { id: "courses", href: "/courses", label: "Public Learning", mobileLabel: "Learning", icon: BookOpen },
   { id: "classes", href: "/classes", label: "My Classes", mobileLabel: "Classes", icon: Users },
   { id: "pasco", href: "/pasco", label: "PASCO", mobileLabel: "PASCO", icon: BookMarked },
   { id: "leaderboard", href: "/leaderboard", label: "Leaderboard", mobileLabel: "League", icon: Trophy },
@@ -175,9 +175,13 @@ export function StudentShell({ activeItem, children, mobileAside }: StudentShell
 
           <div className="hidden rounded-3xl border border-slate-200 bg-slate-50 p-4 lg:block">
             <div className="flex items-center gap-3">
-              <div className="grid size-11 place-items-center overflow-hidden rounded-2xl bg-white text-lg font-black text-primary shadow-sm">
+              <Link
+                aria-label={`Open ${profile.displayName}'s avatar page`}
+                className="grid size-11 place-items-center overflow-hidden rounded-2xl bg-white text-lg font-black text-primary shadow-sm transition hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+                href="/profile"
+              >
                 <CharacterAvatar avatar={profile.avatar} className="size-11 rounded-2xl" label={`${profile.displayName}'s avatar`} />
-              </div>
+              </Link>
               <div>
                 <p className="font-bold text-text-primary">{profile.displayName}</p>
                 <p className="text-sm text-muted">{studentLevel.title}</p>

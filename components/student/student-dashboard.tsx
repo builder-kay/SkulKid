@@ -43,13 +43,13 @@ export function StudentDashboard() {
                 </h1>
                 <p className="mt-1 text-sm text-text-secondary sm:text-base">Your next small win is ready.</p>
             </div>
-            <div
-              aria-label={`${profile.displayName} profile photo`}
-              className="grid aspect-square size-20 shrink-0 place-items-center overflow-hidden rounded-3xl border-4 border-white text-2xl font-black text-primary shadow-[0_8px_24px_rgba(37,99,235,0.2)] sm:size-24"
-              role="img"
+            <Link
+              aria-label={`Open ${profile.displayName}'s avatar page`}
+              className="group grid aspect-square size-20 shrink-0 place-items-center overflow-hidden rounded-3xl border-4 border-white text-2xl font-black text-primary shadow-[0_8px_24px_rgba(37,99,235,0.2)] transition hover:-translate-y-0.5 hover:shadow-[0_12px_30px_rgba(37,99,235,0.28)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-violet-300 sm:size-24"
+              href="/profile"
             >
-              <CharacterAvatar avatar={profile.avatar} className="size-full rounded-[1.25rem]" label={`${profile.displayName}'s avatar`} />
-            </div>
+              <CharacterAvatar avatar={profile.avatar} className="size-full rounded-[1.25rem] transition group-hover:scale-[1.03]" label={`${profile.displayName}'s avatar`} />
+            </Link>
           </div>
         </header>
 
