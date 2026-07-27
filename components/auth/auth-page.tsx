@@ -428,7 +428,11 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
                         <input autoComplete="tel" className="!pl-12 !pr-16" inputMode="tel" onChange={(event) => setPhone(event.target.value)} placeholder="024 123 4567" required value={phone} />
                         <span className="pointer-events-none absolute inset-y-0 right-3 grid place-items-center text-xs font-black text-emerald-700">+233</span>
                       </div>
-                      <span className="text-xs font-medium text-muted">{isGuardianPhone ? "Brothers, sisters and twins can share this number. Each child keeps a different username." : "You can enter 024… or +23324…."}</span>
+                      <span className="text-xs font-medium text-muted">
+                        {isGuardianPhone
+                          ? "Brothers, sisters and twins can share this number. Each child keeps a different username."
+                          : "This number can also be used by another learner. Each learner must choose a different username."}
+                      </span>
                     </Field>
                   </>
                 ) : null}
@@ -507,7 +511,7 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
                         </span>
                       ) : (
                         <span className="text-xs font-medium text-muted">
-                          You can enter 024… or +23324….{" "}
+                          This number may be shared by learners. Everyone must use a different username.{" "}
                           <button className="inline-flex items-center gap-1 font-black text-primary hover:text-primary-dark" onClick={() => { setPhoneOwner("guardian"); setGuardianInfoOpen(true); }} type="button">
                             <UsersRound className="size-3.5" />Don&apos;t have a personal number?
                           </button>

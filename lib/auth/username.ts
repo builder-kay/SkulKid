@@ -1,4 +1,6 @@
-export const MAX_STUDENTS_PER_GUARDIAN_PHONE = 5;
+export const MAX_STUDENTS_PER_PHONE = 5;
+/** @deprecated Use MAX_STUDENTS_PER_PHONE. Kept for compatibility with older imports. */
+export const MAX_STUDENTS_PER_GUARDIAN_PHONE = MAX_STUDENTS_PER_PHONE;
 export type PhoneOwner = "self" | "guardian";
 
 const USERNAME_RE = /^[a-z0-9_]{3,20}$/;

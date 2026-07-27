@@ -4,13 +4,14 @@ import { normalizeGhanaPhone } from "@/lib/auth/phone";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { phoneIdentityEmail } from "@/lib/auth/supabase-phone-user";
 import {
-  MAX_STUDENTS_PER_GUARDIAN_PHONE,
+  MAX_STUDENTS_PER_PHONE,
   normalizeUsername,
   usernameIdentityEmail,
   type PhoneOwner
 } from "@/lib/auth/username";
 
 export {
+  MAX_STUDENTS_PER_PHONE,
   MAX_STUDENTS_PER_GUARDIAN_PHONE,
   normalizeUsername,
   usernameIdentityEmail,
@@ -81,8 +82,11 @@ export async function findTeacherByPhone(phoneInput: string) {
   )) ?? null;
 }
 
-/** Personal phones must be free of any student/teacher account. */
-export async function assertStudentPhoneAvailable(phoneInput: string, phoneOwner: PhoneOwner) {
+/**
+ * Learner phone numbers may be shared regardless of whether the learner calls
+ * the number personal or guardian-owned. Usernames remain the login identity.
+ */
+export async function assertStudentPhoneAvailable(phoneInput: string, _phoneOwner: PhoneOwner) {
   const phone = normalizeGhanaPhone(phoneInput);
   const teacher = await findTeacherByPhone(phone);
   if (teacher) {
@@ -90,19 +94,8 @@ export async function assertStudentPhoneAvailable(phoneInput: string, phoneOwner
   }
 
   const students = await listStudentsByPhone(phone);
-  if (phoneOwner === "self") {
-    if (students.length > 0) {
-      throw new Error("This phone number already has a learner account. Sign in with your username, or use a guardian number.");
-    }
-    return;
-  }
-
-  const personalLock = students.some((user) => user.user_metadata?.phone_owner !== "guardian");
-  if (personalLock) {
-    throw new Error("This number is already registered as someone's personal phone. Ask them to use a different guardian number.");
-  }
-  if (students.length >= MAX_STUDENTS_PER_GUARDIAN_PHONE) {
-    throw new Error(`This guardian phone already has ${MAX_STUDENTS_PER_GUARDIAN_PHONE} learner accounts. Use another number.`);
+  if (students.length >= MAX_STUDENTS_PER_PHONE) {
+    throw new Error(`This phone number already has ${MAX_STUDENTS_PER_PHONE} learner accounts. Please use another number.`);
   }
 }
 

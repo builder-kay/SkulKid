@@ -109,8 +109,8 @@ export function LandingPage() {
               icon={UsersRound}
               eyebrow="For parents & guardians"
               title="Simple account help for the family"
-              copy="A child can use their own phone or a trusted guardian’s number. Brothers, sisters and twins can share one guardian number while keeping separate usernames."
-              points={["One guardian number can support siblings", "Each child keeps a separate account", "Forgotten usernames are sent privately by SMS"]}
+              copy="A child can use their own phone or a trusted guardian's number. Any learner phone may be shared by brothers, sisters or twins while each child keeps a separate username."
+              points={["One phone can support several learners", "Each child keeps a separate username", "Forgotten usernames are sent privately by SMS"]}
               href="/signup/student"
               action="Help a child join"
               tone="emerald"
