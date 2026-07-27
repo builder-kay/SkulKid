@@ -30,7 +30,8 @@ export async function GET() {
     if (subjectError) throw new Error(subjectError.message);
     if (unitError) throw new Error(unitError.message);
     const visible = (subjects ?? []).filter((subject) =>
-      subject.visibility !== "class" || ownedClassIds.has(subject.ownerClassId as string)
+      subject.createdBy === teacher.id
+      && (subject.visibility !== "class" || ownedClassIds.has(subject.ownerClassId as string))
     );
     return NextResponse.json({
       courses: visible.map((subject) => ({
@@ -69,7 +70,7 @@ export async function POST(request: Request) {
       const { count } = await admin.from("Subject").select("id", { count: "exact", head: true });
       const { error } = await admin.from("Subject").insert({
         id, name: input.name, slug, description: input.description ?? "", icon: "book-open",
-        colourToken: "#7C3AED", gradeLevels: [], order: count ?? 0, status: "ACTIVE",
+        colourToken: "#7C3AED", gradeLevels: [], order: count ?? 0, status: input.classId ? "ACTIVE" : "ARCHIVED",
         visibility: input.classId ? "class" : "platform", ownerClassId: input.classId ?? null,
         createdBy: teacher.id, updatedAt: new Date().toISOString()
       });
@@ -83,10 +84,7 @@ export async function POST(request: Request) {
 
     const { data: subject } = await admin.from("Subject").select("id,visibility,ownerClassId,createdBy").eq("id", input.courseId).maybeSingle();
     if (!subject) throw new Error("Subject not found.");
-    if (subject.visibility === "class") {
-      const { data: classroom } = await admin.from("TeacherClass").select("id").eq("id", subject.ownerClassId).eq("teacherId", teacher.id).maybeSingle();
-      if (!classroom) throw new Error("You can only add modules to your own class subjects.");
-    }
+    if (subject.createdBy !== teacher.id) throw new Error("You can only add modules to courses you created.");
     const { count } = await admin.from("Unit").select("id", { count: "exact", head: true }).eq("subjectId", input.courseId);
     const id = `unit-${crypto.randomUUID()}`;
     const { error } = await admin.from("Unit").insert({

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { readAdminSettingServer, writeAdminSettingServer } from "@/lib/admin/settings-server";
+import { requireAdmin } from "@/lib/classes/classroom-server";
 
 const SETTINGS_KEY = "platform-system-settings";
 
@@ -21,6 +22,7 @@ const defaults: SystemSettings = {
 
 export async function GET() {
   try {
+    await requireAdmin();
     const stored = await readAdminSettingServer<SystemSettings>(SETTINGS_KEY);
     return NextResponse.json({ settings: { ...defaults, ...(stored ?? {}) } });
   } catch (error) {
@@ -30,6 +32,7 @@ export async function GET() {
 
 export async function PUT(request: Request) {
   try {
+    await requireAdmin();
     const body = await request.json() as Partial<SystemSettings>;
     const settings: SystemSettings = {
       maintenanceMode: Boolean(body.maintenanceMode),

@@ -44,7 +44,7 @@ export function LessonLibrary({ initialSubject, initialCourseId }: { initialSubj
     if (!activeAccess) return;
     const mode = activeAccess.visibility === "class" ? "class_only" : activeAccess.classIds.length ? "both" : "public";
     setAccessMode(mode);
-    setAccessClassIds(mode === "class_only" ? [activeAccess.ownerClassId ?? activeAccess.classIds[0]].filter(Boolean) as string[] : activeAccess.classIds);
+    setAccessClassIds(activeAccess.classIds.length ? activeAccess.classIds : [activeAccess.ownerClassId].filter(Boolean) as string[]);
     setAccessMessage("");
   }, [activeAccess]);
 
@@ -60,7 +60,7 @@ export function LessonLibrary({ initialSubject, initialCourseId }: { initialSubj
       const payload = await response.json() as { error?: string };
       if (!response.ok) throw new Error(payload.error || "Subject access could not be updated.");
       await loadAccess();
-      setAccessMessage("Subject access updated. Its modules and lessons follow the same access setting.");
+      setAccessMessage("Course audience updated. Every module and lesson follows the same setting.");
     } catch (cause) {
       setAccessMessage(cause instanceof Error ? cause.message : "Subject access could not be updated.");
     } finally {
@@ -76,7 +76,7 @@ export function LessonLibrary({ initialSubject, initialCourseId }: { initialSubj
   const draftCount = subjectLessons.filter((lesson) => lesson.status === "draft").length;
   const activeCourse = courses.find((course) => course.id === courseId);
   const legacySubject = subjects.find((item) => `subject-${item.slug}` === courseId);
-  const displayedCourses = courses.filter((course) => allLessons.some((lesson) => lessonCourseId(lesson) === course.id) || course.id === courseId);
+  const displayedCourses = courses.filter((course) => course.canManage && (allLessons.some((lesson) => lessonCourseId(lesson) === course.id) || course.id === courseId));
   const modules = activeCourse?.units ?? [];
   const moduleGroups = [
     ...modules.map((module) => {

@@ -1,15 +1,19 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { readAdminLessonsServer } from "@/lib/admin/lesson-library-server";
+import { requireAdmin } from "@/lib/classes/classroom-server";
 
 export async function GET() {
   try {
+    await requireAdmin();
     const admin = createAdminClient();
-    const [{ count: students }, courses, lessons, { data: authUsers }] = await Promise.all([
+    const [{ count: students }, courses, lessons, { data: authUsers }, { count: publishedPublicCourses }, { count: pendingPublicReviews }] = await Promise.all([
       admin.from("Student").select("id", { count: "exact", head: true }),
       admin.from("Subject").select("id", { count: "exact", head: true }),
       readAdminLessonsServer(),
-      admin.auth.admin.listUsers({ page: 1, perPage: 200 })
+      admin.auth.admin.listUsers({ page: 1, perPage: 200 }),
+      admin.from("PublicLearningRevision").select("id", { count: "exact", head: true }).eq("status", "approved"),
+      admin.from("PublicLearningRevision").select("id", { count: "exact", head: true }).eq("status", "pending_review")
     ]);
 
     const roles = (authUsers?.users ?? []).map((user) => user.app_metadata?.role);
@@ -25,7 +29,8 @@ export async function GET() {
       courses: courses.count ?? 0,
       publishedLessons,
       draftLessons,
-      flaggedLessons: draftLessons
+      publishedPublicCourses: publishedPublicCourses ?? 0,
+      pendingPublicReviews: pendingPublicReviews ?? 0
     });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Failed to load overview." }, { status: 500 });

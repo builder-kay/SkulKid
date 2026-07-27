@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 import { buildCourseLessonOrder } from "@/lib/courses/module-lesson-order";
 import type { Subject } from "@/types/subject";
 
@@ -12,6 +11,9 @@ export type ManagedCourse = Subject & {
   icon: string;
   visibility: "platform" | "class";
   ownerClassId: string | null;
+  createdBy?: string | null;
+  canManage?: boolean;
+  currentPublicRevisionId?: string | null;
 };
 
 export type CourseInput = {
@@ -24,6 +26,8 @@ export type CourseInput = {
   gradeLevels: number[];
   status: CourseStatus;
   icon?: string;
+  audience?: "class_only" | "public" | "both";
+  classIds?: string[];
 };
 
 const changedEvent = "skulkid:courses-changed";
@@ -36,85 +40,29 @@ export async function readCourses(): Promise<ManagedCourse[]> {
 }
 
 export async function saveCourse(input: CourseInput) {
-  const supabase = createBrowserSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Authentication required.");
-  const existing = input.id
-    ? await supabase.from("Subject").select("order").eq("id", input.id).maybeSingle()
-    : null;
-  const countResult = input.id
-    ? null
-    : await supabase.from("Subject").select("id", { count: "exact", head: true });
-  const id = input.id ?? `course-${crypto.randomUUID()}`;
-  if (input.status === "published") {
-    const { count, error: lessonError } = await supabase.from("AdminLessonRecord").select("id", { count: "exact", head: true }).eq("courseId", id).eq("status", "published");
-    if (lessonError) throw lessonError;
-    if (!count) throw new Error("Save this course as a draft first, then attach and publish at least one lesson.");
-  }
-  const { error } = await supabase.from("Subject").upsert({
-    id,
-    name: input.name.trim(),
-    slug: slugify(input.slug || input.name),
-    description: input.description.trim(),
-    icon: input.icon ?? "book-open",
-    colourToken: input.color,
-    coverUrl: input.coverUrl?.trim() || null,
-    gradeLevels: input.gradeLevels,
-    order: existing?.data?.order ?? countResult?.count ?? 0,
-    status: input.status === "published" ? "ACTIVE" : "ARCHIVED",
-    createdBy: user.id,
-    updatedAt: new Date().toISOString()
-  }, { onConflict: "id" });
-  if (error) throw error;
+  const result = await mutateCatalog<{ id: string }>({
+    action: "save_course",
+    ...input,
+    audience: input.audience ?? "public",
+    classIds: input.classIds ?? []
+  });
   notify();
-  return id;
+  return result.id;
 }
 
 export async function setCourseStatus(id: string, status: CourseStatus) {
-  const supabase = createBrowserSupabaseClient();
-  if (status === "published") {
-    const { count, error: lessonError } = await supabase.from("AdminLessonRecord").select("id", { count: "exact", head: true }).eq("courseId", id).eq("status", "published");
-    if (lessonError) throw lessonError;
-    if (!count) throw new Error("Publish at least one lesson in this course before making it live.");
-  }
-  const { error } = await supabase.from("Subject").update({
-    status: status === "published" ? "ACTIVE" : "ARCHIVED"
-  }).eq("id", id);
-  if (error) throw error;
+  await mutateCatalog({ action: "set_status", courseId: id, status });
   notify();
 }
 
 export async function saveUnit(courseId: string, input: { id?: string; title: string; description: string }) {
-  const supabase = createBrowserSupabaseClient();
-  const countResult = input.id ? null : await supabase.from("Unit").select("id", { count: "exact", head: true }).eq("subjectId", courseId);
-  const id = input.id ?? `unit-${crypto.randomUUID()}`;
-  const { error } = await supabase.from("Unit").upsert({
-    id,
-    subjectId: courseId,
-    name: input.title.trim(),
-    slug: slugify(input.title),
-    description: input.description.trim(),
-    order: countResult?.count ?? 0,
-    updatedAt: new Date().toISOString()
-  }, { onConflict: "id" });
-  if (error) throw error;
+  const { id } = await mutateCatalog<{ id: string }>({ action: "save_unit", courseId, ...input });
   notify();
   return id;
 }
 
 export async function saveTopic(unitId: string, input: { id?: string; title: string; description: string }) {
-  const supabase = createBrowserSupabaseClient();
-  const countResult = input.id ? null : await supabase.from("Topic").select("id", { count: "exact", head: true }).eq("unitId", unitId);
-  const { error } = await supabase.from("Topic").upsert({
-    id: input.id ?? `topic-${crypto.randomUUID()}`,
-    unitId,
-    name: input.title.trim(),
-    slug: slugify(input.title),
-    description: input.description.trim(),
-    order: countResult?.count ?? 0,
-    updatedAt: new Date().toISOString()
-  }, { onConflict: "id" });
-  if (error) throw error;
+  await mutateCatalog({ action: "save_topic", unitId, ...input });
   notify();
 }
 
@@ -124,69 +72,32 @@ export async function moveCourse(id: string, direction: -1 | 1, courses: Managed
   const target = index + direction;
   if (index < 0 || target < 0 || target >= ordered.length) return;
   [ordered[index], ordered[target]] = [ordered[target], ordered[index]];
-  const supabase = createBrowserSupabaseClient();
-  const results = await Promise.all(ordered.map((course, order) => supabase.from("Subject").update({ order }).eq("id", course.id)));
-  const error = results.find((result) => result.error)?.error;
-  if (error) throw error;
+  await mutateCatalog({ action: "reorder_courses", courseIds: ordered.map((course) => course.id) });
   notify();
 }
 
 export async function attachLessonToTopic(lessonId: string, courseId: string, unitId: string, topicId: string) {
-  const supabase = createBrowserSupabaseClient();
-  const { error } = await supabase.from("AdminLessonRecord").update({ courseId, unitId, topicId }).eq("id", lessonId);
-  if (error) throw error;
-  await renumberCourseByModules(courseId);
+  await mutateCatalog({ action: "attach_lesson", lessonId, courseId, unitId, topicId });
   window.dispatchEvent(new Event("skulkid:lessons-changed"));
   notify();
 }
 
 /** Link a lesson to a module (Unit) and place it at the end of that module's order. */
 export async function attachLessonToModule(lessonId: string, courseId: string, unitId: string, unitTitle: string) {
-  const supabase = createBrowserSupabaseClient();
-  const { data, error: readError } = await supabase.from("AdminLessonRecord").select("record").eq("id", lessonId).maybeSingle();
-  if (readError) throw readError;
-  const record = data?.record && typeof data.record === "object" ? data.record as Record<string, unknown> : null;
-  const nextRecord = record
-    ? { ...record, courseId, unitId, unit: unitTitle, chapter: unitTitle }
-    : null;
-  const { error } = await supabase.from("AdminLessonRecord").update({
-    courseId,
-    unitId,
-    ...(nextRecord ? { record: nextRecord } : {})
-  }).eq("id", lessonId);
-  if (error) throw error;
-
-  const { data: moduleLessons, error: listError } = await supabase
-    .from("AdminLessonRecord")
-    .select("id")
-    .eq("courseId", courseId)
-    .eq("unitId", unitId)
-    .order("position");
-  if (listError) throw listError;
-  const orderedIds = [...(moduleLessons ?? []).map((row) => String(row.id)).filter((id) => id !== lessonId), lessonId];
-  await renumberCourseByModules(courseId, { [unitId]: orderedIds });
+  await mutateCatalog({ action: "attach_lesson", lessonId, courseId, unitId, topicId: null, unitTitle });
   window.dispatchEvent(new Event("skulkid:lessons-changed"));
   notify();
 }
 
 export async function writeModuleLessonOrder(courseId: string, unitId: string, orderedIds: string[]) {
-  const supabase = createBrowserSupabaseClient();
   const uniqueIds = [...new Set(orderedIds)];
-  const results = await Promise.all(
-    uniqueIds.map((id) => supabase.from("AdminLessonRecord").update({ courseId, unitId }).eq("id", id))
-  );
-  const failure = results.find((result) => result.error)?.error;
-  if (failure) throw failure;
-  await renumberCourseByModules(courseId, { [unitId]: uniqueIds });
+  await mutateCatalog({ action: "reorder_lessons", courseId, unitId, lessonIds: uniqueIds });
   window.dispatchEvent(new Event("skulkid:lessons-changed"));
   notify();
 }
 
 export async function detachLessonFromModule(lessonId: string, courseId: string) {
-  const supabase = createBrowserSupabaseClient();
-  const { error } = await supabase.from("AdminLessonRecord").update({ unitId: null, topicId: null }).eq("id", lessonId);
-  if (error) throw error;
-  await renumberCourseByModules(courseId);
+  await mutateCatalog({ action: "detach_lesson", lessonId, courseId });
   window.dispatchEvent(new Event("skulkid:lessons-changed"));
   notify();
 }
@@ -196,26 +107,10 @@ export async function detachLessonFromModule(lessonId: string, courseId: string)
  * Overrides let a module supply an explicit lesson id sequence (for reorder / attach).
  */
 export async function renumberCourseByModules(courseId: string, overrides: Record<string, string[]> = {}) {
-  const supabase = createBrowserSupabaseClient();
-  const [unitsResult, lessonsResult] = await Promise.all([
-    supabase.from("Unit").select("id").eq("subjectId", courseId).order("order"),
-    supabase.from("AdminLessonRecord").select("id,unitId").eq("courseId", courseId).order("position")
-  ]);
-  if (unitsResult.error) throw unitsResult.error;
-  if (lessonsResult.error) throw lessonsResult.error;
-
-  const finalOrder = buildCourseLessonOrder(
-    (unitsResult.data ?? []).map((unit) => String(unit.id)),
-    (lessonsResult.data ?? []).map((lesson) => ({ id: String(lesson.id), unitId: lesson.unitId ? String(lesson.unitId) : null })),
-    overrides
-  );
-
-  if (!finalOrder.length) return;
-  const results = await Promise.all(
-    finalOrder.map((id, position) => supabase.from("AdminLessonRecord").update({ position }).eq("id", id))
-  );
-  const failure = results.find((result) => result.error)?.error;
-  if (failure) throw failure;
+  const explicit = Object.entries(overrides);
+  await Promise.all(explicit.map(([unitId, lessonIds]) =>
+    mutateCatalog({ action: "reorder_lessons", courseId, unitId, lessonIds })
+  ));
 }
 
 export { buildCourseLessonOrder } from "@/lib/courses/module-lesson-order";
@@ -245,6 +140,17 @@ export function useCourses() {
 
 function notify() {
   window.dispatchEvent(new Event(changedEvent));
+}
+
+async function mutateCatalog<T = { ok?: boolean }>(body: unknown): Promise<T> {
+  const response = await fetch("/api/teacher/catalog", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+  const result = await response.json() as T & { error?: string };
+  if (!response.ok) throw new Error(result.error || "Could not update course content.");
+  return result;
 }
 
 export function slugify(value: string) {

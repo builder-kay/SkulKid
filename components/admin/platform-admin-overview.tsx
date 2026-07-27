@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BookOpen, ShieldCheck, Users, FileWarning } from "lucide-react";
+import { BookOpen, FileWarning, Globe2, Users } from "lucide-react";
 import { SkulKidCard } from "@/components/shared/skulkid-card";
 
 type OverviewData = {
@@ -11,7 +11,8 @@ type OverviewData = {
   courses: number;
   publishedLessons: number;
   draftLessons: number;
-  flaggedLessons: number;
+  publishedPublicCourses: number;
+  pendingPublicReviews: number;
 };
 
 const empty: OverviewData = {
@@ -21,7 +22,8 @@ const empty: OverviewData = {
   courses: 0,
   publishedLessons: 0,
   draftLessons: 0,
-  flaggedLessons: 0
+  publishedPublicCourses: 0,
+  pendingPublicReviews: 0
 };
 
 export function PlatformAdminOverview() {
@@ -46,23 +48,18 @@ export function PlatformAdminOverview() {
     return () => { active = false; };
   }, []);
 
+  const waiting = loading ? "…" : String(data.pendingPublicReviews);
   return (
     <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <Metric icon={Users} label="Learners" value={loading ? "…" : String(data.students)} detail={`${loading ? "…" : data.teachers} teachers · ${loading ? "…" : data.admins} admins`} />
-      <Metric icon={BookOpen} label="Subjects" value={loading ? "…" : String(data.courses)} detail="Teacher-managed learning paths" />
-      <Metric icon={ShieldCheck} label="Published lessons" value={loading ? "…" : String(data.publishedLessons)} detail={`${loading ? "…" : data.draftLessons} drafts in progress`} />
-      <Metric icon={FileWarning} label="Needs moderation" value={loading ? "…" : String(data.flaggedLessons)} detail={error || "Drafts waiting for review"} tone={data.flaggedLessons > 0 ? "warn" : "ok"} />
+      <Metric icon={BookOpen} label="Courses" value={loading ? "…" : String(data.courses)} detail={`${loading ? "…" : data.publishedLessons} lessons ready`} />
+      <Metric icon={Globe2} label="Public Learning" value={loading ? "…" : String(data.publishedPublicCourses)} detail={`${loading ? "…" : data.draftLessons} lesson drafts in progress`} />
+      <Metric icon={FileWarning} label="Needs review" value={waiting} detail={error || "Explicit Public Learning submissions"} tone={data.pendingPublicReviews > 0 ? "warn" : "ok"} />
     </section>
   );
 }
 
-function Metric({
-  icon: Icon,
-  label,
-  value,
-  detail,
-  tone = "ok"
-}: {
+function Metric({ icon: Icon, label, value, detail, tone = "ok" }: {
   icon: React.ElementType;
   label: string;
   value: string;
@@ -72,9 +69,7 @@ function Metric({
   return (
     <SkulKidCard className={`p-5 ${tone === "warn" ? "border-amber-200 bg-amber-50" : ""}`}>
       <div className="flex items-center gap-3">
-        <span className={`grid size-10 place-items-center rounded-xl ${tone === "warn" ? "bg-amber-100 text-amber-900" : "bg-emerald-50 text-emerald-800"}`}>
-          <Icon className="size-5" />
-        </span>
+        <span className={`grid size-10 place-items-center rounded-xl ${tone === "warn" ? "bg-amber-100 text-amber-900" : "bg-emerald-50 text-emerald-800"}`}><Icon className="size-5" /></span>
         <p className="text-xs font-black uppercase tracking-wider text-muted">{label}</p>
       </div>
       <p className="mt-4 text-3xl font-black text-slate-950">{value}</p>

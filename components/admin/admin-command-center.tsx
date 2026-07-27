@@ -41,7 +41,7 @@ export function AdminCommandCenter() {
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Platform metrics">
         <Metric icon={Users} label="People" value={data.totals.users} detail={`${data.totals.students} students · ${data.totals.teachers} teachers`} />
-        <Metric icon={BookOpenCheck} label="Moderation queue" value={data.totals.pendingModeration} detail="Draft lessons awaiting review" />
+        <Metric icon={BookOpenCheck} label="Moderation queue" value={data.totals.pendingModeration} detail="Public Learning submissions awaiting review" />
         <Metric icon={CircleAlert} label="Open disputes" value={data.totals.openDisputes} detail="Point decisions awaiting admin" />
         <Metric icon={Server} label="Active incidents" value={data.totals.openIncidents} detail={`${data.totals.suspended} suspended accounts`} />
       </section>

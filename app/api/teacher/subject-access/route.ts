@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireTeacher } from "@/lib/classes/classroom-server";
+import { getCoursePublicationState, readPublicLearningSettings } from "@/lib/public-learning/publication-server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const schema = z.object({
@@ -28,8 +29,13 @@ export async function GET() {
       admin.from("Subject").select("id,visibility,ownerClassId,createdBy").eq("createdBy", teacher.id)
     ]);
     if (subjectError) throw new Error(subjectError.message);
+    const publicationPairs = await Promise.all((subjects ?? []).map(async (subject) => [
+      String(subject.id),
+      subject.visibility === "class" ? null : await getCoursePublicationState(String(subject.id))
+    ] as const));
     return NextResponse.json({
       classes: (classes ?? []).map((item) => ({ id: item.id, name: item.name })),
+      settings: await readPublicLearningSettings(),
       subjects: (subjects ?? []).map((subject) => {
         const assignedClassIds = (assignments ?? [])
           .filter((item) => item.courseId === subject.id)
@@ -38,7 +44,8 @@ export async function GET() {
           courseId: subject.id as string,
           visibility: subject.visibility === "class" ? "class" : "platform",
           ownerClassId: (subject.ownerClassId as string | null) ?? null,
-          classIds: assignedClassIds
+          classIds: assignedClassIds,
+          publication: publicationPairs.find(([courseId]) => courseId === subject.id)?.[1] ?? null
         };
       })
     });
@@ -51,8 +58,8 @@ export async function POST(request: Request) {
   try {
     const teacher = await requireTeacher();
     const input = schema.parse(await request.json());
-    if (input.mode === "class_only" && input.classIds.length !== 1) {
-      throw new Error("Class-only subjects must be assigned to one class.");
+    if (input.mode === "class_only" && input.classIds.length < 1) {
+      throw new Error("Choose at least one class for class learning.");
     }
     if (input.mode === "both" && input.classIds.length < 1) {
       throw new Error("Choose at least one class for combined access.");
@@ -89,10 +96,16 @@ export async function POST(request: Request) {
     const { error: updateError } = await admin.from("Subject").update({
       visibility: input.mode === "class_only" ? "class" : "platform",
       ownerClassId: input.mode === "class_only" ? input.classIds[0] : null,
-      status: "ACTIVE",
       updatedAt: new Date().toISOString()
     }).eq("id", input.courseId);
     if (updateError) throw new Error(updateError.message);
+    if (input.mode === "class_only") {
+      const { error: unpublishError } = await admin.rpc("unpublish_public_learning_course", {
+        selected_course_id: input.courseId,
+        archive_course: false
+      });
+      if (unpublishError) throw new Error(unpublishError.message);
+    }
     return NextResponse.json({ ok: true });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to update subject access." }, { status: 400 });

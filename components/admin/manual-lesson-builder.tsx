@@ -147,7 +147,7 @@ export function ManualLessonBuilder({ initialAiConfigured = false, initialAiMode
   const assessmentCount = completeQuestions.length;
   const participationBonusXp = validVideos.reduce((total, video) => total + (videoCheckpointComplete(video) ? video.participationXp : 0), 0);
   const maximumXp = form.xp + assessmentCount * 10 + participationBonusXp + 20;
-  const courses = placementCourses.length ? placementCourses : clientCourses;
+  const courses = placementCourses.length ? placementCourses : clientCourses.filter((course) => course.canManage);
   const subjectCourse = courses.find((course) => course.id === form.courseId)
     ?? courses.find((course) => course.id === courseIdForSubject(form.subject) || course.slug === form.subject)
     ?? null;
@@ -550,7 +550,7 @@ export function ManualLessonBuilder({ initialAiConfigured = false, initialAiMode
                 setResult(null);
               }}>
                 <option value="">Choose a subject</option>
-                {availableSubjectCourses.map((course) => <option value={course.id} key={course.id}>{course.name}{course.visibility === "class" ? " · Class subject" : ""}</option>)}
+                {availableSubjectCourses.map((course) => <option value={course.id} key={course.id}>{course.name}{course.visibility === "class" ? " · My classes" : " · Public Learning"}</option>)}
                 <option value="__new_subject__">+ Create a new subject…</option>
               </Select>
             </Field>
@@ -639,7 +639,7 @@ export function ManualLessonBuilder({ initialAiConfigured = false, initialAiMode
           </div>
           {subjectCourse ? (
             <p className="mt-3 text-xs font-bold text-muted">
-              Placement: {teacherClasses.find((item) => item.id === form.classId)?.name ?? "Platform-wide"} → {subjectCourse.name} → {moduleOptions.find((item) => item.id === form.unitId)?.title ?? (form.unit || "No module selected")}.
+              Placement: {teacherClasses.find((item) => item.id === form.classId)?.name ?? "Public Learning course"} → {subjectCourse.name} → {moduleOptions.find((item) => item.id === form.unitId)?.title ?? (form.unit || "No module selected")}.
             </p>
           ) : (
             <p className="mt-3 text-xs font-bold text-amber-800">

@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { adminContext, listAllAuthUsers, safeUser } from "@/lib/admin/admin-server";
-import { readAdminLessonsServer } from "@/lib/admin/lesson-library-server";
 
 function dayKey(value: string) {
   return value.slice(0, 10);
@@ -9,9 +8,9 @@ function dayKey(value: string) {
 export async function GET() {
   try {
     const { admin } = await adminContext();
-    const [authUsers, lessons, disputes, incidents, audits] = await Promise.all([
+    const [authUsers, pendingReviews, disputes, incidents, audits] = await Promise.all([
       listAllAuthUsers(),
-      readAdminLessonsServer(),
+      admin.from("PublicLearningRevision").select("id", { count: "exact", head: true }).eq("status", "pending_review"),
       admin.from("PointDeductionDispute").select("status,createdAt,resolvedAt"),
       admin.from("AdminIncident").select("status,severity,createdAt,resolvedAt"),
       admin.from("AdminAuditEvent").select("id,action,targetType,targetId,result,reason,actorId,createdAt").order("createdAt", { ascending: false }).limit(12)
@@ -38,6 +37,7 @@ export async function GET() {
     }));
     const openDisputes = (disputes.data ?? []).filter((item) => item.status === "open").length;
     const openIncidents = (incidents.data ?? []).filter((item) => item.status !== "resolved").length;
+    const pendingModeration = pendingReviews.count ?? 0;
     return NextResponse.json({
       totals: {
         users: users.length,
@@ -45,20 +45,20 @@ export async function GET() {
         teachers: roles[1].value,
         admins: roles[2].value,
         suspended: users.filter((user) => user.status === "suspended").length,
-        pendingModeration: lessons.filter((lesson) => lesson.status === "draft").length,
+        pendingModeration,
         openDisputes,
         openIncidents
       },
       alerts: [
         ...(openIncidents ? [{ tone: "danger", title: `${openIncidents} active incident${openIncidents === 1 ? "" : "s"}`, href: "/admin/operations" }] : []),
         ...(openDisputes ? [{ tone: "warning", title: `${openDisputes} point dispute${openDisputes === 1 ? "" : "s"} waiting`, href: "/admin/point-disputes" }] : []),
-        ...(lessons.some((lesson) => lesson.status === "draft") ? [{ tone: "info", title: "Content is waiting for moderation", href: "/admin/moderation" }] : [])
+        ...(pendingModeration ? [{ tone: "info", title: `${pendingModeration} Public Learning submission${pendingModeration === 1 ? "" : "s"} waiting`, href: "/admin/moderation" }] : [])
       ],
       accountTrend,
       activeTrend,
       roles,
       workload: [
-        { label: "Moderation", value: lessons.filter((lesson) => lesson.status === "draft").length },
+        { label: "Moderation", value: pendingModeration },
         { label: "Disputes", value: openDisputes },
         { label: "Incidents", value: openIncidents }
       ],
