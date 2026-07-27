@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, BookOpen, CheckCircle2, ChevronDown, ChevronRight, Eye, EyeOff, ImageIcon, Layers3, Loader2, Palette, Pencil, Plus, Save, Send, Tags, X } from "lucide-react";
 import { SkulKidCard } from "@/components/shared/skulkid-card";
 import { readAdminLessons, type AdminLessonRecord } from "@/lib/admin/lesson-library";
@@ -46,13 +46,14 @@ type AccessItem = {
   publication: PublicationState | null;
 };
 
-export function CourseManagement() {
+export function CourseManagement({ initialCreate = false }: { initialCreate?: boolean }) {
   const { courses, loading, error, refresh } = useCourses();
   const [form, setForm] = useState<CourseInput | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [lessons, setLessons] = useState<AdminLessonRecord[]>([]);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
+  const createDeepLinkHandled = useRef(false);
   const [access, setAccess] = useState<{
     classes: Array<{ id: string; name: string }>;
     subjects: AccessItem[];
@@ -79,6 +80,15 @@ export function CourseManagement() {
     return () => window.removeEventListener("skulkid:lessons-changed", refreshLessons);
   }, []);
   useEffect(() => { void refreshAccess().catch((cause) => setMessage(cause instanceof Error ? cause.message : "Could not load course audiences.")); }, []);
+  useEffect(() => {
+    if (!initialCreate || createDeepLinkHandled.current) return;
+    createDeepLinkHandled.current = true;
+    setForm({ ...emptyForm, gradeLevels: [...emptyForm.gradeLevels], classIds: [] });
+    const url = new URL(window.location.href);
+    url.searchParams.delete("create");
+    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+    window.setTimeout(() => document.querySelector<HTMLElement>('[aria-labelledby="course-form-title"] input')?.focus(), 120);
+  }, [initialCreate]);
 
   useEffect(() => {
     if (!selectedId && manageableCourses[0]) setSelectedId(manageableCourses[0].id);
@@ -150,7 +160,7 @@ export function CourseManagement() {
             <h2 className="mt-2 text-3xl font-black" id="course-management-heading">Build courses for classes or Public Learning</h2>
             <p className="mt-2 max-w-2xl text-violet-100">Choose an audience once, then organise its modules and lessons. Public versions stay private until submitted.</p>
           </div>
-          <button className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-white px-5 font-black text-slate-950 shadow-lg hover:bg-violet-50" onClick={() => setForm(emptyForm)} type="button"><Plus className="size-5" />Create course</button>
+          <button className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-white px-5 font-black text-slate-950 shadow-lg hover:bg-violet-50" onClick={() => setForm({ ...emptyForm, gradeLevels: [...emptyForm.gradeLevels], classIds: [] })} type="button"><Plus className="size-5" />Create course</button>
         </div>
         {message ? <p className="m-4 rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm font-bold text-blue-900" role="status">{message}</p> : null}
         {error ? <p className="m-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm font-bold text-rose-800">{error}</p> : null}

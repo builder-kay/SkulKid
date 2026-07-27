@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, Eye, Flame, LayoutDashboard, Loader2, Medal, RotateCcw, Save, Settings2, Sparkles, Star, Trophy } from "lucide-react";
 import { Input, Select } from "@/components/design-system/form-controls";
+import { TeacherGuideLink } from "@/components/teacher/teacher-guide-link";
 import { deleteAdminSetting, readAdminSetting, writeAdminSetting } from "@/lib/admin/settings";
 import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 import { cn } from "@/lib/utils";
@@ -107,7 +108,7 @@ export function UserDashboardSettings() {
     <header className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-slate-950 via-violet-950 to-blue-900 p-6 text-white shadow-xl sm:p-8">
       <div className="absolute -right-16 -top-20 size-64 rounded-full bg-violet-500/25 blur-3xl" />
       <div className="relative flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
-        <div><p className="flex items-center gap-2 text-xs font-black uppercase tracking-[.16em] text-violet-300"><Settings2 className="size-4" />Teacher settings</p><h1 className="mt-2 text-3xl font-black sm:text-4xl">Learner experience</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300 sm:text-base">Choose the progress features and learning defaults you want to use in your teaching workspace.</p></div>
+        <div><p className="flex items-center gap-2 text-xs font-black uppercase tracking-[.16em] text-violet-300"><Settings2 className="size-4" />Teacher settings</p><h1 className="mt-2 text-3xl font-black sm:text-4xl">Learner experience</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300 sm:text-base">Choose the progress features and learning defaults you want to use in your teaching workspace.</p><TeacherGuideLink className="mt-4 border-white/20 bg-white/10 text-white hover:border-white/40 hover:bg-white/20 hover:text-white" topic="teacher-settings" /></div>
         <div className="grid grid-cols-2 gap-2"><Metric value={visibleCount} label="Visible sections" /><Metric value={`${settings.dailyGoalXp}`} label="Daily XP goal" /></div>
       </div>
     </header>

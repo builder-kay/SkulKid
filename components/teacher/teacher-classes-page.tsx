@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
   BookOpenCheck,
@@ -16,6 +16,7 @@ import {
   UsersRound
 } from "lucide-react";
 import type { TeacherClassSummary } from "@/lib/classes/types";
+import { TeacherGuideLink } from "@/components/teacher/teacher-guide-link";
 import { cn } from "@/lib/utils";
 
 const gradeTones = [
@@ -25,7 +26,7 @@ const gradeTones = [
   { band: "from-sky-800 via-sky-700 to-teal-700", soft: "bg-sky-50 text-sky-900", accent: "text-sky-700" }
 ];
 
-export function TeacherClassesPage() {
+export function TeacherClassesPage({ initialCreate = false }: { initialCreate?: boolean }) {
   const [classes, setClasses] = useState<TeacherClassSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -35,6 +36,7 @@ export function TeacherClassesPage() {
   const [description, setDescription] = useState("");
   const [gradeLevel, setGradeLevel] = useState(6);
   const [copiedId, setCopiedId] = useState("");
+  const createDeepLinkHandled = useRef(false);
 
   const totals = useMemo(() => ({
     classes: classes.length,
@@ -58,6 +60,15 @@ export function TeacherClassesPage() {
   }
 
   useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    if (!initialCreate || createDeepLinkHandled.current) return;
+    createDeepLinkHandled.current = true;
+    setShowCreate(true);
+    const url = new URL(window.location.href);
+    url.searchParams.delete("create");
+    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+    window.setTimeout(() => document.getElementById("class-name-input")?.focus(), 120);
+  }, [initialCreate]);
 
   async function createClass(event: React.FormEvent) {
     event.preventDefault();
@@ -125,17 +136,23 @@ export function TeacherClassesPage() {
               Create a class, share a code, then assign subjects and quizzes for every learner.
             </p>
           </div>
-          <button
-            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-teal-300 px-5 text-base font-black text-slate-950 shadow-[0_12px_30px_rgba(45,212,191,.28)] transition duration-200 hover:-translate-y-0.5 hover:bg-teal-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-            onClick={() => {
-              setShowCreate(true);
-              window.setTimeout(() => document.getElementById("class-name-input")?.focus(), 120);
-            }}
-            type="button"
-          >
-            <Plus className="size-5" />
-            Create a class
-          </button>
+          <div className="flex flex-col gap-3 sm:flex-row lg:flex-col">
+            <TeacherGuideLink
+              className="border-white/20 bg-white/10 text-white hover:border-white/40 hover:bg-white/20 hover:text-white"
+              topic="create-class"
+            />
+            <button
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-teal-300 px-5 text-base font-black text-slate-950 shadow-[0_12px_30px_rgba(45,212,191,.28)] transition duration-200 hover:-translate-y-0.5 hover:bg-teal-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+              onClick={() => {
+                setShowCreate(true);
+                window.setTimeout(() => document.getElementById("class-name-input")?.focus(), 120);
+              }}
+              type="button"
+            >
+              <Plus className="size-5" />
+              Create a class
+            </button>
+          </div>
         </div>
       </header>
 

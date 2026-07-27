@@ -3,13 +3,15 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { BellRing, BookOpenCheck, ClipboardList, LayoutDashboard, Library, LogOut, Settings2, SquarePen, Users } from "lucide-react";
+import { BellRing, BookOpenCheck, CircleHelp, ClipboardList, LayoutDashboard, Library, LogOut, Settings2, SquarePen, Users } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { SkulKidLogo } from "@/components/shared/skulkid-logo";
 import { SignOutConfirmation } from "@/components/shared/sign-out-confirmation";
 import { cn } from "@/lib/utils";
 
-const navItems: Array<{ href: string; label: string; shortLabel: string; icon: LucideIcon; match: "exact" | "prefix" }> = [
+type TeacherNavItem = { href: string; label: string; shortLabel: string; icon: LucideIcon; match: "exact" | "prefix" };
+
+const navItems: TeacherNavItem[] = [
   { href: "/teacher", label: "Overview", shortLabel: "Home", icon: LayoutDashboard, match: "exact" },
   { href: "/teacher/classes", label: "Classes", shortLabel: "Classes", icon: Users, match: "prefix" },
   { href: "/teacher/quizzes", label: "Quizzes", shortLabel: "Quizzes", icon: ClipboardList, match: "prefix" },
@@ -20,6 +22,13 @@ const navItems: Array<{ href: string; label: string; shortLabel: string; icon: L
   { href: "/teacher/settings", label: "Teacher settings", shortLabel: "Settings", icon: Settings2, match: "prefix" }
 ];
 
+const guideItem: TeacherNavItem = {
+  href: "/teacher/tutorial",
+  label: "Teacher Guide",
+  shortLabel: "Help",
+  icon: CircleHelp,
+  match: "prefix"
+};
 
 export function TeacherShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -35,14 +44,28 @@ export function TeacherShell({ children }: { children: React.ReactNode }) {
               <span className="mt-1 block text-xs font-bold text-slate-300">Teacher Workspace</span>
             </span>
           </Link>
-          <button
-            aria-label="Sign out"
-            className="grid size-11 place-items-center rounded-xl border border-red-900/50 bg-red-950/40 text-red-200 transition hover:bg-red-900/50 hover:text-red-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/40"
-            onClick={() => setSignOutOpen(true)}
-            type="button"
-          >
-            <LogOut aria-hidden="true" className="size-5" strokeWidth={2.5} />
-          </button>
+          <div className="flex items-center gap-2">
+            <Link
+              aria-label="Open Teacher Guide"
+              className={cn(
+                "grid size-11 place-items-center rounded-xl border text-white transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white",
+                pathname.startsWith(guideItem.href)
+                  ? "border-violet-400 bg-violet-600"
+                  : "border-slate-700 bg-slate-900 hover:bg-slate-800"
+              )}
+              href={guideItem.href}
+            >
+              <CircleHelp aria-hidden="true" className="size-5" strokeWidth={2.5} />
+            </Link>
+            <button
+              aria-label="Sign out"
+              className="grid size-11 place-items-center rounded-xl border border-red-900/50 bg-red-950/40 text-red-200 transition hover:bg-red-900/50 hover:text-red-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/40"
+              onClick={() => setSignOutOpen(true)}
+              type="button"
+            >
+              <LogOut aria-hidden="true" className="size-5" strokeWidth={2.5} />
+            </button>
+          </div>
         </div>
       </header>
 
@@ -63,6 +86,8 @@ export function TeacherShell({ children }: { children: React.ReactNode }) {
                 key={item.href}
               />
             ))}
+            <p className="px-3 pb-1 pt-4 text-xs font-black uppercase tracking-wider text-slate-500">Learn</p>
+            <TeacherNavLink active={pathname.startsWith(guideItem.href)} item={guideItem} />
           </nav>
           <div className="mt-auto border-t border-slate-800 pt-4">
             <button
@@ -110,7 +135,7 @@ export function TeacherShell({ children }: { children: React.ReactNode }) {
   );
 }
 
-function TeacherNavLink({ item, active }: { item: (typeof navItems)[number]; active: boolean }) {
+function TeacherNavLink({ item, active }: { item: TeacherNavItem; active: boolean }) {
   const Icon = item.icon;
   return (
     <Link

@@ -3,6 +3,7 @@ import {
   ArrowRight,
   Bot,
   CheckCircle2,
+  CircleHelp,
   CircleAlert,
   FileText,
   Plus,
@@ -72,7 +73,8 @@ export default function AdminDashboardPage() {
           <p className="text-xs font-black uppercase tracking-wider text-violet-700">Quick actions</p>
           <h2 className="mt-1 text-2xl font-black">What would you like to do?</h2>
           <div className="mt-5 grid gap-3">
-            <QuickAction href="/teacher/classes" icon={Users} title="Create a class" text="Share a join link, assign subjects and quizzes, then coach students." />
+            <QuickAction href="/teacher/tutorial" icon={CircleHelp} title="Open the Teacher Guide" text="Follow clear guides for classes, courses, lessons, quizzes and learner support." />
+            <QuickAction href="/teacher/classes?create=1" icon={Users} title="Create a class" text="Share a join link, assign courses and quizzes, then coach students." />
             <QuickAction href="/teacher/lessons/new" icon={SquarePen} title="Write a lesson" text="Add teaching material, quizzes and rewards manually." />
             <QuickAction href="/teacher/lessons/new" icon={Bot} title="Extract a lesson with AI" text="Upload a lesson note and receive an editable lesson and quiz draft." />
             <QuickAction href="/teacher/curriculum" icon={FileText} title="Browse official curricula" text="Filter NaCCA sources by grade and subject." />

@@ -16,6 +16,7 @@ import {
   Users,
   X
 } from "lucide-react";
+import { TeacherGuideLink } from "@/components/teacher/teacher-guide-link";
 import { cn } from "@/lib/utils";
 
 type Audience = "all" | "class" | "selected" | "student";
@@ -60,6 +61,7 @@ export default function TeacherCommunicationsPage() {
   const [success, setSuccess] = useState("");
   const composerRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
+  const composeDeepLinkHandled = useRef(false);
 
   async function load() {
     setLoading(true);
@@ -76,6 +78,18 @@ export default function TeacherCommunicationsPage() {
       setError(cause instanceof Error ? cause.message : "Unable to load communications.");
       setLoading(false);
     });
+  }, []);
+  useEffect(() => {
+    if (composeDeepLinkHandled.current) return;
+    composeDeepLinkHandled.current = true;
+    if (new URLSearchParams(window.location.search).get("compose") !== "1") return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete("compose");
+    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+    window.setTimeout(() => {
+      composerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      titleRef.current?.focus({ preventScroll: true });
+    }, 180);
   }, []);
 
   const allStudents = useMemo(() => {
@@ -165,6 +179,10 @@ export default function TeacherCommunicationsPage() {
             <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300 sm:text-base">
               Keep learners informed and respond to questions from your classes.
             </p>
+            <TeacherGuideLink
+              className="mt-4 border-white/20 bg-white/10 text-white hover:border-white/40 hover:bg-white/20 hover:text-white"
+              topic="messages"
+            />
           </div>
           <div className="grid grid-cols-3 gap-2 sm:min-w-[22rem]">
             <Stat value={data.classes.length} label="Classes" />
