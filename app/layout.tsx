@@ -1,5 +1,6 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
+import { PwaExperience } from "@/components/pwa/pwa-experience";
 import "./globals.css";
 
 const plusJakarta = Plus_Jakarta_Sans({
@@ -9,12 +10,36 @@ const plusJakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "SkulKid",
+  applicationName: "SkulKid",
+  title: {
+    default: "SkulKid",
+    template: "%s | SkulKid"
+  },
   description: "A gamified learning foundation for primary school students.",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "SkulKid"
+  },
+  formatDetection: {
+    telephone: false
+  },
   icons: {
-    icon: "/brand/skulkid-mark.png",
-    apple: "/brand/skulkid-mark.png"
+    icon: [
+      { url: "/pwa/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/pwa/icon-512.png", sizes: "512x512", type: "image/png" }
+    ],
+    apple: [{ url: "/pwa/apple-touch-icon.png", sizes: "180x180", type: "image/png" }]
   }
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#2563eb",
+  colorScheme: "light"
 };
 
 export default function RootLayout({
@@ -24,7 +49,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={plusJakarta.variable}>{children}</body>
+      <body className={plusJakarta.variable}>
+        {children}
+        <PwaExperience />
+      </body>
     </html>
   );
 }

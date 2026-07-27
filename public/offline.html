@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+    <meta name="theme-color" content="#2563eb" />
+    <title>SkulKid is offline</title>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        min-height: 100vh;
+        margin: 0;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        color: #0f172a;
+        background:
+          radial-gradient(circle at 15% 20%, rgba(191, 219, 254, .8), transparent 30%),
+          radial-gradient(circle at 85% 80%, rgba(221, 214, 254, .8), transparent 32%),
+          #eff6ff;
+        font-family: ui-rounded, "Arial Rounded MT Bold", system-ui, sans-serif;
+      }
+      main {
+        width: min(100%, 440px);
+        padding: 32px 24px;
+        text-align: center;
+        border: 1px solid #bfdbfe;
+        border-radius: 32px;
+        background: rgba(255,255,255,.94);
+        box-shadow: 0 24px 70px rgba(30,64,175,.16);
+      }
+      img { width: 112px; height: 112px; object-fit: contain; }
+      .pill {
+        display: inline-block;
+        margin-top: 18px;
+        padding: 7px 12px;
+        border-radius: 999px;
+        color: #5b21b6;
+        background: #ede9fe;
+        font-size: 12px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: .08em;
+      }
+      h1 { margin: 12px 0 0; font-size: clamp(28px, 8vw, 38px); line-height: 1.08; }
+      p { margin: 14px auto 0; max-width: 340px; color: #475569; font-size: 16px; line-height: 1.65; }
+      button {
+        min-height: 50px;
+        margin-top: 24px;
+        padding: 0 22px;
+        border: 0;
+        border-radius: 14px;
+        color: white;
+        background: #2563eb;
+        font: inherit;
+        font-weight: 900;
+        cursor: pointer;
+        box-shadow: 0 12px 28px rgba(37,99,235,.24);
+      }
+      button:focus-visible { outline: 4px solid #bfdbfe; outline-offset: 3px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <img alt="SkulKid" src="/brand/skulkid-mark.png" />
+      <span class="pill">No internet right now</span>
+      <h1>Your learning is safe</h1>
+      <p>SkulKid could not connect. Check your internet, then try again. Your saved account and progress have not been removed.</p>
+      <button onclick="window.location.reload()" type="button">Try again</button>
+    </main>
+  </body>
+</html>
