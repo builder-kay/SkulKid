@@ -37,7 +37,25 @@ export function CharacterAvatar({
   const pantsColor = bottoms?.colour ?? avatar.pantsColor;
   const shoeColor = shoes?.colour ?? avatar.shoeColor;
   const outline = "#35211d";
-  const torsoHalf = avatar.bodyStyle === "slim" ? 27 : avatar.bodyStyle === "strong" ? 36 : 31;
+  const female = avatar.gender === "female";
+  const torsoHalf = female
+    ? avatar.bodyStyle === "slim" ? 26 : avatar.bodyStyle === "strong" ? 33 : 29
+    : avatar.bodyStyle === "slim" ? 27 : avatar.bodyStyle === "strong" ? 36 : 31;
+  const waistHalf = female ? Math.max(21, torsoHalf - 6) : torsoHalf - 3;
+  const hipHalf = female ? torsoHalf + 1 : torsoHalf - 1;
+  const torsoPath = female
+    ? `M${100 - torsoHalf + 5} 111
+       Q100 104 ${100 + torsoHalf - 5} 111
+       Q${100 + torsoHalf + 8} 120 ${100 + waistHalf} 143
+       Q${100 + hipHalf} 160 ${100 + hipHalf} 173
+       Q100 181 ${100 - hipHalf} 173
+       Q${100 - hipHalf} 160 ${100 - waistHalf} 143
+       Q${100 - torsoHalf - 8} 120 ${100 - torsoHalf + 5} 111 Z`
+    : `M${100 - torsoHalf + 5} 111
+       Q100 104 ${100 + torsoHalf - 5} 111
+       Q${100 + torsoHalf + 8} 120 ${100 + torsoHalf - 3} 173
+       Q100 180 ${100 - torsoHalf + 3} 173
+       Q${100 - torsoHalf - 8} 120 ${100 - torsoHalf + 5} 111 Z`;
 
   return (
     <svg
@@ -100,7 +118,7 @@ export function CharacterAvatar({
         {/* Curved arms, sleeves and torso form a single consistent silhouette. */}
         <path d={`M${100 - torsoHalf + 5} 115 Q58 111 51 131 l-9 40 q-3 10 7 13 q10 1 13-9 l11-30 Z`} fill={`url(#${uid}-skin)`} stroke={outline} strokeLinejoin="round" strokeOpacity=".55" strokeWidth="2.2" />
         <path d={`M${100 + torsoHalf - 5} 115 Q142 111 149 131 l9 40 q3 10-7 13 q-10 1-13-9 l-11-30 Z`} fill={`url(#${uid}-skin)`} stroke={outline} strokeLinejoin="round" strokeOpacity=".55" strokeWidth="2.2" />
-        <path d={`M${100 - torsoHalf + 5} 111Q100 104 ${100 + torsoHalf - 5} 111Q${100 + torsoHalf + 8} 120 ${100 + torsoHalf - 3} 173Q100 180 ${100 - torsoHalf + 3} 173Q${100 - torsoHalf - 8} 120 ${100 - torsoHalf + 5} 111Z`} fill={`url(#${uid}-shirt)`} stroke={outline} strokeLinejoin="round" strokeOpacity=".58" strokeWidth="2.2" />
+        <path d={torsoPath} fill={`url(#${uid}-shirt)`} stroke={outline} strokeLinejoin="round" strokeOpacity=".58" strokeWidth="2.2" />
         <path d={`M${100 - torsoHalf + 6} 113 Q59 111 52 130 l-4 15 20 6 8-25 Z`} fill={`url(#${uid}-shirt)`} stroke={outline} strokeLinejoin="round" strokeOpacity=".5" strokeWidth="2" />
         <path d={`M${100 + torsoHalf - 6} 113 Q141 111 148 130 l4 15-20 6-8-25 Z`} fill={`url(#${uid}-shirt)`} stroke={outline} strokeLinejoin="round" strokeOpacity=".5" strokeWidth="2" />
         <path d="M83 116q17 10 34 0" fill="none" stroke="#fff" strokeLinecap="round" strokeOpacity=".26" strokeWidth="2" />
@@ -108,12 +126,22 @@ export function CharacterAvatar({
         <ShirtSymbol brand={shirt?.brand} style={avatar.shirtStyle} />
         {watch ? <Watch color={watch.colour} outline={outline} /> : null}
 
-        <rect fill={`url(#${uid}-skin)`} height="23" rx="9" stroke={outline} strokeOpacity=".45" strokeWidth="2" width="25" x="87.5" y="96" />
+        <rect
+          fill={`url(#${uid}-skin)`}
+          height="23"
+          rx="9"
+          stroke={outline}
+          strokeOpacity=".45"
+          strokeWidth="2"
+          width={female ? 22 : 25}
+          x={female ? 89 : 87.5}
+          y="96"
+        />
 
         {/* Hair behind the face where required. */}
         <BackHair color={avatar.hairColor} style={avatar.hairStyle} />
         <Ears fill={`url(#${uid}-skin)`} outline={outline} />
-        <FaceShape fill={`url(#${uid}-skin)`} outline={outline} style={avatar.headStyle} />
+        <FaceShape fill={`url(#${uid}-skin)`} gender={avatar.gender} outline={outline} style={avatar.headStyle} />
         <FrontHair color={avatar.hairColor} style={avatar.hairStyle} />
         {cap ? <Cap color={cap.colour} outline={outline} /> : null}
         <Features
@@ -130,14 +158,23 @@ export function CharacterAvatar({
   );
 }
 
-function FaceShape({ fill, outline, style }: { fill: string; outline: string; style: AvatarConfig["headStyle"] }) {
-  const path = style === "round"
-    ? "M100 18C65 18 47 36 48 68c0 31 17 48 36 58q16 9 32 0c20-11 36-28 36-58 1-32-17-50-52-50Z"
-    : style === "oval"
-      ? "M100 13C70 13 52 30 51 64c-1 32 15 52 34 64q15 10 30 0c19-12 35-32 34-64-1-34-19-51-49-51Z"
-      : style === "wide"
-        ? "M100 22C61 22 42 39 46 72c3 28 20 44 39 54q15 8 30 0c19-10 36-26 39-54 4-33-15-50-54-50Z"
-        : "M100 18C65 18 47 34 47 68c0 29 17 48 38 59q15 8 30 0c21-11 38-30 38-59 0-34-18-50-53-50Z";
+function FaceShape({ fill, gender, outline, style }: { fill: string; gender: AvatarConfig["gender"]; outline: string; style: AvatarConfig["headStyle"] }) {
+  const female = gender === "female";
+  const path = female
+    ? style === "round"
+      ? "M100 18C67 18 49 36 49 68c0 30 17 47 37 59q14 9 28 0c20-12 37-29 37-59 0-32-18-50-51-50Z"
+      : style === "oval"
+        ? "M100 13C72 13 53 30 52 64c-1 32 15 52 35 65q13 9 26 0c20-13 36-33 35-65-1-34-20-51-48-51Z"
+        : style === "wide"
+          ? "M100 22C63 22 44 39 47 72c3 28 20 44 40 55q13 8 26 0c20-11 37-27 40-55 3-33-16-50-53-50Z"
+          : "M100 18C68 18 49 35 49 67c0 29 16 47 37 59q14 9 28 0c21-12 37-30 37-59 0-32-19-49-51-49Z"
+    : style === "round"
+      ? "M100 18C65 18 47 36 48 68c0 31 17 48 36 58q16 9 32 0c20-11 36-28 36-58 1-32-17-50-52-50Z"
+      : style === "oval"
+        ? "M100 13C70 13 52 30 51 64c-1 32 15 52 34 64q15 10 30 0c19-12 35-32 34-64-1-34-19-51-49-51Z"
+        : style === "wide"
+          ? "M100 22C61 22 42 39 46 72c3 28 20 44 39 54q15 8 30 0c19-10 36-26 39-54 4-33-15-50-54-50Z"
+          : "M100 18C65 18 47 34 47 68c0 29 17 48 38 59q15 8 30 0c21-11 38-30 38-59 0-34-18-50-53-50Z";
   return <path d={path} fill={fill} stroke={outline} strokeOpacity=".62" strokeWidth="2.3" />;
 }
 
