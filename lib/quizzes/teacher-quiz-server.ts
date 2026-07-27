@@ -1,6 +1,7 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { ClassQuizQuestion } from "@/lib/classes/types";
+import { markModerationPublished, moderateTeacherContent } from "@/lib/moderation/teacher-content-server";
 
 export type TeacherQuizStatus = "draft" | "ready" | "archived";
 export type TeacherQuizSubject = "mathematics" | "english-language" | "science" | "general";
@@ -16,6 +17,26 @@ function cleanQuestions(questions: ClassQuizQuestion[]) {
     options: q.type === "true_false" ? ["True", "False"] : q.options.map((x) => x.trim()).filter(Boolean),
     correctIndex: q.correctIndex, explanation: q.explanation?.trim() || undefined
   })).filter((q) => q.prompt && q.options.length >= 2 && q.correctIndex < q.options.length);
+}
+
+function quizModerationSnapshot(value: {
+  id: string; title: string; description?: string; subject: TeacherQuizSubject;
+  gradeLevels: number[]; questions: ClassQuizQuestion[]; baseXpReward: number;
+  passingScore: number; maxAttempts: number; version?: number;
+}) {
+  return {
+    id: value.id,
+    title: value.title,
+    description: value.description ?? "",
+    subject: value.subject,
+    gradeLevels: value.gradeLevels,
+    questions: value.questions,
+    baseXpReward: value.baseXpReward,
+    passingScore: value.passingScore,
+    maxAttempts: value.maxAttempts,
+    version: value.version ?? 1,
+    status: "ready" as const
+  };
 }
 
 export async function listTeacherQuizzes(teacherId: string) {
@@ -48,9 +69,19 @@ export async function createTeacherQuiz(teacherId: string, input: TeacherQuizInp
   const questions = cleanQuestions(input.questions);
   if (input.status === "ready" && !questions.length) throw new Error("Add at least one valid question before marking the quiz ready.");
   const admin = createAdminClient();
-  const { data, error } = await admin.from("TeacherQuiz").insert({ ...input, questions, createdBy: teacherId }).select("id").single();
+  const id = crypto.randomUUID();
+  const snapshot = quizModerationSnapshot({ ...input, id, questions, version: 1 });
+  const moderation = input.status === "ready"
+    ? await moderateTeacherContent({ teacherId, contentType: "teacher_quiz", contentId: id, snapshot })
+    : null;
+  const status = moderation && moderation.state !== "published" ? "draft" : input.status;
+  const { data, error } = await admin.from("TeacherQuiz")
+    .insert({ ...input, id, status, questions, createdBy: teacherId })
+    .select("id")
+    .single();
   if (error || !data) throw new Error(error?.message || "Unable to create quiz.");
-  return data.id as string;
+  if (moderation?.state === "published") await markModerationPublished(moderation.caseId);
+  return { id: data.id as string, moderation };
 }
 
 export async function updateTeacherQuiz(teacherId: string, quizId: string, input: Partial<TeacherQuizInput>) {
@@ -59,8 +90,15 @@ export async function updateTeacherQuiz(teacherId: string, quizId: string, input
   if (readError || !current) throw new Error(readError?.message || "Quiz not found.");
   const questions = input.questions ? cleanQuestions(input.questions) : current.questions;
   if ((input.status ?? current.status) === "ready" && !(questions as unknown[]).length) throw new Error("Add at least one valid question before marking the quiz ready.");
+  const snapshot = quizModerationSnapshot({ ...current, ...input, id: quizId, questions, version: Number(current.version) + 1 });
+  const moderation = (input.status ?? current.status) === "ready"
+    ? await moderateTeacherContent({ teacherId, contentType: "teacher_quiz", contentId: quizId, snapshot })
+    : null;
+  if (moderation && moderation.state !== "published") return { moderation };
   const { error } = await admin.from("TeacherQuiz").update({ ...input, ...(input.questions ? { questions } : {}), version: Number(current.version) + 1 }).eq("id", quizId).eq("createdBy", teacherId);
   if (error) throw new Error(error.message);
+  if (moderation) await markModerationPublished(moderation.caseId);
+  return { moderation };
 }
 
 export async function assignTeacherQuiz(
@@ -75,6 +113,24 @@ export async function assignTeacherQuiz(
     admin.from("TeacherClass").select("id,name,status").in("id", classIds).eq("teacherId", teacherId)
   ]);
   if (!quiz || quiz.status !== "ready") throw new Error("Only a ready quiz can be assigned.");
+  const moderation = await moderateTeacherContent({
+    teacherId,
+    contentType: "teacher_quiz",
+    contentId: quizId,
+    snapshot: quizModerationSnapshot({
+      id: quiz.id,
+      title: quiz.title,
+      description: quiz.description,
+      subject: quiz.subject,
+      gradeLevels: quiz.gradeLevels,
+      questions: quiz.questions,
+      baseXpReward: quiz.baseXpReward,
+      passingScore: quiz.passingScore,
+      maxAttempts: quiz.maxAttempts,
+      version: quiz.version
+    })
+  });
+  if (moderation.state !== "published") throw new Error(moderation.message);
   if (classError || !classes || classes.length !== classIds.length || classes.some((x) => x.status !== "active")) throw new Error("Choose only your active classes.");
   const { data: duplicates } = await admin.from("ClassQuiz").select("classId").eq("sourceQuizId", quizId).in("classId", classIds).in("status", ["draft", "published"]);
   if (duplicates?.length) {

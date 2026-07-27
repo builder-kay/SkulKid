@@ -15,6 +15,9 @@ type GeminiStructuredInput = {
 };
 
 type GeminiStructuredTextInput = Omit<GeminiStructuredInput, "mimeType" | "bytes">;
+export type GeminiContentPart =
+  | { text: string }
+  | { inlineData: { mimeType: string; data: string } };
 
 export class GeminiRequestError extends Error {
   constructor(message: string, readonly status = 502) {
@@ -75,6 +78,42 @@ export async function generateStructuredTextWithGemini(input: GeminiStructuredTe
     headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
     body: JSON.stringify({
       contents: [{ role: "user", parts: [{ text: input.prompt }] }],
+      generationConfig: { responseMimeType: "application/json", responseJsonSchema: input.schema }
+    })
+  });
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new GeminiRequestError(`Gemini request failed (${response.status}): ${detail.slice(0, 500)}`);
+  }
+  const payload = await response.json() as {
+    responseId?: string;
+    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> }; finishReason?: string }>;
+    promptFeedback?: { blockReason?: string };
+  };
+  const text = payload.candidates?.[0]?.content?.parts?.map((part) => part.text ?? "").join("").trim();
+  if (!text) {
+    const reason = payload.promptFeedback?.blockReason ?? payload.candidates?.[0]?.finishReason ?? "no content";
+    throw new GeminiRequestError(`Gemini returned no structured content (${reason}).`);
+  }
+  try {
+    return { data: JSON.parse(text) as unknown, responseId: payload.responseId ?? crypto.randomUUID() };
+  } catch {
+    throw new GeminiRequestError("Gemini returned content that was not valid JSON.");
+  }
+}
+
+export async function generateStructuredPartsWithGemini(input: {
+  model: string;
+  parts: GeminiContentPart[];
+  schema: unknown;
+}) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new GeminiRequestError("GEMINI_API_KEY is not configured on the server.", 503);
+  const response = await fetch(`${geminiBaseUrl}/${encodeURIComponent(input.model)}:generateContent`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+    body: JSON.stringify({
+      contents: [{ role: "user", parts: input.parts }],
       generationConfig: { responseMimeType: "application/json", responseJsonSchema: input.schema }
     })
   });

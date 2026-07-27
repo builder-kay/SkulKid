@@ -9,6 +9,7 @@ import {
 } from "@/lib/auth/student-identity";
 import { findSupabaseUserByPhone } from "@/lib/auth/supabase-phone-user";
 import { platformActionUrl } from "@/lib/auth/sms-links";
+import { assertTeacherPhoneNotBanned } from "@/lib/moderation/teacher-phone-ban";
 
 const signupSchema = z.object({
   purpose: z.literal("signup"),
@@ -45,6 +46,7 @@ async function handleSignupOtp(input: z.infer<typeof signupSchema>, request: Req
   }
 
   if (input.role === "teacher") {
+    await assertTeacherPhoneNotBanned(phone);
     const existingUser = await findSupabaseUserByPhone(phone);
     if (existingUser) {
       return NextResponse.json({

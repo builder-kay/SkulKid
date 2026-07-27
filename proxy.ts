@@ -11,13 +11,14 @@ const isAuthPage = (pathname: string) =>
 
 export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
+  const publicTeacherAppeal = pathname === "/teacher/appeal" || pathname.startsWith("/api/auth/teacher-appeal/");
   const adminApi = pathname.startsWith("/api/admin");
   const teacherApi = pathname.startsWith("/api/teacher");
   const staffApi = adminApi || teacherApi;
   const protectedRoute =
     protectedPrefixes.some((prefix) => pathname.startsWith(prefix)) ||
     pathname.startsWith("/admin") ||
-    pathname.startsWith("/teacher") ||
+    (pathname.startsWith("/teacher") && !publicTeacherAppeal) ||
     staffApi;
 
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) {
@@ -87,7 +88,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (pathname.startsWith("/teacher") && !isStaffRole(role)) {
+  if (pathname.startsWith("/teacher") && !publicTeacherAppeal && !isStaffRole(role)) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     url.search = "";

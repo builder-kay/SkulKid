@@ -8,6 +8,7 @@ import {
   listAllAuthUsers,
   safeUser
 } from "@/lib/admin/admin-server";
+import { unbanTeacherAfterAppeal } from "@/lib/moderation/admin-moderation-actions";
 
 const roleSchema = z.enum(["student", "teacher", "admin"]);
 const createSchema = z.object({
@@ -27,6 +28,7 @@ const updateSchema = z.object({
   grade: z.number().int().min(1).max(12).nullable().optional(),
   school: z.string().trim().max(120).optional(),
   status: z.enum(["active", "suspended"]).optional(),
+  trustStatus: z.enum(["probation", "content_trusted", "legacy_trusted", "monitored"]).optional(),
   reason: z.string().trim().min(4).max(500)
 });
 
@@ -115,6 +117,15 @@ export async function PATCH(request: Request) {
         return { user: data.user, currentRole: resolveAppRole(data.user.app_metadata?.role) };
       });
     if (actor.id === input.userId && input.status === "suspended") throw new Error("You cannot suspend your own account.");
+    if (input.trustStatus && currentRole !== "teacher") throw new Error("Content trust controls apply only to teacher accounts.");
+
+    const { data: currentTrust, error: trustReadError } = currentRole === "teacher"
+      ? await admin.from("TeacherTrustProfile").select("status").eq("teacherId", input.userId).maybeSingle()
+      : { data: null, error: null };
+    if (trustReadError) throw new Error(trustReadError.message);
+    if (input.status === "active" && currentTrust?.status === "banned") {
+      await unbanTeacherAfterAppeal({ teacherId: input.userId, actorId: actor.id });
+    }
 
     const userMetadata = {
       ...(user.user_metadata ?? {}),
@@ -128,11 +139,30 @@ export async function PATCH(request: Request) {
       ...(input.status ? { ban_duration: input.status === "suspended" ? "876000h" : "none" } : {})
     });
     if (error || !data.user) throw error ?? new Error("Account update failed.");
+    if (input.trustStatus) {
+      const now = new Date().toISOString();
+      const { error: trustError } = await admin.from("TeacherTrustProfile").upsert({
+        teacherId: input.userId,
+        status: input.trustStatus,
+        monitoringRemaining: input.trustStatus === "monitored" ? 10 : 0,
+        ...(input.trustStatus === "content_trusted" || input.trustStatus === "legacy_trusted"
+          ? { trustedAt: now }
+          : {}),
+        updatedAt: now
+      }, { onConflict: "teacherId" });
+      if (trustError) throw new Error(trustError.message);
+    }
     await auditAdminAction({
-      actorId: actor.id, action: input.status ? `user.${input.status}` : "user.updated",
+      actorId: actor.id,
+      action: input.trustStatus ? "teacher_trust.updated" : input.status ? `user.${input.status}` : "user.updated",
       targetType: "user", targetId: input.userId, reason: input.reason,
-      before: { role: currentRole, status: safeUser(user).status },
-      after: { role: input.role ?? currentRole, status: safeUser(data.user).status }, requestId
+      before: { role: currentRole, status: safeUser(user).status, trustStatus: currentTrust?.status ?? null },
+      after: {
+        role: input.role ?? currentRole,
+        status: safeUser(data.user).status,
+        trustStatus: input.trustStatus ?? currentTrust?.status ?? null
+      },
+      requestId
     });
     return NextResponse.json({ user: safeUser(data.user) });
   } catch (error) {

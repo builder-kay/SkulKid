@@ -7,7 +7,7 @@ import { SkulKidCard } from "@/components/shared/skulkid-card";
 import { AccessibleBars, AccessibleLineChart } from "@/components/admin/admin-charts";
 
 type Analytics = {
-  totals: { users: number; students: number; teachers: number; admins: number; suspended: number; pendingModeration: number; openDisputes: number; openIncidents: number };
+  totals: { users: number; students: number; teachers: number; admins: number; suspended: number; pendingModeration: number; pendingContentModeration: number; moderationAppeals: number; pendingPublicReviews: number; openDisputes: number; openIncidents: number };
   alerts: Array<{ tone: string; title: string; href: string }>;
   accountTrend: Array<{ date: string; students: number; teachers: number }>;
   activeTrend: Array<{ date: string; students: number; teachers: number }>;
@@ -41,7 +41,7 @@ export function AdminCommandCenter() {
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Platform metrics">
         <Metric icon={Users} label="People" value={data.totals.users} detail={`${data.totals.students} students · ${data.totals.teachers} teachers`} />
-        <Metric icon={BookOpenCheck} label="Moderation queue" value={data.totals.pendingModeration} detail="Public Learning submissions awaiting review" />
+        <Metric icon={BookOpenCheck} label="Moderation queue" value={data.totals.pendingModeration} detail={`${data.totals.pendingContentModeration} AI-held · ${data.totals.moderationAppeals} appeals · ${data.totals.pendingPublicReviews} public`} />
         <Metric icon={CircleAlert} label="Open disputes" value={data.totals.openDisputes} detail="Point decisions awaiting admin" />
         <Metric icon={Server} label="Active incidents" value={data.totals.openIncidents} detail={`${data.totals.suspended} suspended accounts`} />
       </section>

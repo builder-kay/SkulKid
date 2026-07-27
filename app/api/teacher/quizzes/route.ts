@@ -27,18 +27,21 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const teacher = await requireTeacher(); const input = quiz.parse(await request.json());
-    const id = await createTeacherQuiz(teacher.id, { ...input, questions: input.questions.map((q, index) => ({ ...q, id: q.id || `q-${index + 1}` })) });
-    return NextResponse.json({ id, quizzes: await listTeacherQuizzes(teacher.id) }, { status: 201 });
+    const result = await createTeacherQuiz(teacher.id, { ...input, questions: input.questions.map((q, index) => ({ ...q, id: q.id || `q-${index + 1}` })) });
+    return NextResponse.json(
+      { id: result.id, moderation: result.moderation, quizzes: await listTeacherQuizzes(teacher.id) },
+      { status: result.moderation && result.moderation.state !== "published" ? 202 : 201 }
+    );
   } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to create quiz." }, { status: 400 }); }
 }
 export async function PATCH(request: Request) {
   try {
     const teacher = await requireTeacher();
     const input = quiz.partial().extend({ id: z.string().uuid() }).parse(await request.json());
-    const { id, ...patch } = input; await updateTeacherQuiz(teacher.id, id, {
+    const { id, ...patch } = input; const result = await updateTeacherQuiz(teacher.id, id, {
       ...patch,
       questions: patch.questions?.map((q, index) => ({ ...q, id: q.id || `q-${index + 1}` }))
     });
-    return NextResponse.json({ quizzes: await listTeacherQuizzes(teacher.id) });
+    return NextResponse.json({ moderation: result?.moderation, quizzes: await listTeacherQuizzes(teacher.id) });
   } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to update quiz." }, { status: 400 }); }
 }

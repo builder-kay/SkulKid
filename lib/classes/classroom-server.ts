@@ -97,6 +97,12 @@ export async function requireTeacher() {
   const user = await requireAuthUser();
   const role = resolveAppRole(user.app_metadata?.role);
   if (role !== "teacher" && role !== "admin") throw new Error("Teacher access required.");
+  if (role === "teacher") {
+    const admin = createAdminClient();
+    const { data, error } = await admin.from("TeacherTrustProfile").select("status").eq("teacherId", user.id).maybeSingle();
+    if (error) throw new Error(error.message);
+    if (data?.status === "banned") throw new Error("This teacher account is suspended. Use the moderation appeal page if you believe this is a mistake.");
+  }
   return user;
 }
 
@@ -547,6 +553,7 @@ export async function listClassQuizzes(teacherId: string, classId: string): Prom
 }
 
 export async function createClassQuiz(input: {
+  id?: string;
   teacherId: string;
   classId: string;
   title: string;
@@ -567,6 +574,7 @@ export async function createClassQuiz(input: {
   const { data, error } = await admin
     .from("ClassQuiz")
     .insert({
+      ...(input.id ? { id: input.id } : {}),
       classId: input.classId,
       createdBy: input.teacherId,
       title: input.title.trim(),

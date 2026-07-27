@@ -13,18 +13,23 @@ export async function GET(_request: Request, context: { params: Promise<{ userId
   try {
     const { admin } = await adminContext();
     const { userId } = await context.params;
-    const [{ data, error }, memberships, classes, audit] = await Promise.all([
+    const [{ data, error }, memberships, classes, audit, trust] = await Promise.all([
       admin.auth.admin.getUserById(userId),
       admin.from("ClassMembership").select("id,classId,status,joinedAt").eq("studentId", userId),
       admin.from("TeacherClass").select("id,name,status,gradeLevel,createdAt").eq("teacherId", userId),
-      admin.from("AdminAuditEvent").select("id,action,result,reason,createdAt,actorId").eq("targetId", userId).order("createdAt", { ascending: false }).limit(20)
+      admin.from("AdminAuditEvent").select("id,action,result,reason,createdAt,actorId").eq("targetId", userId).order("createdAt", { ascending: false }).limit(20),
+      admin.from("TeacherTrustProfile")
+        .select("status,cleanLessonCount,trustedAt,monitoringRemaining,updatedAt")
+        .eq("teacherId", userId)
+        .maybeSingle()
     ]);
     if (error || !data.user) throw error ?? new Error("Account not found.");
     return NextResponse.json({
       user: safeUser(data.user),
       memberships: memberships.data ?? [],
       classes: classes.data ?? [],
-      audit: audit.data ?? []
+      audit: audit.data ?? [],
+      trust: trust.data ?? null
     });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Could not load account." }, { status: 404 });

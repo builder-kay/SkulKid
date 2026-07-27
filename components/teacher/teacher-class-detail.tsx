@@ -190,7 +190,7 @@ export function TeacherClassDetail({ classId }: { classId: string }) {
           status: "published"
         })
       });
-      const payload = await response.json() as { quizzes?: ClassQuizView[]; sms?: { sent: number; failed: number; skipped: number }; error?: string };
+      const payload = await response.json() as { quizzes?: ClassQuizView[]; sms?: { sent: number; failed: number; skipped: number }; moderation?: { state: string; message: string }; error?: string };
       if (!response.ok) throw new Error(payload.error || "Unable to create quiz.");
       setQuizzes(payload.quizzes ?? []);
       setQuizTitle("");
@@ -200,7 +200,9 @@ export function TeacherClassDetail({ classId }: { classId: string }) {
       setQuizOffPlatformReward("");
       setQuizMaxAttempts(3);
       setQuestions([{ id: "q-1", prompt: "", type: "multiple_choice", options: ["", "", "", ""], correctIndex: 0 }]);
-      setMessage(payload.sms?.failed
+      setMessage(payload.moderation && payload.moderation.state !== "published"
+        ? payload.moderation.message
+        : payload.sms?.failed
         ? `Quiz published. ${payload.sms.failed} SMS message${payload.sms.failed === 1 ? "" : "s"} could not be delivered.`
         : `Quiz published and ${payload.sms?.sent ?? 0} learner SMS message${payload.sms?.sent === 1 ? "" : "s"} sent.`);
       setTab("quizzes");

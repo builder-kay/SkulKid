@@ -33,6 +33,7 @@ const guideItem: TeacherNavItem = {
 export function TeacherShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [signOutOpen, setSignOutOpen] = useState(false);
+  if (pathname === "/teacher/appeal") return <>{children}</>;
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[18.5rem_1fr]">
       <SignOutConfirmation open={signOutOpen} onClose={() => setSignOutOpen(false)} />

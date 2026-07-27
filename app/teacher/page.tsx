@@ -16,6 +16,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { LiveAdminMetrics, LiveCurriculumCoverage, LiveRecentLessons } from "@/components/admin/live-admin-overview";
 import { SkulKidCard } from "@/components/shared/skulkid-card";
+import { TeacherTrustCard } from "@/components/teacher/teacher-trust-card";
 import { ghanaPrimaryCurriculum } from "@/data/ghana-primary-curriculum";
 
 export default function AdminDashboardPage() {
@@ -51,6 +52,7 @@ export default function AdminDashboardPage() {
       </header>
 
       <LiveAdminMetrics />
+      <TeacherTrustCard />
 
       <section className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(20rem,0.55fr)]">
         <LiveCurriculumCoverage />

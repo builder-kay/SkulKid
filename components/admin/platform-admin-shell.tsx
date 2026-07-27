@@ -27,7 +27,7 @@ const navItems: Array<{ href: string; label: string; shortLabel: string; icon: L
   { href: "/admin", label: "Overview", shortLabel: "Home", icon: LayoutDashboard, match: "exact" },
   { href: "/admin/users", label: "People", shortLabel: "People", icon: Users, match: "prefix" },
   { href: "/admin/courses", label: "Learning & classes", shortLabel: "Learning", icon: GraduationCap, match: "prefix" },
-  { href: "/admin/moderation", label: "Public Learning reviews", shortLabel: "Review", icon: BookOpenCheck, match: "prefix" },
+  { href: "/admin/moderation", label: "Content moderation", shortLabel: "Review", icon: BookOpenCheck, match: "prefix" },
   { href: "/admin/security", label: "Security & audit", shortLabel: "Security", icon: ShieldCheck, match: "prefix" },
   { href: "/admin/operations", label: "Operations", shortLabel: "Ops", icon: Wrench, match: "prefix" },
   { href: "/admin/activity", label: "Platform activity", shortLabel: "Activity", icon: Activity, match: "prefix" },

@@ -8,9 +8,11 @@ function dayKey(value: string) {
 export async function GET() {
   try {
     const { admin } = await adminContext();
-    const [authUsers, pendingReviews, disputes, incidents, audits] = await Promise.all([
+    const [authUsers, pendingReviews, pendingContent, pendingAppeals, disputes, incidents, audits] = await Promise.all([
       listAllAuthUsers(),
       admin.from("PublicLearningRevision").select("id", { count: "exact", head: true }).eq("status", "pending_review"),
+      admin.from("ContentModerationCase").select("id", { count: "exact", head: true }).in("status", ["held", "error"]),
+      admin.from("ModerationAppeal").select("id", { count: "exact", head: true }).eq("status", "pending"),
       admin.from("PointDeductionDispute").select("status,createdAt,resolvedAt"),
       admin.from("AdminIncident").select("status,severity,createdAt,resolvedAt"),
       admin.from("AdminAuditEvent").select("id,action,targetType,targetId,result,reason,actorId,createdAt").order("createdAt", { ascending: false }).limit(12)
@@ -37,7 +39,10 @@ export async function GET() {
     }));
     const openDisputes = (disputes.data ?? []).filter((item) => item.status === "open").length;
     const openIncidents = (incidents.data ?? []).filter((item) => item.status !== "resolved").length;
-    const pendingModeration = pendingReviews.count ?? 0;
+    const pendingPublicReviews = pendingReviews.count ?? 0;
+    const pendingContentModeration = pendingContent.count ?? 0;
+    const moderationAppeals = pendingAppeals.count ?? 0;
+    const pendingModeration = pendingPublicReviews + pendingContentModeration + moderationAppeals;
     return NextResponse.json({
       totals: {
         users: users.length,
@@ -46,13 +51,18 @@ export async function GET() {
         admins: roles[2].value,
         suspended: users.filter((user) => user.status === "suspended").length,
         pendingModeration,
+        pendingPublicReviews,
+        pendingContentModeration,
+        moderationAppeals,
         openDisputes,
         openIncidents
       },
       alerts: [
         ...(openIncidents ? [{ tone: "danger", title: `${openIncidents} active incident${openIncidents === 1 ? "" : "s"}`, href: "/admin/operations" }] : []),
         ...(openDisputes ? [{ tone: "warning", title: `${openDisputes} point dispute${openDisputes === 1 ? "" : "s"} waiting`, href: "/admin/point-disputes" }] : []),
-        ...(pendingModeration ? [{ tone: "info", title: `${pendingModeration} Public Learning submission${pendingModeration === 1 ? "" : "s"} waiting`, href: "/admin/moderation" }] : [])
+        ...(pendingContentModeration ? [{ tone: "warning", title: `${pendingContentModeration} AI-held content item${pendingContentModeration === 1 ? "" : "s"} waiting`, href: "/admin/moderation" }] : []),
+        ...(moderationAppeals ? [{ tone: "info", title: `${moderationAppeals} teacher appeal${moderationAppeals === 1 ? "" : "s"} waiting`, href: "/admin/moderation" }] : []),
+        ...(pendingPublicReviews ? [{ tone: "info", title: `${pendingPublicReviews} Public Learning submission${pendingPublicReviews === 1 ? "" : "s"} waiting`, href: "/admin/moderation" }] : [])
       ],
       accountTrend,
       activeTrend,

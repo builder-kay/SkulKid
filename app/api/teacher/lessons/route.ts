@@ -4,6 +4,7 @@ import { requireTeacher } from "@/lib/classes/classroom-server";
 import type { AdminLessonRecord } from "@/lib/admin/lesson-library";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveAppRole } from "@/lib/auth/roles";
+import { markModerationPublished, moderateTeacherContent } from "@/lib/moderation/teacher-content-server";
 
 const lessonSchema = z.object({
   id: z.string().min(1),
@@ -52,7 +53,7 @@ export async function POST(request: Request) {
     const admin = createAdminClient();
     const [{ data: course, error: courseError }, { data: existing, error: existingError }] = await Promise.all([
       admin.from("Subject").select("id,createdBy").eq("id", record.courseId).maybeSingle(),
-      admin.from("AdminLessonRecord").select("createdBy,position,createdAt").eq("id", record.id).maybeSingle()
+      admin.from("AdminLessonRecord").select("createdBy,position,createdAt,status").eq("id", record.id).maybeSingle()
     ]);
     const error = courseError ?? existingError;
     if (error) throw new Error(error.message);
@@ -73,6 +74,41 @@ export async function POST(request: Request) {
     const now = new Date().toISOString();
     const stored = { ...record, createdBy: undefined };
     delete stored.createdBy;
+    const moderation = record.status === "published"
+      ? await moderateTeacherContent({
+          teacherId: teacher.id,
+          contentType: "lesson",
+          contentId: record.id,
+          snapshot: {
+            ...stored,
+            classId: record.classId ?? null,
+            courseId: record.courseId,
+            unitId: record.unitId ?? null,
+            topicId: record.topicId ?? null
+          }
+        })
+      : null;
+    if (moderation && moderation.state !== "published") {
+      if (!existing) {
+        const privateDraft = { ...stored, status: "draft" as const };
+        const { error: draftError } = await admin.from("AdminLessonRecord").insert({
+          id: record.id,
+          subject: record.subject,
+          status: "draft",
+          classId: record.classId ?? null,
+          courseId: record.courseId,
+          unitId: record.unitId ?? null,
+          topicId: record.topicId ?? null,
+          position: count ?? 0,
+          record: privateDraft,
+          createdBy: teacher.id,
+          createdAt: record.createdAt ?? now,
+          updatedAt: now
+        });
+        if (draftError) throw new Error(draftError.message);
+      }
+      return NextResponse.json({ ok: true, lesson: { ...stored, status: "draft" }, moderation }, { status: 202 });
+    }
     const { error: saveError } = await admin.from("AdminLessonRecord").upsert({
       id: record.id,
       subject: record.subject,
@@ -88,7 +124,8 @@ export async function POST(request: Request) {
       updatedAt: now
     }, { onConflict: "id" });
     if (saveError) throw new Error(saveError.message);
-    return NextResponse.json({ ok: true, lesson: stored });
+    if (moderation) await markModerationPublished(moderation.caseId);
+    return NextResponse.json({ ok: true, lesson: stored, moderation });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Could not save the lesson.";
     return NextResponse.json({ error: message }, { status: message.includes("required") ? 401 : 400 });

@@ -409,7 +409,7 @@ export function ManualLessonBuilder({ initialAiConfigured = false, initialAiMode
       unitTitle = selectedModule?.title ?? unitTitle;
     }
 
-    await writeAdminLesson({
+    const saveResult = await writeAdminLesson({
       id,
       subject: form.subject,
       classId: form.classId || null,
@@ -440,6 +440,13 @@ export function ManualLessonBuilder({ initialAiConfigured = false, initialAiMode
       fixture,
       builderState: structuredClone({ ...form, courseId, unitId, unit: unitTitle, chapter: unitTitle })
     });
+
+    if (saveResult.moderation && saveResult.moderation.state !== "published") {
+      setSavedLessonId(id);
+      setMessage(saveResult.moderation.message);
+      setSavingStatus(null);
+      return;
+    }
 
     if (form.classId) {
       const response = await fetch(`/api/teacher/classes/${form.classId}/courses`, {

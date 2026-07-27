@@ -130,13 +130,117 @@ function CreatePerson({ onClose, onDone }: { onClose: () => void; onDone: () => 
   return <Modal title="Add a person" onClose={onClose}><form className="grid gap-4" onSubmit={submit}><Field label="Display name" value={form.displayName} onChange={(displayName) => setForm({ ...form, displayName })} /><Field label="Email (invitation sent)" type="email" value={form.email} onChange={(email) => setForm({ ...form, email })} /><Field label="Phone (if no email)" value={form.phone} onChange={(phone) => setForm({ ...form, phone })} /><label className="grid gap-2 text-sm font-bold">Role<select className="min-h-11 rounded-xl border border-slate-300 px-3" value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value as Role })}><option value="student">Student</option><option value="teacher">Teacher</option><option value="admin">Administrator</option></select></label><Field label="Administrative reason" value={form.reason} onChange={(reason) => setForm({ ...form, reason })} />{error ? <p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm font-bold text-rose-800">{error}</p> : null}<button className="min-h-12 rounded-xl bg-emerald-600 font-black text-white disabled:opacity-50" disabled={busy}>{busy ? "Creating…" : "Create or invite"}</button></form></Modal>;
 }
 
+type TeacherTrustDetail = {
+  status: "probation" | "content_trusted" | "legacy_trusted" | "monitored" | "banned";
+  cleanLessonCount: number;
+  trustedAt: string | null;
+  monitoringRemaining: number;
+};
+
 function PersonDetail({ userId, onClose, onChanged }: { userId: string; onClose: () => void; onChanged: () => void }) {
-  const [data, setData] = useState<{ user: User; memberships: unknown[]; classes: Array<{ id: string; name: string; status: string }>; audit: Array<{ id: string; action: string; createdAt: string; reason: string }> } | null>(null); const [error, setError] = useState("");
-  const load = useCallback(() => { void fetch(`/api/admin/users/${userId}`).then(async (response) => { const result = await response.json(); if (!response.ok) throw new Error(result.error); setData(result); }).catch((cause) => setError(cause.message)); }, [userId]);
+  const [data, setData] = useState<{
+    user: User;
+    memberships: unknown[];
+    classes: Array<{ id: string; name: string; status: string }>;
+    audit: Array<{ id: string; action: string; createdAt: string; reason: string }>;
+    trust: TeacherTrustDetail | null;
+  } | null>(null);
+  const [error, setError] = useState("");
+  const load = useCallback(() => {
+    setError("");
+    void fetch(`/api/admin/users/${userId}`)
+      .then(async (response) => {
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error);
+        setData(result);
+      })
+      .catch((cause) => setError(cause instanceof Error ? cause.message : "Could not load this account."));
+  }, [userId]);
   useEffect(load, [load]);
-  async function update(patch: object, actionName: string) { const reason = window.prompt(`Reason for ${actionName}:`); if (!reason || reason.length < 4 || !data) return; try { const response = await fetch("/api/admin/users", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId, ...patch, reason }) }); const result = await response.json(); if (!response.ok) throw new Error(result.error); load(); onChanged(); } catch (cause) { setError(cause instanceof Error ? cause.message : "Update failed."); } }
-  async function destructive(action: "anonymize" | "delete") { const reason = window.prompt(`Reason to ${action} this account:`); if (!reason) return; const confirmation = window.prompt('Type DELETE to confirm:'); if (confirmation !== "DELETE") return; const response = await fetch(`/api/admin/users/${userId}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, reason, confirmation }) }); const result = await response.json(); if (!response.ok) { setError(result.error); return; } onClose(); onChanged(); }
-  return <div className="fixed inset-0 z-50 bg-slate-950/50 backdrop-blur-sm" onMouseDown={(event) => event.currentTarget === event.target && onClose()}><aside aria-modal="true" role="dialog" aria-labelledby="person-title" className="ml-auto h-full w-full max-w-xl overflow-y-auto bg-white p-5 shadow-2xl sm:p-7"><div className="flex items-start justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-wider text-emerald-700">Account details</p><h2 className="mt-1 text-2xl font-black" id="person-title">{data?.user.displayName ?? "Loading…"}</h2></div><button aria-label="Close account details" className="grid size-10 place-items-center rounded-xl bg-slate-100" onClick={onClose}><X className="size-5" /></button></div>{error ? <p className="mt-4 rounded-xl bg-rose-50 p-3 font-bold text-rose-800">{error}</p> : null}{data ? <div className="mt-6 grid gap-5"><div className="grid grid-cols-2 gap-3">{[["Role",data.user.role],["Status",data.user.status],["Contact",data.user.email || data.user.phone || "—"],["Last sign-in",data.user.lastSignInAt ? new Date(data.user.lastSignInAt).toLocaleString() : "Never"]].map(([label,value]) => <div className="rounded-xl bg-slate-50 p-3" key={label}><p className="text-xs font-bold text-slate-500">{label}</p><p className="mt-1 break-words font-black capitalize">{value}</p></div>)}</div><section><h3 className="font-black">Access controls</h3><div className="mt-3 flex flex-wrap gap-2"><select className="min-h-10 rounded-xl border border-slate-300 px-3 font-bold" value={data.user.role} onChange={(event) => void update({ role: event.target.value }, "changing role")}><option value="student">Student</option><option value="teacher">Teacher</option><option value="admin">Admin</option></select><button className={`rounded-xl px-3 font-bold text-white ${data.user.status === "active" ? "bg-rose-600" : "bg-emerald-600"}`} onClick={() => void update({ status: data.user.status === "active" ? "suspended" : "active" }, data.user.status === "active" ? "suspension" : "reactivation")}>{data.user.status === "active" ? "Suspend" : "Reactivate"}</button></div></section><section><h3 className="font-black">Teaching and class context</h3><p className="mt-2 rounded-xl bg-slate-50 p-3 text-sm text-slate-600">{data.classes.length ? `${data.classes.length} class${data.classes.length === 1 ? "" : "es"} owned: ${data.classes.map((item) => item.name).join(", ")}` : `${data.memberships.length} student class membership${data.memberships.length === 1 ? "" : "s"}`}</p></section><section><h3 className="font-black">Recent administrative history</h3><div className="mt-2 divide-y divide-slate-100 rounded-xl border border-slate-200">{data.audit.length ? data.audit.map((item) => <div className="p-3 text-sm" key={item.id}><b className="capitalize">{item.action.replaceAll("."," ")}</b><p className="mt-1 text-xs text-slate-500">{new Date(item.createdAt).toLocaleString()} · {item.reason}</p></div>) : <p className="p-3 text-sm text-slate-500">No recorded changes.</p>}</div></section><section className="rounded-2xl border border-rose-200 bg-rose-50 p-4"><h3 className="font-black text-rose-950">Privacy actions</h3><p className="mt-1 text-sm text-rose-800">These actions require a reason and typed confirmation.</p><div className="mt-3 flex gap-2"><button className="rounded-xl border border-rose-300 bg-white px-3 py-2 text-sm font-bold text-rose-800" onClick={() => void destructive("anonymize")}>Anonymize</button><button className="rounded-xl bg-rose-700 px-3 py-2 text-sm font-bold text-white" onClick={() => void destructive("delete")}>Delete account</button></div></section></div> : null}</aside></div>;
+
+  async function update(patch: object, actionName: string) {
+    const reason = window.prompt(`Reason for ${actionName}:`);
+    if (!reason || reason.trim().length < 4 || !data) return;
+    try {
+      const response = await fetch("/api/admin/users", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, ...patch, reason })
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error);
+      load();
+      onChanged();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Update failed.");
+    }
+  }
+
+  async function destructive(action: "anonymize" | "delete") {
+    const reason = window.prompt(`Reason to ${action} this account:`);
+    if (!reason) return;
+    const confirmation = window.prompt('Type DELETE to confirm:');
+    if (confirmation !== "DELETE") return;
+    const response = await fetch(`/api/admin/users/${userId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, reason, confirmation })
+    });
+    const result = await response.json();
+    if (!response.ok) {
+      setError(result.error);
+      return;
+    }
+    onClose();
+    onChanged();
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-slate-950/50 backdrop-blur-sm" onMouseDown={(event) => event.currentTarget === event.target && onClose()}>
+      <aside aria-modal="true" role="dialog" aria-labelledby="person-title" className="ml-auto h-full w-full max-w-xl overflow-y-auto bg-white p-5 shadow-2xl sm:p-7">
+        <div className="flex items-start justify-between gap-4">
+          <div><p className="text-xs font-black uppercase tracking-wider text-emerald-700">Account details</p><h2 className="mt-1 text-2xl font-black" id="person-title">{data?.user.displayName ?? "Loading…"}</h2></div>
+          <button aria-label="Close account details" className="grid size-10 place-items-center rounded-xl bg-slate-100" onClick={onClose}><X className="size-5" /></button>
+        </div>
+        {error ? <p className="mt-4 rounded-xl bg-rose-50 p-3 font-bold text-rose-800">{error}</p> : null}
+        {data ? (
+          <div className="mt-6 grid gap-5">
+            <div className="grid grid-cols-2 gap-3">
+              {[["Role", data.user.role], ["Status", data.user.status], ["Contact", data.user.email || data.user.phone || "—"], ["Last sign-in", data.user.lastSignInAt ? new Date(data.user.lastSignInAt).toLocaleString() : "Never"]].map(([label, value]) => <div className="rounded-xl bg-slate-50 p-3" key={label}><p className="text-xs font-bold text-slate-500">{label}</p><p className="mt-1 break-words font-black capitalize">{value}</p></div>)}
+            </div>
+            <section>
+              <h3 className="font-black">Access controls</h3>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <select className="min-h-10 rounded-xl border border-slate-300 px-3 font-bold" value={data.user.role} onChange={(event) => void update({ role: event.target.value }, "changing role")}><option value="student">Student</option><option value="teacher">Teacher</option><option value="admin">Admin</option></select>
+                <button className={`rounded-xl px-3 font-bold text-white ${data.user.status === "active" ? "bg-rose-600" : "bg-emerald-600"}`} onClick={() => void update({ status: data.user.status === "active" ? "suspended" : "active" }, data.user.status === "active" ? "suspension" : "reactivation")}>{data.user.status === "active" ? "Suspend" : "Reactivate"}</button>
+              </div>
+            </section>
+            {data.user.role === "teacher" && data.trust ? (
+              <section className="rounded-2xl border border-violet-200 bg-violet-50 p-4">
+                <p className="text-xs font-black uppercase tracking-wider text-violet-700">Private content trust</p>
+                <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
+                  <div>
+                    <h3 className="text-lg font-black capitalize text-violet-950">{data.trust.status.replaceAll("_", " ")}</h3>
+                    <p className="mt-1 text-sm text-violet-800">{Math.min(data.trust.cleanLessonCount, 10)} of 10 distinct clean lessons{data.trust.monitoringRemaining ? ` · ${data.trust.monitoringRemaining} full checks remaining` : ""}</p>
+                  </div>
+                  {data.trust.status === "banned" ? (
+                    <p className="max-w-xs text-xs font-bold text-rose-700">Reactivate the account to return this teacher to monitored status.</p>
+                  ) : data.trust.status === "content_trusted" || data.trust.status === "legacy_trusted" ? (
+                    <button className="rounded-xl bg-amber-600 px-3 py-2 text-sm font-black text-white" onClick={() => void update({ trustStatus: "monitored" }, "requiring full content checks")}>Require full checks</button>
+                  ) : (
+                    <button className="rounded-xl bg-violet-700 px-3 py-2 text-sm font-black text-white" onClick={() => void update({ trustStatus: "content_trusted" }, "restoring content trust")}>Restore content trust</button>
+                  )}
+                </div>
+              </section>
+            ) : null}
+            <section><h3 className="font-black">Teaching and class context</h3><p className="mt-2 rounded-xl bg-slate-50 p-3 text-sm text-slate-600">{data.classes.length ? `${data.classes.length} class${data.classes.length === 1 ? "" : "es"} owned: ${data.classes.map((item) => item.name).join(", ")}` : `${data.memberships.length} student class membership${data.memberships.length === 1 ? "" : "s"}`}</p></section>
+            <section><h3 className="font-black">Recent administrative history</h3><div className="mt-2 divide-y divide-slate-100 rounded-xl border border-slate-200">{data.audit.length ? data.audit.map((item) => <div className="p-3 text-sm" key={item.id}><b className="capitalize">{item.action.replaceAll(".", " ")}</b><p className="mt-1 text-xs text-slate-500">{new Date(item.createdAt).toLocaleString()} · {item.reason}</p></div>) : <p className="p-3 text-sm text-slate-500">No recorded changes.</p>}</div></section>
+            <section className="rounded-2xl border border-rose-200 bg-rose-50 p-4"><h3 className="font-black text-rose-950">Privacy actions</h3><p className="mt-1 text-sm text-rose-800">These actions require a reason and typed confirmation.</p><div className="mt-3 flex gap-2"><button className="rounded-xl border border-rose-300 bg-white px-3 py-2 text-sm font-bold text-rose-800" onClick={() => void destructive("anonymize")}>Anonymize</button><button className="rounded-xl bg-rose-700 px-3 py-2 text-sm font-bold text-white" onClick={() => void destructive("delete")}>Delete account</button></div></section>
+          </div>
+        ) : null}
+      </aside>
+    </div>
+  );
 }
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) { return <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-3 backdrop-blur-sm" onMouseDown={(event) => event.currentTarget === event.target && onClose()}><section aria-modal="true" role="dialog" className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl sm:p-6"><div className="mb-5 flex items-center justify-between"><h2 className="text-2xl font-black">{title}</h2><button aria-label="Close" className="grid size-10 place-items-center rounded-xl bg-slate-100" onClick={onClose}><X className="size-5" /></button></div>{children}</section></div>; }
 function Field({ label, value, onChange, type = "text" }: { label: string; value: string; onChange: (value: string) => void; type?: string }) { return <label className="grid gap-2 text-sm font-bold">{label}<input className="min-h-11 rounded-xl border border-slate-300 px-3 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100" type={type} value={value} onChange={(event) => onChange(event.target.value)} /></label>; }

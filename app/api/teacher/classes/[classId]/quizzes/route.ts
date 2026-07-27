@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createClassQuiz, listClassQuizzes, requireTeacher, updateClassQuiz } from "@/lib/classes/classroom-server";
 import { sendQuizAssignmentMessages } from "@/lib/quizzes/quiz-assignment-sms";
 import { platformActionUrl } from "@/lib/auth/sms-links";
+import { markModerationPublished, moderateTeacherContent } from "@/lib/moderation/teacher-content-server";
 
 const questionSchema = z.object({
   id: z.string().optional(),
@@ -49,7 +50,19 @@ export async function POST(request: Request, context: { params: Promise<{ classI
     const teacher = await requireTeacher();
     const { classId } = await context.params;
     const input = createSchema.parse(await request.json());
-    const quizId = await createClassQuiz({
+    const quizId = crypto.randomUUID();
+    const requestedStatus = input.status ?? "draft";
+    const moderation = requestedStatus === "published"
+      ? await moderateTeacherContent({
+          teacherId: teacher.id,
+          contentType: "class_quiz",
+          contentId: quizId,
+          snapshot: { ...input, id: quizId, classId, status: "published" }
+        })
+      : null;
+    const status = moderation && moderation.state !== "published" ? "draft" : requestedStatus;
+    await createClassQuiz({
+      id: quizId,
       teacherId: teacher.id,
       classId,
       title: input.title,
@@ -67,10 +80,10 @@ export async function POST(request: Request, context: { params: Promise<{ classI
       baseXpReward: input.baseXpReward,
       passingScore: input.passingScore,
       maxAttempts: input.maxAttempts,
-      status: input.status
+      status
     });
     const quizzes = await listClassQuizzes(teacher.id, classId);
-    const sms = input.status === "published"
+    const sms = status === "published"
       ? await sendQuizAssignmentMessages({
           teacherId: teacher.id,
           assignments: [{ id: quizId, classId }],
@@ -79,7 +92,11 @@ export async function POST(request: Request, context: { params: Promise<{ classI
           quizUrl: (assignedClassId, assignedQuizId) => platformActionUrl(request, `/classes/${assignedClassId}/quizzes/${assignedQuizId}`)
         })
       : { sent: 0, failed: 0, skipped: 0 };
-    return NextResponse.json({ quizId, quizzes, sms }, { status: 201 });
+    if (moderation?.state === "published") await markModerationPublished(moderation.caseId);
+    return NextResponse.json(
+      { quizId, quizzes, sms, moderation },
+      { status: moderation && moderation.state !== "published" ? 202 : 201 }
+    );
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to create quiz." }, { status: 400 });
   }
@@ -92,6 +109,22 @@ export async function PATCH(request: Request, context: { params: Promise<{ class
     const teacher = await requireTeacher();
     const { classId } = await context.params;
     const input = patchSchema.parse(await request.json());
+    const current = (await listClassQuizzes(teacher.id, classId)).find((quiz) => quiz.id === input.quizId);
+    if (!current) throw new Error("Quiz not found.");
+    const moderation = input.status === "published"
+      ? await moderateTeacherContent({
+          teacherId: teacher.id,
+          contentType: "class_quiz",
+          contentId: input.quizId,
+          snapshot: { ...current, ...input, classId, status: "published" }
+        })
+      : null;
+    if (moderation && moderation.state !== "published") {
+      return NextResponse.json({
+        quizzes: await listClassQuizzes(teacher.id, classId),
+        moderation
+      }, { status: 202 });
+    }
     await updateClassQuiz(teacher.id, classId, input.quizId, {
       title: input.title,
       description: input.description,
@@ -110,8 +143,18 @@ export async function PATCH(request: Request, context: { params: Promise<{ class
       maxAttempts: input.maxAttempts,
       status: input.status
     });
+    if (moderation) await markModerationPublished(moderation.caseId);
     const quizzes = await listClassQuizzes(teacher.id, classId);
-    return NextResponse.json({ quizzes });
+    const sms = input.status === "published" && current.status !== "published"
+      ? await sendQuizAssignmentMessages({
+          teacherId: teacher.id,
+          assignments: [{ id: input.quizId, classId }],
+          startAt: input.startAt ?? current.startAt ?? null,
+          deadline: input.deadline ?? current.deadline ?? null,
+          quizUrl: (assignedClassId, assignedQuizId) => platformActionUrl(request, `/classes/${assignedClassId}/quizzes/${assignedQuizId}`)
+        })
+      : { sent: 0, failed: 0, skipped: 0 };
+    return NextResponse.json({ quizzes, moderation, sms });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to update quiz." }, { status: 400 });
   }

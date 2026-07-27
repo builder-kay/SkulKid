@@ -49,9 +49,18 @@ export async function writeAdminLesson(record: AdminLessonRecord) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(record)
   });
-  const result = await response.json() as { error?: string };
+  const result = await response.json() as {
+    error?: string;
+    moderation?: {
+      state: "published" | "held_for_review" | "ai_unavailable";
+      caseId: string;
+      message: string;
+      trust: { status: string; cleanLessonCount: number; requiredCleanLessons: number };
+    } | null;
+  };
   if (!response.ok) throw new Error(result.error || "Could not save the lesson.");
   window.dispatchEvent(new Event("skulkid:lessons-changed"));
+  return result;
 }
 
 export async function readLessonOrder(subject: SupportedCurriculumSubject): Promise<string[]> {

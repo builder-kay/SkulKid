@@ -12,6 +12,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { findSupabaseUserByPhone, phoneIdentityEmail } from "@/lib/auth/supabase-phone-user";
 import { isUsernameConflictError } from "@/lib/auth/username";
+import { assertTeacherPhoneNotBanned } from "@/lib/moderation/teacher-phone-ban";
 
 const studentSchema = z.object({
   role: z.literal("student").default("student"),
@@ -55,6 +56,7 @@ export async function POST(request: Request) {
     const admin = createAdminClient();
 
     if (input.role === "teacher") {
+      await assertTeacherPhoneNotBanned(phone);
       if (await findSupabaseUserByPhone(phone)) {
         throw new Error("An account already exists for this phone number. Please sign in or reset the password.");
       }
@@ -72,6 +74,17 @@ export async function POST(request: Request) {
         app_metadata: { role: "teacher" }
       });
       if (error || !data.user) throw new Error(error?.message || "Unable to create the account.");
+      const { error: trustError } = await admin.from("TeacherTrustProfile").upsert({
+        teacherId: data.user.id,
+        status: "probation",
+        cleanLessonCount: 0,
+        requiredCleanLessons: 10,
+        monitoringRemaining: 0
+      }, { onConflict: "teacherId" });
+      if (trustError) {
+        await admin.auth.admin.deleteUser(data.user.id);
+        throw new Error("Unable to finish creating the teacher account. Please try again.");
+      }
 
       const supabase = await createServerSupabaseClient();
       const { error: signInError } = await supabase.auth.signInWithPassword({

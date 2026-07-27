@@ -3,6 +3,7 @@ export type OtpSmsReason =
   | "teacher-signup"
   | "learner-password-reset"
   | "teacher-password-reset"
+  | "teacher-moderation-appeal"
   | "username-recovery";
 
 export function platformActionUrl(request: Request, path: string) {
@@ -22,6 +23,7 @@ export function otpSmsMessage(reason: OtpSmsReason, actionUrl: string) {
     "teacher-signup": "teacher signup",
     "learner-password-reset": "learner password reset",
     "teacher-password-reset": "teacher password reset",
+    "teacher-moderation-appeal": "teacher moderation appeal",
     "username-recovery": "username recovery"
   }[reason];
   return `Your SkulKid ${action} code is [otp]. It expires in 10 minutes. Continue: ${actionUrl}`;
