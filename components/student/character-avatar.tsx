@@ -4,8 +4,8 @@ import { avatarShopAssets, type AvatarAsset, type AvatarAssetCategory } from "@/
 import { cn } from "@/lib/utils";
 
 /**
- * Smooth stylized game avatar — Steve-like proportions with soft rounded 3D forms.
- * Far limbs draw first; near limbs + head sit on top for depth.
+ * Expressive SkulKid portrait avatar with soft, friendly proportions.
+ * Far limbs draw first; near limbs and the face sit on top for depth.
  */
 export function CharacterAvatar({ avatar, className = "size-24", label = "Custom student avatar", animated = true }: { avatar: AvatarConfig; className?: string; label?: string; animated?: boolean }) {
   const uid = useId().replace(/:/g, "");
@@ -27,7 +27,8 @@ export function CharacterAvatar({ avatar, className = "size-24", label = "Custom
   const shirtColour = shirt?.colour ?? avatar.shirtColor;
   const pantsColour = bottoms?.colour ?? avatar.pantsColor;
   const shoeColour = shoes?.colour ?? avatar.shoeColor;
-  /* Steve-like body: compact torso under a larger smooth head */
+  /* Compact body and an oversized expressive head keep the face recognisable
+     even in navigation and leaderboard thumbnails. */
   const torsoW = avatar.bodyStyle === "slim" ? (female ? 44 : 48) : avatar.bodyStyle === "strong" ? (female ? 56 : 62) : (female ? 50 : 54);
   const torsoX = Math.round((180 - torsoW) / 2);
   const torsoY = 78;
@@ -144,20 +145,27 @@ export function CharacterAvatar({ avatar, className = "size-24", label = "Custom
         <rect fill={`url(#${skin})`} height="16" rx="7" width="18" x={90 - 9} y={torsoY - 10} />
         <rect fill={`url(#${limbShine})`} height="16" opacity=".55" rx="7" width="18" x={90 - 9} y={torsoY - 10} />
 
-        {/* Smooth rounded torso */}
-        <rect
+        {/* Soft shoulders and a gently tapered torso */}
+        <path
+          d={`M${torsoX + torsoW * .2} ${torsoY}
+              Q${90} ${torsoY - 5} ${torsoX + torsoW * .8} ${torsoY}
+              Q${torsoX + torsoW + 5} ${torsoY + 7} ${torsoX + torsoW - 1} ${torsoY + torsoH}
+              Q${90} ${torsoY + torsoH + 4} ${torsoX + 1} ${torsoY + torsoH}
+              Q${torsoX - 5} ${torsoY + 7} ${torsoX + torsoW * .2} ${torsoY}Z`}
           fill={`url(#${shirtFill})`}
-          height={torsoH}
-          rx={female ? 16 : 14}
-          ry={female ? 16 : 14}
           stroke="#0f172a"
-          strokeOpacity=".18"
+          strokeOpacity=".16"
           strokeWidth="2"
-          width={torsoW}
-          x={torsoX}
-          y={torsoY}
         />
-        <rect fill={`url(#${limbShine})`} height={torsoH} opacity=".7" rx={female ? 16 : 14} ry={female ? 16 : 14} width={torsoW} x={torsoX} y={torsoY} />
+        <path
+          d={`M${torsoX + torsoW * .2} ${torsoY}
+              Q${90} ${torsoY - 5} ${torsoX + torsoW * .8} ${torsoY}
+              Q${torsoX + torsoW + 5} ${torsoY + 7} ${torsoX + torsoW - 1} ${torsoY + torsoH}
+              Q${90} ${torsoY + torsoH + 4} ${torsoX + 1} ${torsoY + torsoH}
+              Q${torsoX - 5} ${torsoY + 7} ${torsoX + torsoW * .2} ${torsoY}Z`}
+          fill={`url(#${limbShine})`}
+          opacity=".7"
+        />
         <ellipse cx={torsoX + torsoW * 0.42} cy={torsoY + 10} fill="#fff" opacity=".22" rx={torsoW * 0.28} ry="5" />
         <ShirtMark premiumBrand={shirt?.brand} style={avatar.shirtStyle} />
 
@@ -238,13 +246,13 @@ export function CharacterAvatar({ avatar, className = "size-24", label = "Custom
             <HeadShape fill={`url(#${skin})`} gender={avatar.gender} style={avatar.headStyle} uid={uid} />
             <Hair color={avatar.hairColor} gender={avatar.gender} style={avatar.hairStyle} />
             {cap ? <Cap brand={cap.brand} colour={cap.colour} /> : null}
-            <FaceFeatures eyeColor={avatar.eyeColor} expression={avatar.expression ?? "classic"} female={female} glasses={Boolean(glasses)} />
+            <FaceFeatures eyebrowStyle={avatar.eyebrowStyle ?? "soft"} eyeColor={avatar.eyeColor} expression={avatar.expression ?? "classic"} female={female} glasses={Boolean(glasses)} noseStyle={avatar.noseStyle ?? "button"} />
             {glasses ? (
               <g>
-                <path d="M48 38h66l-4 22H92l-6-6-6 6H52z" fill={glasses.colour} opacity=".92" />
-                <path d="M54 43h20l-4 11H56zm28 0h22l-3 11H88z" fill="#67e8f9" opacity=".78" />
-                <path d="M57 45h10" stroke="white" strokeLinecap="round" strokeOpacity=".8" strokeWidth="2.5" />
-                <BrandMark brand={glasses.brand} scale=".18" x="74" y="38" />
+                <rect fill="#dff7ff" fillOpacity=".16" height="21" rx="9" stroke={glasses.colour} strokeWidth="3" width="29" x="51" y="39" />
+                <rect fill="#dff7ff" fillOpacity=".16" height="21" rx="9" stroke={glasses.colour} strokeWidth="3" width="29" x="87" y="39" />
+                <path d="M80 47q3-3 7 0M49 44l-8-3m77 3 8-3" fill="none" stroke={glasses.colour} strokeLinecap="round" strokeWidth="3" />
+                <path d="M56 43q8-4 16 0m36 0q-8-4-16 0" fill="none" stroke="white" strokeLinecap="round" strokeOpacity=".7" strokeWidth="2" />
               </g>
             ) : null}
           </g>
@@ -372,10 +380,7 @@ export function PremiumAssetPreview({ asset, className = "h-36 w-full" }: { asse
   );
 }
 
-/**
- * Roblox-style 3D capsule head.
- * Vertical cylinder with soft rounded crown + chin and volume shading.
- */
+/** Original soft 3D face silhouette with adjustable cheeks and chin. */
 function HeadShape({
   style,
   fill,
@@ -388,27 +393,31 @@ function HeadShape({
   uid: string;
 }) {
   const female = gender === "female";
-  /* block = classic Roblox capsule; round/oval/wide tweak proportions */
+  /* Each option changes the silhouette while keeping facial landmarks stable. */
   const dims =
     style === "round"
-      ? { x: 46, y: 14, w: 78, h: 72, r: 36 }
+      ? { x: 43, y: 8, w: 84, h: 78, cheek: 3, chin: 19 }
       : style === "oval"
-        ? { x: 50, y: 10, w: 70, h: 78, r: 32 }
+        ? { x: 47, y: 5, w: 76, h: 83, cheek: 1, chin: 16 }
         : style === "wide"
-          ? { x: 40, y: 16, w: 90, h: 66, r: 28 }
-          : { x: female ? 47 : 45, y: female ? 12 : 14, w: female ? 76 : 80, h: female ? 74 : 70, r: female ? 34 : 30 };
+          ? { x: 38, y: 12, w: 94, h: 72, cheek: 4, chin: 22 }
+          : { x: female ? 43 : 42, y: 9, w: female ? 84 : 86, h: female ? 79 : 77, cheek: 2, chin: female ? 18 : 21 };
 
-  const { x, y, w, h, r } = dims;
+  const { x, y, w, h, cheek, chin } = dims;
   const cx = x + w / 2;
-  const topY = y + r * 0.35;
-  const chinY = y + h - r * 0.28;
+  const headPath = `M${cx} ${y}
+    C${x + w * .23} ${y - 1} ${x + 2} ${y + 8} ${x} ${y + h * .35}
+    C${x - cheek} ${y + h * .6} ${x + 5} ${y + h * .84} ${cx - chin} ${y + h}
+    Q${cx} ${y + h + 8} ${cx + chin} ${y + h}
+    C${x + w - 5} ${y + h * .84} ${x + w + cheek} ${y + h * .6} ${x + w} ${y + h * .35}
+    C${x + w - 2} ${y + 8} ${x + w * .77} ${y - 1} ${cx} ${y}Z`;
   const rimId = `${uid}-head-rim`;
   const volumeId = `${uid}-head-vol`;
 
   return (
     <g>
       <defs>
-        <linearGradient id={volumeId} x1="0.18" x2="0.88" y1="0.08" y2="0.95">
+        <linearGradient id={volumeId} x1=".12" x2=".9" y1=".05" y2=".95">
           <stop offset="0" stopColor="#fff" stopOpacity=".42" />
           <stop offset=".32" stopColor="#fff" stopOpacity=".08" />
           <stop offset=".72" stopColor="#000" stopOpacity=".08" />
@@ -424,31 +433,25 @@ function HeadShape({
       {/* soft contact shadow under chin */}
       <ellipse cx={cx} cy={y + h + 2} fill="#0f172a" opacity=".14" rx={w * 0.34} ry="5" />
 
-      {/* main capsule body */}
-      <rect
-        fill={fill}
-        height={h}
-        rx={r}
-        ry={r}
-        stroke="#0f172a"
-        strokeOpacity=".2"
-        strokeWidth="2"
-        width={w}
-        x={x}
-        y={y}
-      />
+      {/* Ears sit behind the face and make the portrait silhouette natural. */}
+      <ellipse cx={x + 1} cy={y + h * .55} fill={fill} rx="7" ry="12" stroke="#0f172a" strokeOpacity=".15" strokeWidth="1.5" />
+      <ellipse cx={x + w - 1} cy={y + h * .55} fill={fill} rx="7" ry="12" stroke="#0f172a" strokeOpacity=".15" strokeWidth="1.5" />
+
+      {/* Organic face silhouette */}
+      <path d={headPath} fill={fill} stroke="#0f172a" strokeOpacity=".16" strokeWidth="1.8" />
 
       {/* cylindrical volume wash */}
-      <rect fill={`url(#${volumeId})`} height={h} opacity=".9" rx={r} ry={r} width={w} x={x} y={y} />
-      <rect fill={`url(#${rimId})`} height={h} rx={r} ry={r} width={w} x={x} y={y} />
+      <path d={headPath} fill={`url(#${volumeId})`} opacity=".9" />
+      <path d={headPath} fill={`url(#${rimId})`} />
 
       {/* crown highlight — flat top plane catching light */}
-      <ellipse cx={cx - 2} cy={topY} fill="#fff" opacity=".28" rx={w * 0.34} ry={r * 0.28} />
-      <ellipse cx={cx - 8} cy={topY + 2} fill="#fff" opacity=".12" rx={w * 0.18} ry={r * 0.12} />
+      <ellipse cx={cx - w * .12} cy={y + h * .16} fill="#fff" opacity=".2" rx={w * .24} ry={h * .08} />
+      <ellipse cx={x + w * .2} cy={y + h * .68} fill="#fb7185" opacity=".08" rx={w * .1} ry={h * .055} />
+      <ellipse cx={x + w * .8} cy={y + h * .68} fill="#fb7185" opacity=".08" rx={w * .1} ry={h * .055} />
 
       {/* near-side rim light */}
       <path
-        d={`M${x + w - 6} ${y + r * 0.7} q${8} ${h * 0.22} ${2} ${h * 0.55}`}
+        d={`M${x + w - 7} ${y + h * .28}q7 ${h * .2} 1 ${h * .42}`}
         fill="none"
         stroke="#fff"
         strokeLinecap="round"
@@ -458,7 +461,7 @@ function HeadShape({
 
       {/* far-side depth crease */}
       <path
-        d={`M${x + 8} ${y + r * 0.75} q${-4} ${h * 0.25} ${1} ${h * 0.48}`}
+        d={`M${x + 7} ${y + h * .32}q-4 ${h * .2} 0 ${h * .36}`}
         fill="none"
         stroke="#000"
         strokeLinecap="round"
@@ -467,21 +470,25 @@ function HeadShape({
       />
 
       {/* chin soft shade */}
-      <ellipse cx={cx + 1} cy={chinY} fill="#000" opacity=".1" rx={w * 0.3} ry={r * 0.22} />
+      <ellipse cx={cx + 1} cy={y + h * .88} fill="#000" opacity=".055" rx={w * .22} ry={h * .06} />
     </g>
   );
 }
 
-/** Classic Roblox-style face decals with selectable expressions */
+/** Expressive portrait features with selectable moods. */
 function FaceFeatures({
   female,
+  eyebrowStyle,
   eyeColor,
-  glasses,
+  glasses: _glasses,
+  noseStyle,
   expression,
 }: {
   female: boolean;
+  eyebrowStyle: NonNullable<AvatarConfig["eyebrowStyle"]>;
   eyeColor: string;
   glasses: boolean;
+  noseStyle: NonNullable<AvatarConfig["noseStyle"]>;
   expression: AvatarConfig["expression"];
 }) {
   const leftEye = { cx: 66, cy: 48 };
@@ -489,7 +496,7 @@ function FaceFeatures({
   const eyeRx = female ? 9.2 : 8.4;
   const eyeRy = expression === "surprised" ? (female ? 10.2 : 9.2) : expression === "sleepy" || expression === "cool" ? (female ? 6.4 : 5.6) : female ? 8.6 : 7.6;
   const pupilR = expression === "surprised" ? (female ? 6 : 5.4) : female ? 5.2 : 4.6;
-  const browStroke = female ? 2.1 : 2.8;
+  const browStroke = eyebrowStyle === "bold" ? 3.8 : female ? 2.1 : 2.8;
   const winkLeft = expression === "wink";
 
   const brows =
@@ -499,9 +506,13 @@ function FaceFeatures({
         ? { left: "M54 39q12-2.5 24 1", right: "M88 38.5q13-2.5 25 1.5" }
         : expression === "silly" || expression === "happy"
           ? { left: "M54 35q12-8 24 0", right: "M88 34.5q13-8.5 25 .5" }
-          : female
-            ? { left: "M54 36.5q12-7.5 24-.5", right: "M88 36q13-8 25 0" }
-            : { left: "M54 37.5q11-5.5 23 1", right: "M89 36.5q12-5.5 24 1.5" };
+          : eyebrowStyle === "straight"
+            ? { left: "M54 36.5q12-1 24 0", right: "M88 36q13-1 25 .5" }
+            : eyebrowStyle === "arched"
+              ? { left: "M54 37q12-11 24-.5", right: "M88 36.5q13-11 25 0" }
+              : female
+                ? { left: "M54 36.5q12-7.5 24-.5", right: "M88 36q13-8 25 0" }
+                : { left: "M54 37.5q11-5.5 23 1", right: "M89 36.5q12-5.5 24 1.5" };
 
   function Eye({ side }: { side: "left" | "right" }) {
     const eye = side === "left" ? leftEye : rightEye;
@@ -532,7 +543,6 @@ function FaceFeatures({
   }
 
   function Mouth() {
-    if (glasses) return null;
     if (expression === "surprised") {
       return <ellipse cx="83" cy="70" fill="#1c1917" rx="6.5" ry="8" />;
     }
@@ -610,6 +620,8 @@ function FaceFeatures({
       <Eye side="left" />
       <Eye side="right" />
 
+      <AvatarNose style={noseStyle} />
+
       {female && expression !== "sleepy" ? (
         <>
           <g fill="none" stroke="#1c1917" strokeLinecap="round" strokeWidth="1.55">
@@ -621,6 +633,41 @@ function FaceFeatures({
       ) : null}
 
       <Mouth />
+    </g>
+  );
+}
+
+function AvatarNose({ style }: { style: NonNullable<AvatarConfig["noseStyle"]> }) {
+  const common = {
+    fill: "none",
+    stroke: "#7c2d12",
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    strokeOpacity: .38,
+  };
+  if (style === "soft") {
+    return <path {...common} d="M84 52q-2 7 .5 9.5 2 1.5 4.5-.5" strokeWidth="1.25" />;
+  }
+  if (style === "wide") {
+    return (
+      <g>
+        <path {...common} d="M83 51q-3 8 .5 11 4 2.5 8-.2" strokeWidth="1.45" />
+        <path {...common} d="M80.5 62q3 2 6 .2m2.5 0q3 1.7 6-.5" strokeWidth="1.2" />
+      </g>
+    );
+  }
+  if (style === "defined") {
+    return (
+      <g>
+        <path {...common} d="M84 50q-3 10 0 13 4 2 7-1" strokeWidth="1.65" />
+        <path d="M82 63q4 2 8-.5" fill="none" stroke="#fff" strokeLinecap="round" strokeOpacity=".24" strokeWidth="1" />
+      </g>
+    );
+  }
+  return (
+    <g>
+      <path {...common} d="M84 53q-2 6 .5 8.5 3 2 6-.5" strokeWidth="1.35" />
+      <path d="M84 62q3 1.2 5-.4" fill="none" stroke="#fff" strokeLinecap="round" strokeOpacity=".22" strokeWidth="1" />
     </g>
   );
 }
