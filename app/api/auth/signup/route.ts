@@ -11,6 +11,7 @@ import {
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { findSupabaseUserByPhone, phoneIdentityEmail } from "@/lib/auth/supabase-phone-user";
+import { isUsernameConflictError } from "@/lib/auth/username";
 
 const studentSchema = z.object({
   role: z.literal("student").default("student"),
@@ -40,6 +41,15 @@ export async function POST(request: Request) {
     const raw = await request.json() as { role?: string };
     const input = raw.role === "teacher" ? teacherSchema.parse(raw) : studentSchema.parse(raw);
     const phone = normalizeGhanaPhone(input.phone);
+    const username = input.role === "student" ? normalizeUsername(input.username) : null;
+
+    if (username && await findSupabaseUserByUsername(username)) {
+      return NextResponse.json({
+        error: "That username is already taken. Please choose a different username.",
+        code: "USERNAME_TAKEN"
+      }, { status: 409 });
+    }
+
     await verifyOtp(phone, input.otp);
 
     const admin = createAdminClient();
@@ -79,9 +89,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true, role: "teacher" });
     }
 
-    const username = normalizeUsername(input.username);
+    if (!username) throw new Error("A username is required.");
     if (await findSupabaseUserByUsername(username)) {
-      throw new Error("That username is already taken. Please choose another.");
+      return NextResponse.json({
+        error: "That username is already taken. Please choose a different username.",
+        code: "USERNAME_TAKEN"
+      }, { status: 409 });
     }
     await assertStudentPhoneAvailable(phone, input.phoneOwner);
 
@@ -101,6 +114,12 @@ export async function POST(request: Request) {
       },
       app_metadata: { role: "student" }
     });
+    if (error && isUsernameConflictError(error)) {
+      return NextResponse.json({
+        error: "That username is already taken. Please choose a different username.",
+        code: "USERNAME_TAKEN"
+      }, { status: 409 });
+    }
     if (error || !data.user) throw new Error(error?.message || "Unable to create the account.");
 
     const supabase = await createServerSupabaseClient();

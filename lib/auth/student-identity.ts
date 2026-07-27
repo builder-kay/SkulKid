@@ -48,7 +48,7 @@ export function sameUsername(user: User, username: string) {
 async function listAuthUsers() {
   const admin = createAdminClient();
   const users: User[] = [];
-  for (let page = 1; page <= 40; page += 1) {
+  for (let page = 1; ; page += 1) {
     const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 100 });
     if (error) throw error;
     users.push(...data.users);

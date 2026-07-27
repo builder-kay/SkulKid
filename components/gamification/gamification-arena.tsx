@@ -19,7 +19,7 @@ export function GamificationArena({ idPrefix = "" }: { idPrefix?: string }) {
       <div className="bg-gradient-to-br from-violet-700 via-violet-700 to-blue-700 p-5 text-white">
         <div className="flex items-center justify-between"><div><p className="text-xs font-black uppercase tracking-wider text-violet-200">Student rewards</p><h2 id={`${idPrefix}game-zone-title`} className="mt-1 text-2xl font-black">Your game zone</h2></div><Trophy className="size-8 text-amber-300" /></div>
         <div className="mt-5 grid grid-cols-2 gap-2 text-center sm:grid-cols-4"><Metric value={state.xp} label="XP" /><Metric value={state.avatarPoints} label="Avatar points" /><Metric value={state.stars} label="Stars" /><Metric value={state.streak} label="Streak" /></div>
-        <div className="mt-4 rounded-2xl bg-white/10 p-3"><ProgressBar label="Next 100 XP" value={state.xp % 100} /></div>
+        <div className="mt-4 rounded-2xl bg-white/10 p-3"><ProgressBar label="Next 100 XP" labelClassName="text-white" value={state.xp % 100} /></div>
       </div>
 
       <div className="grid gap-5 p-5">

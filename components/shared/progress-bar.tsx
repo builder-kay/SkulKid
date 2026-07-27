@@ -4,14 +4,15 @@ export type ProgressBarProps = {
   value: number;
   label: string;
   className?: string;
+  labelClassName?: string;
 };
 
-export function ProgressBar({ value, label, className }: ProgressBarProps) {
+export function ProgressBar({ value, label, className, labelClassName }: ProgressBarProps) {
   const boundedValue = Math.max(0, Math.min(100, value));
 
   return (
     <div className={cn("space-y-2", className)}>
-      <div className="flex items-center justify-between text-sm font-semibold text-text-secondary">
+      <div className={cn("flex items-center justify-between text-sm font-semibold text-text-secondary", labelClassName)}>
         <span>{label}</span>
         <span>{boundedValue}%</span>
       </div>

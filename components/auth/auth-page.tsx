@@ -14,6 +14,7 @@ type Mode = "login" | "signup" | "reset";
 type Audience = "student" | "teacher";
 type AuthAction = "login" | "password-reset" | "signup";
 type PhoneOwner = "self" | "guardian";
+type UsernameAvailability = "idle" | "checking" | "available" | "taken";
 
 class AuthFlowError extends Error {
   constructor(message: string, readonly actions: AuthAction[] = [], readonly code = "") {
@@ -30,6 +31,7 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
   const [success, setSuccess] = useState("");
   const [phone, setPhone] = useState("");
   const [username, setUsername] = useState("");
+  const [usernameAvailability, setUsernameAvailability] = useState<UsernameAvailability>("idle");
   const [phoneOwner, setPhoneOwner] = useState<PhoneOwner>("self");
   const [phoneHint, setPhoneHint] = useState("");
   const [password, setPassword] = useState("");
@@ -137,8 +139,13 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
       setBusy(true); setError(""); setSuggestedActions([]); setSuccess("");
       try {
         if (learnerSignupStep === 1) {
+          setUsernameAvailability("checking");
           const result = await post("/api/auth/username/availability", { username });
-          if (!result.available) throw new Error("That username is already taken. Try another one.");
+          if (!result.available) {
+            setUsernameAvailability("taken");
+            throw new Error("That username is already taken. Please choose a different username.");
+          }
+          setUsernameAvailability("available");
           advanceLearnerSignup(2);
           return;
         }
@@ -153,6 +160,14 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
         }
         if (learnerSignupStep === 4) {
           if (password !== confirmPassword) throw new Error("The passwords do not match. Please enter them again.");
+          const availability = await post("/api/auth/username/availability", { username });
+          if (!availability.available) {
+            throw new AuthFlowError(
+              "That username is already taken. Please choose a different username.",
+              [],
+              "USERNAME_TAKEN"
+            );
+          }
           await post("/api/auth/otp/send", { purpose: "signup", role: "student", phone, phoneOwner });
           advanceLearnerSignup(5);
           return;
@@ -175,6 +190,13 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
         if (cause instanceof AuthFlowError && learnerSignupStep === 4 && cause.code === "ACCOUNT_EXISTS") {
           window.history.replaceState({ ...window.history.state, skulkidSignupStep: 3 }, "");
           setLearnerSignupStep(3);
+        }
+        if (cause instanceof AuthFlowError && cause.code === "USERNAME_TAKEN") {
+          window.history.replaceState({ ...window.history.state, skulkidSignupStep: 1 }, "");
+          setLearnerSignupStep(1);
+          setUsernameAvailability("taken");
+        } else if (learnerSignupStep === 1) {
+          setUsernameAvailability("idle");
         }
         setError(cause instanceof Error ? cause.message : "Something went wrong.");
         setSuggestedActions(cause instanceof AuthFlowError ? cause.actions : []);
@@ -346,9 +368,30 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
                     <Field label="Choose your username">
                       <div className="relative w-full">
                         <span className="pointer-events-none absolute inset-y-0 left-0 z-10 grid w-12 place-items-center text-muted"><AtSign className="size-5" /></span>
-                        <input autoComplete="username" className="!pl-12" maxLength={20} minLength={3} onChange={(event) => setUsername(event.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))} pattern="[a-z0-9_]{3,20}" placeholder="e.g. ama_b4" required value={username} />
+                        <input
+                          aria-describedby="learner-username-help learner-username-status"
+                          aria-invalid={usernameAvailability === "taken"}
+                          autoComplete="username"
+                          className="!pl-12"
+                          maxLength={20}
+                          minLength={3}
+                          onChange={(event) => {
+                            setUsername(event.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""));
+                            setUsernameAvailability("idle");
+                            if (error.toLowerCase().includes("username")) setError("");
+                          }}
+                          pattern="[a-z0-9_]{3,20}"
+                          placeholder="e.g. ama_b4"
+                          required
+                          value={username}
+                        />
                       </div>
-                      <span className="text-xs font-medium text-muted">Use 3–20 letters, numbers or underscores. You’ll use this name to sign in.</span>
+                      <span className="text-xs font-medium text-muted" id="learner-username-help">Use 3–20 letters, numbers or underscores. You’ll use this name to sign in.</span>
+                      <span aria-live="polite" className={`inline-flex min-h-4 items-center gap-1.5 text-xs font-bold ${usernameAvailability === "available" ? "text-emerald-700" : usernameAvailability === "taken" ? "text-amber-700" : "text-muted"}`} id="learner-username-status">
+                        {usernameAvailability === "checking" ? <><Loader2 className="size-3.5 animate-spin" />Checking username…</> : null}
+                        {usernameAvailability === "available" ? <><CheckCircle2 className="size-3.5" />This username is available.</> : null}
+                        {usernameAvailability === "taken" ? <><CircleAlert className="size-3.5" />This username is taken. Choose a different one.</> : null}
+                      </span>
                     </Field>
                   </>
                 ) : null}

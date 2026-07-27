@@ -31,6 +31,18 @@ export function usernameIdentityEmail(username: string) {
   return `u-${normalizeUsername(username)}@users.skulkid.app`;
 }
 
+export function isUsernameConflictError(error: unknown) {
+  if (!error || typeof error !== "object") return false;
+  const candidate = error as { code?: unknown; message?: unknown };
+  const code = typeof candidate.code === "string" ? candidate.code.toLowerCase() : "";
+  const message = typeof candidate.message === "string" ? candidate.message.toLowerCase() : "";
+  return code === "email_exists"
+    || code === "user_already_exists"
+    || message.includes("already registered")
+    || message.includes("already exists")
+    || message.includes("email address has already been registered");
+}
+
 export function slugUsernameFromDisplayName(displayName: string) {
   const base = displayName
     .toLowerCase()
