@@ -46,7 +46,10 @@ export function CourseCard({ course, featured = false, grade }: CourseCardProps)
             </div>
           </div>
           <div className="relative mt-5">
-            <p className="text-xs font-black uppercase tracking-[.16em] text-white/70">{started ? "Continue your path" : "New learning quest"}</p>
+            <p className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1 text-xs font-black uppercase tracking-[.12em] text-white ring-1 ring-white/15">
+              <Sparkles aria-hidden="true" className="size-3.5 text-amber-300" />
+              Learning for everyone
+            </p>
             <h2 className="mt-1 text-2xl font-black">{subject.name}</h2>
           </div>
         </div>

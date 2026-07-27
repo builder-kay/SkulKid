@@ -88,16 +88,19 @@ export function StudentDashboard() {
         <section aria-labelledby="course-heading" className="space-y-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h2 id="course-heading" className="text-2xl font-bold text-text-primary">
-                Subjects
+              <p className="text-xs font-black uppercase tracking-wider text-violet-700">Open to every learner</p>
+              <h2 id="course-heading" className="mt-1 text-2xl font-bold text-text-primary">
+                Learning for everyone
               </h2>
-              <p className="mt-2 text-text-secondary">Pick a subject and continue your path.</p>
+              <p className="mt-2 text-text-secondary">
+                These lessons are available to every SkulKid learner and do not belong to just one class.
+              </p>
             </div>
             <Link
               className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-text-primary shadow-sm transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               href="/courses"
             >
-              View all subjects
+              Explore public learning
               <ArrowRight aria-hidden="true" className="size-4" />
             </Link>
           </div>
