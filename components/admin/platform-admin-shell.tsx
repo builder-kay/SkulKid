@@ -11,6 +11,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  RadioTower,
   Search,
   Settings2,
   ShieldCheck,
@@ -30,6 +31,7 @@ const navItems: Array<{ href: string; label: string; shortLabel: string; icon: L
   { href: "/admin/moderation", label: "Content moderation", shortLabel: "Review", icon: BookOpenCheck, match: "prefix" },
   { href: "/admin/security", label: "Security & audit", shortLabel: "Security", icon: ShieldCheck, match: "prefix" },
   { href: "/admin/operations", label: "Operations", shortLabel: "Ops", icon: Wrench, match: "prefix" },
+  { href: "/admin/otp-diagnostics", label: "OTP diagnostics", shortLabel: "OTP", icon: RadioTower, match: "prefix" },
   { href: "/admin/activity", label: "Platform activity", shortLabel: "Activity", icon: Activity, match: "prefix" },
   { href: "/admin/settings", label: "System settings", shortLabel: "Settings", icon: Settings2, match: "prefix" }
 ];

@@ -1,8 +1,13 @@
 import "server-only";
+import { randomUUID } from "node:crypto";
 import { otpSmsMessage, type OtpSmsReason } from "@/lib/auth/sms-links";
 import { sendArkeselOtp, sendArkeselSms, verifyArkeselOtp } from "@/lib/auth/arkesel";
 import { bmsConfigured, sendBmsOtp } from "@/lib/auth/bms";
 import { createFallbackOtp, verifyFallbackOtp } from "@/lib/auth/otp-challenge";
+import {
+  logOtpProviderDiagnostic,
+  type OtpProvider
+} from "@/lib/auth/otp-provider-diagnostics";
 
 const baseUrl = "https://clifze.shop/api/v3";
 const requestTimeoutMs = 8_000;
@@ -42,18 +47,53 @@ function arkeselConfigured() {
 }
 
 export async function sendOtp(recipient: string, reason: OtpSmsReason, actionUrl: string) {
+  const attemptId = randomUUID();
+  const runProvider = async <T extends { provider: OtpProvider; deliveryStatus?: string }>(
+    provider: OtpProvider,
+    operation: () => Promise<T>
+  ) => {
+    const startedAt = performance.now();
+    try {
+      const result = await operation();
+      await logOtpProviderDiagnostic({
+        attemptId,
+        provider,
+        purpose: reason,
+        phone: recipient,
+        status: "accepted",
+        latencyMs: performance.now() - startedAt,
+        deliveryStatus: result.deliveryStatus
+      });
+      return result;
+    } catch (error) {
+      await logOtpProviderDiagnostic({
+        attemptId,
+        provider,
+        purpose: reason,
+        phone: recipient,
+        status: "rejected",
+        latencyMs: performance.now() - startedAt,
+        error
+      });
+      throw error;
+    }
+  };
+
   const sends: Promise<{ provider: string; shortcode?: string }>[] = [
-    request("/otp/send", { recipient, message: otpSmsMessage(reason, actionUrl), expiry: "10" })
-      .then(() => ({ provider: "clifze" }))
+    runProvider("clifze", async () => {
+      await request("/otp/send", { recipient, message: otpSmsMessage(reason, actionUrl), expiry: "10" });
+      return { provider: "clifze" as const };
+    })
   ];
   if (arkeselConfigured()) {
-    sends.push(sendArkeselOtp(recipient, reason, actionUrl));
+    sends.push(runProvider("arkesel", () => sendArkeselOtp(recipient, reason, actionUrl)));
   }
   if (bmsConfigured()) {
     sends.push(
-      createFallbackOtp(recipient).then((code) =>
-        sendBmsOtp(recipient, otpSmsMessage(reason, actionUrl).replace("[otp]", code))
-      )
+      runProvider("bms", async () => {
+        const code = await createFallbackOtp(recipient);
+        return sendBmsOtp(recipient, otpSmsMessage(reason, actionUrl).replace("[otp]", code));
+      })
     );
   }
 
