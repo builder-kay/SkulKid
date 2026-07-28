@@ -8,6 +8,7 @@ import {
   logOtpProviderDiagnostic,
   type OtpProvider
 } from "@/lib/auth/otp-provider-diagnostics";
+import { getOtpProviderOrder } from "@/lib/auth/otp-provider-order";
 
 const baseUrl = "https://clifze.shop/api/v3";
 const requestTimeoutMs = 8_000;
@@ -48,6 +49,7 @@ function arkeselConfigured() {
 
 export async function sendOtp(recipient: string, reason: OtpSmsReason, actionUrl: string, signupSessionId?: string) {
   const attemptId = randomUUID();
+  const providerOrder = await getOtpProviderOrder();
   const runProvider = async <T extends { provider: OtpProvider; deliveryStatus?: string }>(
     provider: OtpProvider,
     operation: () => Promise<T>
@@ -81,27 +83,29 @@ export async function sendOtp(recipient: string, reason: OtpSmsReason, actionUrl
     }
   };
 
-  const sends: Promise<{ provider: string; shortcode?: string }>[] = [
-    runProvider("clifze", async () => {
+  const operations: Record<OtpProvider, (() => Promise<{ provider: OtpProvider; shortcode?: string }>) | null> = {
+    bms: bmsConfigured()
+      ? () => runProvider("bms", async () => {
+          const code = await createFallbackOtp(recipient);
+          return sendBmsOtp(recipient, otpSmsMessage(reason, actionUrl).replace("[otp]", code));
+        })
+      : null,
+    clifze: () => runProvider("clifze", async () => {
       await request("/otp/send", { recipient, message: otpSmsMessage(reason, actionUrl), expiry: "10" });
       return { provider: "clifze" as const };
-    })
-  ];
-  if (arkeselConfigured()) {
-    sends.push(runProvider("arkesel", () => sendArkeselOtp(recipient, reason, actionUrl)));
-  }
-  if (bmsConfigured()) {
-    sends.push(
-      runProvider("bms", async () => {
-        const code = await createFallbackOtp(recipient);
-        return sendBmsOtp(recipient, otpSmsMessage(reason, actionUrl).replace("[otp]", code));
-      })
-    );
-  }
+    }),
+    arkesel: arkeselConfigured()
+      ? () => runProvider("arkesel", () => sendArkeselOtp(recipient, reason, actionUrl))
+      : null
+  };
+  const sends = providerOrder.flatMap((provider) => {
+    const operation = operations[provider];
+    return operation ? [operation()] : [];
+  });
 
   const results = await Promise.allSettled(sends);
   const successful = results
-    .filter((result): result is PromiseFulfilledResult<{ provider: string; shortcode?: string }> => result.status === "fulfilled")
+    .filter((result): result is PromiseFulfilledResult<{ provider: OtpProvider; shortcode?: string }> => result.status === "fulfilled")
     .map((result) => result.value);
   if (successful.length === 0) {
     throw new AggregateError(
@@ -116,24 +120,24 @@ export async function sendOtp(recipient: string, reason: OtpSmsReason, actionUrl
 }
 
 export async function verifyOtp(recipient: string, otpCode: string) {
-  try {
-    if (await verifyFallbackOtp(recipient, otpCode)) return { provider: "bms" as const };
-  } catch {
-    // BMS fallback storage may be unavailable while provider-managed OTPs still work.
+  const providerOrder = await getOtpProviderOrder();
+  const errors: unknown[] = [];
+  for (const provider of providerOrder) {
+    try {
+      if (provider === "bms") {
+        if (await verifyFallbackOtp(recipient, otpCode)) return { provider: "bms" as const };
+        continue;
+      }
+      if (provider === "clifze") {
+        await request("/otp/verify", { recipient, otp_code: otpCode });
+        return { provider: "clifze" as const };
+      }
+      if (arkeselConfigured()) return await verifyArkeselOtp(recipient, otpCode);
+    } catch (error) {
+      errors.push(error);
+    }
   }
-  let primaryError: unknown;
-  try {
-    await request("/otp/verify", { recipient, otp_code: otpCode });
-    return { provider: "clifze" as const };
-  } catch (error) {
-    primaryError = error;
-  }
-  if (!arkeselConfigured()) throw primaryError;
-  try {
-    return await verifyArkeselOtp(recipient, otpCode);
-  } catch (backupError) {
-    throw new AggregateError([primaryError, backupError], "The verification code is invalid or has expired.");
-  }
+  throw new AggregateError(errors, "The verification code is invalid or has expired.");
 }
 
 export async function sendSms(recipient: string, message: string) {

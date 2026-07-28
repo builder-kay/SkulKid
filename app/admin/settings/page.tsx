@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Save, Settings2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Save, Settings2 } from "lucide-react";
 import { SkulKidCard } from "@/components/shared/skulkid-card";
 
 type SystemSettings = {
@@ -10,14 +10,18 @@ type SystemSettings = {
   requireLessonApproval: boolean;
   signupEnabled: boolean;
   supportEmail: string;
+  smsProviderOrder: SmsProvider[];
 };
+
+type SmsProvider = "bms" | "clifze" | "arkesel";
 
 const defaults: SystemSettings = {
   maintenanceMode: false,
   allowTeacherPublishing: true,
   requireLessonApproval: true,
   signupEnabled: true,
-  supportEmail: "support@skulkid.app"
+  supportEmail: "support@skulkid.app",
+  smsProviderOrder: ["bms", "clifze", "arkesel"]
 };
 
 export default function AdminSystemSettingsPage() {
@@ -62,6 +66,17 @@ export default function AdminSystemSettingsPage() {
     }
   }
 
+  function moveProvider(index: number, direction: -1 | 1) {
+    setForm((current) => {
+      const nextIndex = index + direction;
+      if (nextIndex < 0 || nextIndex >= current.smsProviderOrder.length) return current;
+      const smsProviderOrder = [...current.smsProviderOrder];
+      [smsProviderOrder[index], smsProviderOrder[nextIndex]] = [smsProviderOrder[nextIndex], smsProviderOrder[index]];
+      return { ...current, smsProviderOrder };
+    });
+    setSaved(false);
+  }
+
   return (
     <main className="mx-auto grid w-full max-w-3xl gap-6">
       <header className="rounded-[2rem] border border-white bg-white p-6 shadow-[var(--shadow-card)] sm:p-8">
@@ -90,6 +105,26 @@ export default function AdminSystemSettingsPage() {
               value={form.supportEmail}
             />
           </label>
+        </SkulKidCard>
+
+        <SkulKidCard className="p-5 sm:p-6">
+          <h2 className="text-xl font-black">OTP provider priority</h2>
+          <p className="mt-1 text-sm leading-6 text-slate-600">
+            Put the preferred provider first. All configured providers are still contacted because provider acceptance does not guarantee handset delivery.
+          </p>
+          <ol className="mt-4 grid gap-3">
+            {form.smsProviderOrder.map((provider, index) => (
+              <li className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3" key={provider}>
+                <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-slate-950 font-black text-white">{index + 1}</span>
+                <div className="min-w-0 flex-1">
+                  <p className="font-black capitalize">{provider === "bms" ? "BMS Africa" : provider}</p>
+                  <p className="text-xs font-bold text-slate-500">{index === 0 ? "Primary" : `Fallback ${index}`}</p>
+                </div>
+                <button aria-label={`Move ${provider} up`} className="grid size-10 place-items-center rounded-xl border border-slate-300 bg-white disabled:opacity-30" disabled={index === 0} onClick={() => moveProvider(index, -1)} type="button"><ArrowUp className="size-4" /></button>
+                <button aria-label={`Move ${provider} down`} className="grid size-10 place-items-center rounded-xl border border-slate-300 bg-white disabled:opacity-30" disabled={index === form.smsProviderOrder.length - 1} onClick={() => moveProvider(index, 1)} type="button"><ArrowDown className="size-4" /></button>
+              </li>
+            ))}
+          </ol>
         </SkulKidCard>
 
         {error ? <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-bold text-amber-950">{error}</div> : null}

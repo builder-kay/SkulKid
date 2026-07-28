@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { readAdminSettingServer, writeAdminSettingServer } from "@/lib/admin/settings-server";
 import { requireAdmin } from "@/lib/classes/classroom-server";
+import {
+  defaultOtpProviderOrder,
+  normalizeOtpProviderOrder
+} from "@/lib/auth/otp-provider-order";
+import type { OtpProvider } from "@/lib/auth/otp-provider-diagnostics";
 
 const SETTINGS_KEY = "platform-system-settings";
 
@@ -10,6 +15,7 @@ type SystemSettings = {
   requireLessonApproval: boolean;
   signupEnabled: boolean;
   supportEmail: string;
+  smsProviderOrder: OtpProvider[];
 };
 
 const defaults: SystemSettings = {
@@ -17,7 +23,8 @@ const defaults: SystemSettings = {
   allowTeacherPublishing: true,
   requireLessonApproval: true,
   signupEnabled: true,
-  supportEmail: "support@skulkid.app"
+  supportEmail: "support@skulkid.app",
+  smsProviderOrder: defaultOtpProviderOrder
 };
 
 export async function GET() {
@@ -39,7 +46,8 @@ export async function PUT(request: Request) {
       allowTeacherPublishing: body.allowTeacherPublishing !== false,
       requireLessonApproval: body.requireLessonApproval !== false,
       signupEnabled: body.signupEnabled !== false,
-      supportEmail: typeof body.supportEmail === "string" && body.supportEmail.trim() ? body.supportEmail.trim() : defaults.supportEmail
+      supportEmail: typeof body.supportEmail === "string" && body.supportEmail.trim() ? body.supportEmail.trim() : defaults.supportEmail,
+      smsProviderOrder: normalizeOtpProviderOrder(body.smsProviderOrder)
     };
     await writeAdminSettingServer(SETTINGS_KEY, settings);
     return NextResponse.json({ ok: true, settings });
