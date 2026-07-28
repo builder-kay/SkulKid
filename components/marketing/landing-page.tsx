@@ -233,7 +233,13 @@ function HeroPlayground() {
       <span className="absolute left-[17%] top-[46%] text-2xl font-black text-white/20">÷</span>
       <span className="absolute right-[14%] top-[52%] text-2xl font-black text-white/20">½</span>
       <div className="absolute inset-x-[19%] bottom-[4.25rem] top-[4.6rem]">
-        <CharacterAvatar avatar={avatars[1]} className="h-full w-full !rounded-none" label="SkulKid learner avatar" />
+        <CharacterAvatar
+          avatar={avatars[1]}
+          className="h-full w-full !rounded-none"
+          interactive
+          label="SkulKid learner avatar"
+          motion="expressive"
+        />
       </div>
       <div className="absolute inset-x-4 bottom-4 rounded-2xl bg-white/95 p-3 shadow-lg backdrop-blur sm:inset-x-5">
         <div className="flex items-center justify-between gap-3 text-xs font-black text-slate-700"><span>Mission progress</span><span className="text-blue-700">75%</span></div>
