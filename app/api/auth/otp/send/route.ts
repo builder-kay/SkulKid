@@ -10,6 +10,7 @@ import {
 import { findSupabaseUserByPhone } from "@/lib/auth/supabase-phone-user";
 import { platformActionUrl } from "@/lib/auth/sms-links";
 import { updateSignupFunnel } from "@/lib/auth/signup-funnel";
+import { recordOperationalEvent, requestIp } from "@/lib/admin/operational-events";
 import { assertTeacherPhoneNotBanned } from "@/lib/moderation/teacher-phone-ban";
 
 export const runtime = "nodejs";
@@ -47,6 +48,10 @@ async function handleSignupOtp(input: z.infer<typeof signupSchema>, request: Req
   const phone = normalizeGhanaPhone(input.phone);
   const forwardedFor = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
   if (!allowOtpRequest(`${forwardedFor}:${phone}`)) {
+    await recordOperationalEvent({
+      category: "abuse", eventType: "rate_limit.otp", outcome: "blocked", severity: "medium",
+      route: "/api/auth/otp/send", subject: phone, ip: requestIp(request)
+    });
     return NextResponse.json({ error: "Too many codes requested. Please wait 10 minutes." }, { status: 429 });
   }
 
@@ -111,6 +116,10 @@ async function handlePasswordResetOtp(input: z.infer<typeof resetSchema>, reques
     const phone = normalizeGhanaPhone(phoneRaw);
     const forwardedFor = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
     if (!allowOtpRequest(`${forwardedFor}:${phone}`)) {
+      await recordOperationalEvent({
+        category: "abuse", eventType: "rate_limit.otp", outcome: "blocked", severity: "medium",
+        route: "/api/auth/otp/send", subject: phone, ip: requestIp(request)
+      });
       return NextResponse.json({ error: "Too many codes requested. Please wait 10 minutes." }, { status: 429 });
     }
     const delivery = await sendOtp(phone, "learner-password-reset", platformActionUrl(request, "/forgot-password"));
@@ -127,6 +136,10 @@ async function handlePasswordResetOtp(input: z.infer<typeof resetSchema>, reques
   const phone = normalizeGhanaPhone(input.phone);
   const forwardedFor = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
   if (!allowOtpRequest(`${forwardedFor}:${phone}`)) {
+    await recordOperationalEvent({
+      category: "abuse", eventType: "rate_limit.otp", outcome: "blocked", severity: "medium",
+      route: "/api/auth/otp/send", subject: phone, ip: requestIp(request)
+    });
     return NextResponse.json({ error: "Too many codes requested. Please wait 10 minutes." }, { status: 429 });
   }
   const existingUser = await findSupabaseUserByPhone(phone);

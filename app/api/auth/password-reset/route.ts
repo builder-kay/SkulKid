@@ -9,6 +9,7 @@ import {
 } from "@/lib/auth/student-identity";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ensurePhoneLoginIdentity, findSupabaseUserByPhone } from "@/lib/auth/supabase-phone-user";
+import { recordOperationalEvent, requestIp } from "@/lib/admin/operational-events";
 
 const studentSchema = z.object({
   role: z.literal("student").default("student"),
@@ -31,8 +32,11 @@ const legacySchema = z.object({
 });
 
 export async function POST(request: Request) {
+  const startedAt = performance.now();
+  let subject = "";
   try {
     const raw = await request.json() as { role?: string; username?: string; phone?: string };
+    subject = raw.username || raw.phone || "";
     const admin = createAdminClient();
 
     if (raw.username || raw.role === "student") {
@@ -47,6 +51,11 @@ export async function POST(request: Request) {
       const migrated = await ensureUsernameLoginIdentity(existing, username);
       const { error } = await admin.auth.admin.updateUserById(migrated.id, { password: input.password });
       if (error) throw error;
+      await recordOperationalEvent({
+        category: "authentication", eventType: "password_reset.completed", outcome: "success",
+        route: "/api/auth/password-reset", subject: migrated.id, ip: requestIp(request),
+        durationMs: performance.now() - startedAt, metadata: { role: "student" }
+      });
       return NextResponse.json({ ok: true });
     }
 
@@ -58,8 +67,18 @@ export async function POST(request: Request) {
     const migrated = await ensurePhoneLoginIdentity(existing, phone);
     const { error } = await admin.auth.admin.updateUserById(migrated.id, { password: input.password });
     if (error) throw error;
+    await recordOperationalEvent({
+      category: "authentication", eventType: "password_reset.completed", outcome: "success",
+      route: "/api/auth/password-reset", subject: migrated.id, ip: requestIp(request),
+      durationMs: performance.now() - startedAt, metadata: { role: raw.role === "teacher" ? "teacher" : "legacy" }
+    });
     return NextResponse.json({ ok: true });
   } catch (error) {
+    await recordOperationalEvent({
+      category: "authentication", eventType: "password_reset.failed", outcome: "failure",
+      severity: "medium", route: "/api/auth/password-reset", subject, ip: requestIp(request),
+      durationMs: performance.now() - startedAt
+    });
     return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to reset the password." }, { status: 400 });
   }
 }
