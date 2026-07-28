@@ -9,6 +9,7 @@ import {
 } from "@/lib/auth/student-identity";
 import { findSupabaseUserByPhone } from "@/lib/auth/supabase-phone-user";
 import { platformActionUrl } from "@/lib/auth/sms-links";
+import { updateSignupFunnel } from "@/lib/auth/signup-funnel";
 import { assertTeacherPhoneNotBanned } from "@/lib/moderation/teacher-phone-ban";
 
 export const runtime = "nodejs";
@@ -18,7 +19,8 @@ const signupSchema = z.object({
   purpose: z.literal("signup"),
   phone: z.string().min(9).max(20),
   role: z.enum(["student", "teacher"]).default("student"),
-  phoneOwner: z.enum(["self", "guardian"]).optional()
+  phoneOwner: z.enum(["self", "guardian"]).optional(),
+  signupSessionId: z.string().uuid().optional()
 });
 
 const resetSchema = z.object({
@@ -75,8 +77,17 @@ async function handleSignupOtp(input: z.infer<typeof signupSchema>, request: Req
   const delivery = await sendOtp(
     phone,
     input.role === "teacher" ? "teacher-signup" : "learner-signup",
-    platformActionUrl(request, input.role === "teacher" ? "/signup/teacher" : "/signup/student")
+    platformActionUrl(request, input.role === "teacher" ? "/signup/teacher" : "/signup/student"),
+    input.signupSessionId
   );
+  if (input.signupSessionId) {
+    await updateSignupFunnel({
+      sessionId: input.signupSessionId,
+      role: input.role,
+      step: 5,
+      event: "otp_requested"
+    }).catch((error) => console.error("Signup funnel OTP event failed:", error));
+  }
   return NextResponse.json({ ok: true, shortcode: delivery.shortcode });
 }
 

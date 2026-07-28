@@ -11,10 +11,12 @@ import {
   XCircle
 } from "lucide-react";
 import { SkulKidCard } from "@/components/shared/skulkid-card";
+import { AccessibleLineChart } from "@/components/admin/admin-charts";
 
 type DiagnosticEvent = {
   id: string;
   attemptId: string;
+  signupSessionId: string | null;
   provider: "clifze" | "arkesel" | "bms";
   purpose: string;
   status: "accepted" | "rejected";
@@ -34,6 +36,21 @@ type ProviderSummary = {
   averageLatencyMs: number | null;
 };
 
+type SignupFunnel = {
+  periodDays: number;
+  started: number;
+  steps: Array<{ step: number; count: number }>;
+  otpRequested: number;
+  completed: number;
+  abandoned: number;
+  active: number;
+  otpStalled: number;
+  providerFailedSessions: number;
+  completionRate: number;
+  roles: Array<{ role: string; started: number; completed: number; completionRate: number }>;
+  trend: Array<{ date: string; started: number; completed: number; abandoned: number }>;
+};
+
 export default function OtpDiagnosticsPage() {
   const [events, setEvents] = useState<DiagnosticEvent[]>([]);
   const [summary, setSummary] = useState<ProviderSummary[]>([]);
@@ -43,6 +60,7 @@ export default function OtpDiagnosticsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [generatedAt, setGeneratedAt] = useState("");
+  const [funnel, setFunnel] = useState<SignupFunnel | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -53,12 +71,14 @@ export default function OtpDiagnosticsPage() {
       const result = await response.json() as {
         events?: DiagnosticEvent[];
         summary?: ProviderSummary[];
+        funnel?: SignupFunnel;
         generatedAt?: string;
         error?: string;
       };
       if (!response.ok) throw new Error(result.error || "Could not load OTP diagnostics.");
       setEvents(result.events ?? []);
       setSummary(result.summary ?? []);
+      setFunnel(result.funnel ?? null);
       setGeneratedAt(result.generatedAt ?? "");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not load OTP diagnostics.");
@@ -105,6 +125,54 @@ export default function OtpDiagnosticsPage() {
       </header>
 
       {error ? <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-bold text-rose-900" role="alert">{error}</div> : null}
+
+      {funnel ? (
+        <>
+          <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            <FunnelMetric label="Started" value={funnel.started} detail={`Last ${funnel.periodDays} days`} tone="slate" />
+            <FunnelMetric label="Completed" value={funnel.completed} detail={`${funnel.completionRate}% completion rate`} tone="emerald" />
+            <FunnelMetric label="Quit or timed out" value={funnel.abandoned} detail={`${funnel.active} still active`} tone="amber" />
+            <FunnelMetric label="OTP stalled" value={funnel.otpStalled} detail="No completion after 15 minutes" tone="rose" />
+            <FunnelMetric label="All providers failed" value={funnel.providerFailedSessions} detail="No provider accepted the request" tone="rose" />
+          </section>
+
+          <section className="grid gap-4 xl:grid-cols-[1.05fr_.95fr]">
+            <SkulKidCard className="p-5 sm:p-6">
+              <p className="text-xs font-black uppercase tracking-wider text-cyan-700">Conversion funnel</p>
+              <h2 className="mt-1 text-xl font-black">Where signup stops</h2>
+              <p className="mt-1 text-sm text-slate-500">Each bar shows sessions that reached that stage during the last 30 days.</p>
+              <SignupFunnelChart funnel={funnel} />
+            </SkulKidCard>
+            <SkulKidCard className="p-5 sm:p-6">
+              <p className="text-xs font-black uppercase tracking-wider text-cyan-700">14-day trend</p>
+              <h2 className="mt-1 text-xl font-black">Started, completed and abandoned</h2>
+              <div className="mt-5">
+                <AccessibleLineChart
+                  data={funnel.trend}
+                  series={[
+                    { key: "started", label: "Started", color: "#0891b2" },
+                    { key: "completed", label: "Completed", color: "#059669" },
+                    { key: "abandoned", label: "Abandoned", color: "#e11d48", dash: true }
+                  ]}
+                  title="Signup outcomes over the last 14 days"
+                />
+              </div>
+            </SkulKidCard>
+          </section>
+
+          <section className="grid gap-3 md:grid-cols-2">
+            {funnel.roles.map((role) => (
+              <SkulKidCard className="p-5" key={role.role}>
+                <div className="flex items-end justify-between gap-3">
+                  <div><p className="text-xs font-black uppercase tracking-wider text-slate-500">{role.role} signup</p><p className="mt-1 text-2xl font-black">{role.completed} of {role.started}</p></div>
+                  <strong className="text-2xl text-cyan-700">{role.completionRate}%</strong>
+                </div>
+                <div className="mt-3 h-3 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-cyan-600" style={{ width: `${role.completionRate}%` }} /></div>
+              </SkulKidCard>
+            ))}
+          </section>
+        </>
+      ) : null}
 
       <section className="grid gap-3 md:grid-cols-3">
         {summary.map((item) => (
@@ -179,6 +247,39 @@ function Metric({ label, value }: { label: string; value: string | number }) {
   return <div className="rounded-xl bg-slate-50 px-2 py-3"><strong className="block text-lg text-slate-950">{value}</strong><span className="text-[10px] font-black uppercase tracking-wider text-slate-500">{label}</span></div>;
 }
 
+function FunnelMetric({ label, value, detail, tone }: { label: string; value: number; detail: string; tone: "slate" | "emerald" | "amber" | "rose" }) {
+  const tones = {
+    slate: "border-slate-200 bg-white text-slate-950",
+    emerald: "border-emerald-200 bg-emerald-50 text-emerald-950",
+    amber: "border-amber-200 bg-amber-50 text-amber-950",
+    rose: "border-rose-200 bg-rose-50 text-rose-950"
+  };
+  return <div className={`rounded-2xl border p-5 shadow-sm ${tones[tone]}`}><p className="text-xs font-black uppercase tracking-wider opacity-65">{label}</p><strong className="mt-2 block text-3xl">{value}</strong><p className="mt-2 text-xs font-bold opacity-70">{detail}</p></div>;
+}
+
+function SignupFunnelChart({ funnel }: { funnel: SignupFunnel }) {
+  const stages = [
+    { label: "Started", value: funnel.started },
+    ...funnel.steps.slice(1, 4).map((item) => ({ label: `Reached step ${item.step}`, value: item.count })),
+    { label: "OTP requested", value: funnel.otpRequested },
+    { label: "Completed", value: funnel.completed }
+  ];
+  return (
+    <figure aria-label="Signup conversion funnel" className="mt-6 grid gap-3">
+      {stages.map((stage, index) => {
+        const width = funnel.started ? Math.max(4, (stage.value / funnel.started) * 100) : 0;
+        const drop = index === 0 ? 0 : stages[index - 1].value - stage.value;
+        return (
+          <div key={stage.label}>
+            <div className="flex items-center justify-between gap-3 text-sm"><span className="font-black">{stage.label}</span><span className="font-bold">{stage.value}{drop > 0 ? <span className="ml-2 text-rose-600">−{drop}</span> : null}</span></div>
+            <div className="mt-1.5 h-7 overflow-hidden rounded-lg bg-slate-100"><div className="h-full rounded-lg bg-gradient-to-r from-cyan-600 to-emerald-500 transition-[width]" style={{ width: `${width}%` }} /></div>
+          </div>
+        );
+      })}
+    </figure>
+  );
+}
+
 function ProviderEvent({ event }: { event: DiagnosticEvent }) {
   const accepted = event.status === "accepted";
   return (
@@ -198,4 +299,3 @@ function ProviderEvent({ event }: { event: DiagnosticEvent }) {
 function formatPurpose(value: string) {
   return value.replaceAll("-", " ").replace(/\b\w/g, (character) => character.toUpperCase());
 }
-

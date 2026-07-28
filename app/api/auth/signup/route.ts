@@ -14,6 +14,7 @@ import { findSupabaseUserByPhone, phoneIdentityEmail } from "@/lib/auth/supabase
 import { isUsernameConflictError } from "@/lib/auth/username";
 import { assertTeacherPhoneNotBanned } from "@/lib/moderation/teacher-phone-ban";
 import { withTimeout } from "@/lib/server/with-timeout";
+import { updateSignupFunnel } from "@/lib/auth/signup-funnel";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -28,7 +29,8 @@ const studentSchema = z.object({
   displayName: z.string().trim().min(2).max(50),
   gender: z.enum(["male", "female"]),
   age: z.number().int().min(5).max(18),
-  grade: z.number().int().min(1).max(6)
+  grade: z.number().int().min(1).max(6),
+  signupSessionId: z.string().uuid().optional()
 });
 
 const teacherSchema = z.object({
@@ -38,7 +40,8 @@ const teacherSchema = z.object({
   password: z.string().min(8).max(72),
   displayName: z.string().trim().min(2).max(50),
   school: z.string().trim().min(2).max(100),
-  subjectsTaught: z.string().trim().min(2).max(80)
+  subjectsTaught: z.string().trim().min(2).max(80),
+  signupSessionId: z.string().uuid().optional()
 });
 
 export async function POST(request: Request) {
@@ -110,6 +113,14 @@ export async function POST(request: Request) {
         });
         throw new Error("Unable to finish creating the teacher account. Please try again.");
       }
+      if (input.signupSessionId) {
+        await updateSignupFunnel({
+          sessionId: input.signupSessionId,
+          role: "teacher",
+          step: 5,
+          event: "completed"
+        }).catch((funnelError) => console.error("Teacher signup completion tracking failed:", funnelError));
+      }
 
       const supabase = await createServerSupabaseClient();
       const signInResult = await withTimeout(
@@ -166,6 +177,14 @@ export async function POST(request: Request) {
       }, { status: 409 });
     }
     if (error || !data.user) throw new Error(error?.message || "Unable to create the account.");
+    if (input.signupSessionId) {
+      await updateSignupFunnel({
+        sessionId: input.signupSessionId,
+        role: "student",
+        step: 5,
+        event: "completed"
+      }).catch((funnelError) => console.error("Student signup completion tracking failed:", funnelError));
+    }
 
     const supabase = await createServerSupabaseClient();
     const { error: signInError } = await supabase.auth.signInWithPassword({

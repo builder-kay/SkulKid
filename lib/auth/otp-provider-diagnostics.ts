@@ -18,6 +18,7 @@ function safeError(error: unknown) {
 
 export async function logOtpProviderDiagnostic(input: {
   attemptId: string;
+  signupSessionId?: string;
   provider: OtpProvider;
   purpose: string;
   phone: string;
@@ -29,6 +30,7 @@ export async function logOtpProviderDiagnostic(input: {
   try {
     const { error } = await createAdminClient().from("OtpProviderDiagnostic").insert({
       attemptId: input.attemptId,
+      signupSessionId: input.signupSessionId || null,
       provider: input.provider,
       purpose: input.purpose,
       status: input.status,

@@ -46,7 +46,7 @@ function arkeselConfigured() {
   return Boolean(process.env.ARKESEL_API_KEY);
 }
 
-export async function sendOtp(recipient: string, reason: OtpSmsReason, actionUrl: string) {
+export async function sendOtp(recipient: string, reason: OtpSmsReason, actionUrl: string, signupSessionId?: string) {
   const attemptId = randomUUID();
   const runProvider = async <T extends { provider: OtpProvider; deliveryStatus?: string }>(
     provider: OtpProvider,
@@ -57,6 +57,7 @@ export async function sendOtp(recipient: string, reason: OtpSmsReason, actionUrl
       const result = await operation();
       await logOtpProviderDiagnostic({
         attemptId,
+        signupSessionId,
         provider,
         purpose: reason,
         phone: recipient,
@@ -68,6 +69,7 @@ export async function sendOtp(recipient: string, reason: OtpSmsReason, actionUrl
     } catch (error) {
       await logOtpProviderDiagnostic({
         attemptId,
+        signupSessionId,
         provider,
         purpose: reason,
         phone: recipient,

@@ -17,13 +17,32 @@ export async function GET(request: Request) {
 
     let query = admin
       .from("OtpProviderDiagnostic")
-      .select("id,attemptId,provider,purpose,status,maskedPhone,latencyMs,deliveryStatus,error,createdAt")
+      .select("id,attemptId,signupSessionId,provider,purpose,status,maskedPhone,latencyMs,deliveryStatus,error,createdAt")
       .order("createdAt", { ascending: false })
       .limit(200);
     if (provider !== "all") query = query.eq("provider", provider);
     if (status !== "all") query = query.eq("status", status);
-    const { data, error } = await query;
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60_000).toISOString();
+    const [
+      { data, error },
+      { data: signupSessions, error: funnelError },
+      { data: funnelProviderEvents, error: funnelProviderError }
+    ] = await Promise.all([
+      query,
+      admin.from("SignupFunnelSession")
+        .select("id,role,status,highestStep,otpRequestedAt,completedAt,abandonedAt,startedAt,lastSeenAt")
+        .gte("startedAt", thirtyDaysAgo)
+        .order("startedAt", { ascending: false })
+        .limit(5000),
+      admin.from("OtpProviderDiagnostic")
+        .select("attemptId,signupSessionId,status")
+        .not("signupSessionId", "is", null)
+        .gte("createdAt", thirtyDaysAgo)
+        .limit(15000)
+    ]);
     if (error) throw new Error(error.message);
+    if (funnelError) throw new Error(funnelError.message);
+    if (funnelProviderError) throw new Error(funnelProviderError.message);
 
     const events = data ?? [];
     const summary = ["clifze", "arkesel", "bms"].map((name) => {
@@ -40,10 +59,69 @@ export async function GET(request: Request) {
           : null
       };
     });
-    return NextResponse.json({ events, summary, generatedAt: new Date().toISOString() });
+    const now = Date.now();
+    const sessions = signupSessions ?? [];
+    const isStale = (session: { lastSeenAt: string }) => now - Date.parse(session.lastSeenAt) > 30 * 60_000;
+    const abandoned = sessions.filter((session) =>
+      session.status === "abandoned" || (session.status === "active" && isStale(session))
+    ).length;
+    const completed = sessions.filter((session) => session.status === "completed").length;
+    const otpStalled = sessions.filter((session) =>
+      session.otpRequestedAt && session.status !== "completed" && now - Date.parse(session.otpRequestedAt) > 15 * 60_000
+    ).length;
+    const funnelDiagnostics = funnelProviderEvents ?? [];
+    const failedAttemptIds = new Set(
+      [...new Set(funnelDiagnostics.map((event) => event.attemptId))]
+        .filter((attemptId) => {
+          const attemptEvents = funnelDiagnostics.filter((event) => event.attemptId === attemptId);
+          return attemptEvents.length > 0 && attemptEvents.every((event) => event.status === "rejected");
+        })
+    );
+    const providerFailedSessions = new Set(
+      funnelDiagnostics
+        .filter((event) => failedAttemptIds.has(event.attemptId) && event.signupSessionId)
+        .map((event) => event.signupSessionId)
+    ).size;
+    const funnel = {
+      periodDays: 30,
+      started: sessions.length,
+      steps: [1, 2, 3, 4, 5].map((step) => ({
+        step,
+        count: sessions.filter((session) => Number(session.highestStep) >= step).length
+      })),
+      otpRequested: sessions.filter((session) => Boolean(session.otpRequestedAt)).length,
+      completed,
+      abandoned,
+      active: sessions.length - completed - abandoned,
+      otpStalled,
+      providerFailedSessions,
+      completionRate: sessions.length ? Math.round((completed / sessions.length) * 100) : 0,
+      roles: ["student", "teacher"].map((role) => {
+        const roleSessions = sessions.filter((session) => session.role === role);
+        const roleCompleted = roleSessions.filter((session) => session.status === "completed").length;
+        return {
+          role,
+          started: roleSessions.length,
+          completed: roleCompleted,
+          completionRate: roleSessions.length ? Math.round((roleCompleted / roleSessions.length) * 100) : 0
+        };
+      }),
+      trend: Array.from({ length: 14 }, (_, offset) => {
+        const date = new Date(now - (13 - offset) * 24 * 60 * 60_000).toISOString().slice(0, 10);
+        const daySessions = sessions.filter((session) => session.startedAt.slice(0, 10) === date);
+        return {
+          date,
+          started: daySessions.length,
+          completed: daySessions.filter((session) => session.status === "completed").length,
+          abandoned: daySessions.filter((session) =>
+            session.status === "abandoned" || (session.status === "active" && isStale(session))
+          ).length
+        };
+      })
+    };
+    return NextResponse.json({ events, summary, funnel, generatedAt: new Date().toISOString() });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to load OTP diagnostics.";
     return NextResponse.json({ error: message }, { status: message.includes("required") ? 401 : 500 });
   }
 }
-

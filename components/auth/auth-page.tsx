@@ -81,6 +81,8 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
   const [learnerSignupStep, setLearnerSignupStep] = useState<1 | 2 | 3 | 4 | 5>(1);
   const [teacherSignupStep, setTeacherSignupStep] = useState<1 | 2 | 3 | 4 | 5>(1);
   const signupHeadingRef = useRef<HTMLHeadingElement>(null);
+  const signupSessionIdRef = useRef("");
+  const signupCompletedRef = useRef(false);
 
   const isTeacher = audience === "teacher";
   const isSignup = mode === "signup";
@@ -129,6 +131,48 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
   const signupStepCopy = isTeacher ? teacherStepCopy : learnerStepCopy;
 
   useEffect(() => {
+    if (!isSignup) return;
+    const storageKey = `skulkid-signup-session-${audience}`;
+    const existing = window.sessionStorage.getItem(storageKey);
+    const sessionId = existing || crypto.randomUUID();
+    signupSessionIdRef.current = sessionId;
+    window.sessionStorage.setItem(storageKey, sessionId);
+    void fetch("/api/auth/signup-funnel", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionId, role: audience, step: 1, event: "started" }),
+      keepalive: true
+    });
+    const recordAbandonment = () => {
+      if (signupCompletedRef.current) return;
+      navigator.sendBeacon(
+        "/api/auth/signup-funnel",
+        new Blob(
+          [JSON.stringify({ sessionId, role: audience, step: isSteppedSignup ? signupStep : step === "verify" ? 5 : 1, event: "abandoned" })],
+          { type: "application/json" }
+        )
+      );
+    };
+    window.addEventListener("pagehide", recordAbandonment);
+    return () => window.removeEventListener("pagehide", recordAbandonment);
+  }, [audience, isSignup, isSteppedSignup, signupStep, step]);
+
+  function trackSignupProgress(nextStep: number) {
+    if (!isSignup || !signupSessionIdRef.current) return;
+    void fetch("/api/auth/signup-funnel", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sessionId: signupSessionIdRef.current,
+        role: audience,
+        step: nextStep,
+        event: "progressed"
+      }),
+      keepalive: true
+    });
+  }
+
+  useEffect(() => {
     if (!isLearnerSteppedSignup) return;
     window.history.replaceState({ ...window.history.state, skulkidSignupStep: 1 }, "");
     const onPopState = (event: PopStateEvent) => {
@@ -168,6 +212,7 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
     setLearnerSignupStep(next);
     setError("");
     setSuggestedActions([]);
+    trackSignupProgress(next);
   }
 
   function previousLearnerSignupStep() {
@@ -179,6 +224,7 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
     setTeacherSignupStep(next);
     setError("");
     setSuggestedActions([]);
+    trackSignupProgress(next);
   }
 
   function previousTeacherSignupStep() {
@@ -233,15 +279,23 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
           if (password !== confirmPassword) {
             throw new Error("The passwords do not match. Please enter them again.");
           }
-          const delivery = await post("/api/auth/otp/send", { purpose: "signup", role: "teacher", phone });
+          const delivery = await post("/api/auth/otp/send", {
+            purpose: "signup",
+            role: "teacher",
+            phone,
+            signupSessionId: signupSessionIdRef.current
+          });
           setOtpShortcode(delivery.shortcode || "");
           advanceTeacherSignup(5);
           return;
         }
 
         const result = await post("/api/auth/signup", {
-          role: "teacher", phone, password, otp, displayName, school, subjectsTaught
+          role: "teacher", phone, password, otp, displayName, school, subjectsTaught,
+          signupSessionId: signupSessionIdRef.current
         });
+        signupCompletedRef.current = true;
+        window.sessionStorage.removeItem("skulkid-signup-session-teacher");
         if (result.requiresSignIn) {
           setSuccess(result.message || "Your teacher account is ready! Please sign in.");
           window.setTimeout(() => router.replace(`${loginPath}?created=success`), 1800);
@@ -302,14 +356,23 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
               "USERNAME_TAKEN"
             );
           }
-          const delivery = await post("/api/auth/otp/send", { purpose: "signup", role: "student", phone, phoneOwner });
+          const delivery = await post("/api/auth/otp/send", {
+            purpose: "signup",
+            role: "student",
+            phone,
+            phoneOwner,
+            signupSessionId: signupSessionIdRef.current
+          });
           setOtpShortcode(delivery.shortcode || "");
           advanceLearnerSignup(5);
           return;
         }
         const result = await post("/api/auth/signup", {
-          role: "student", phone, phoneOwner, username, password, otp, displayName, gender, age, grade
+          role: "student", phone, phoneOwner, username, password, otp, displayName, gender, age, grade,
+          signupSessionId: signupSessionIdRef.current
         });
+        signupCompletedRef.current = true;
+        window.sessionStorage.removeItem("skulkid-signup-session-student");
         if (result.requiresSignIn) {
           setSuccess(result.message || "Your account is ready! Please sign in with your username.");
           window.setTimeout(() => router.replace(`${loginPath}?created=success`), 1800);
@@ -378,8 +441,8 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
           return;
         }
         const delivery = await post("/api/auth/otp/send", isTeacher
-          ? { purpose: "signup", role: "teacher", phone }
-          : { purpose: "signup", role: "student", phone, phoneOwner });
+          ? { purpose: "signup", role: "teacher", phone, signupSessionId: signupSessionIdRef.current }
+          : { purpose: "signup", role: "student", phone, phoneOwner, signupSessionId: signupSessionIdRef.current });
         setOtpShortcode(delivery.shortcode || "");
         setStep("verify");
         return;
@@ -387,9 +450,11 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
 
       if (isSignup) {
         const payload = isTeacher
-          ? { role: "teacher", phone, password, otp, displayName, school, subjectsTaught }
-          : { role: "student", phone, phoneOwner, username, password, otp, displayName, gender, age, grade };
+          ? { role: "teacher", phone, password, otp, displayName, school, subjectsTaught, signupSessionId: signupSessionIdRef.current }
+          : { role: "student", phone, phoneOwner, username, password, otp, displayName, gender, age, grade, signupSessionId: signupSessionIdRef.current };
         const result = await post("/api/auth/signup", payload);
+        signupCompletedRef.current = true;
+        window.sessionStorage.removeItem(`skulkid-signup-session-${audience}`);
         if (result.requiresSignIn) {
           setSuccess(result.message || (isTeacher ? "Your teacher account is ready! Please sign in." : "Your account is ready! Please sign in with your username."));
           window.setTimeout(() => router.replace(`${loginPath}?created=success`), 1800);
