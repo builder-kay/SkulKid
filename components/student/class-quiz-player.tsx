@@ -8,6 +8,7 @@ import { StudentPageNav } from "@/components/student/student-page-nav";
 import { applyServerGameState } from "@/lib/gamification/student-game";
 import type { ClassQuizAttemptSummary } from "@/lib/classes/types";
 import type { GameState } from "@/lib/gamification/student-game";
+import type { StudentCelebrationInput } from "@/lib/gamification/student-celebration";
 
 type QuizPayload = {
   quiz: {
@@ -42,6 +43,7 @@ type SubmitResult = {
   canRetake: boolean;
   bestScore: number;
   gameState?: Partial<GameState>;
+  celebration?: StudentCelebrationInput;
   appliesToPlatform?: boolean;
   review?: Array<{questionId:string;prompt:string;correctAnswer:string;explanation:string}>;
 };
@@ -152,7 +154,7 @@ export function ClassQuizPlayer({ classId, quizId }: { classId: string; quizId: 
           }
         : current);
       if (data.gameState) {
-        applyServerGameState(data.gameState);
+        applyServerGameState(data.gameState, data.celebration);
       } else {
         const refreshed = await fetch("/api/student/game-state", { cache: "no-store" });
         if (refreshed.ok) {

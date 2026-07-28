@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { AvatarExpression } from "@/lib/student/student-profile";
 
 export type AvatarMotionMode = "static" | "idle" | "expressive";
-export type AvatarGesture = "none" | "wave";
+export type AvatarGesture = "none" | "wave" | "celebrate";
 
 const BLINK_MIN_MS = 3_000;
 const BLINK_MAX_MS = 7_000;
@@ -15,6 +15,7 @@ const WAVE_MAX_MS = 90_000;
 const MOOD_MIN_MS = 14_000;
 const MOOD_MAX_MS = 28_000;
 const WAVE_DURATION_MS = 2_200;
+const CELEBRATION_DURATION_MS = 3_200;
 const MOOD_DURATION_MS = 2_000;
 
 function randomBetween(minimum: number, maximum: number) {
@@ -27,10 +28,15 @@ function nextMood(baseExpression: AvatarExpression) {
   return choices[Math.floor(Math.random() * choices.length)] ?? "happy";
 }
 
-export function useAvatarMotion(mode: AvatarMotionMode, baseExpression: AvatarExpression) {
+export function useAvatarMotion(
+  mode: AvatarMotionMode,
+  baseExpression: AvatarExpression,
+  celebrationSignal?: string | number
+) {
   const elementRef = useRef<SVGSVGElement | null>(null);
   const gestureRef = useRef<AvatarGesture>("none");
   const manualTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastCelebrationSignalRef = useRef<string | number | undefined>(undefined);
   const [inViewport, setInViewport] = useState(true);
   const [pageVisible, setPageVisible] = useState(true);
   const [reducedMotion, setReducedMotion] = useState(false);
@@ -135,8 +141,10 @@ export function useAvatarMotion(mode: AvatarMotionMode, baseExpression: AvatarEx
         setGestureState("wave");
         setTemporaryExpression("happy");
         later(() => {
-          setGestureState("none");
-          setTemporaryExpression(null);
+          if (gestureRef.current === "wave") {
+            setGestureState("none");
+            setTemporaryExpression(null);
+          }
           schedule();
         }, WAVE_DURATION_MS);
       }, delay);
@@ -167,7 +175,7 @@ export function useAvatarMotion(mode: AvatarMotionMode, baseExpression: AvatarEx
       }
       setTemporaryExpression(nextMood(baseExpression));
       later(() => {
-        setTemporaryExpression(null);
+        if (gestureRef.current !== "celebrate") setTemporaryExpression(null);
         schedule();
       }, MOOD_DURATION_MS);
     }, randomBetween(MOOD_MIN_MS, MOOD_MAX_MS));
@@ -198,12 +206,35 @@ export function useAvatarMotion(mode: AvatarMotionMode, baseExpression: AvatarEx
     }, WAVE_DURATION_MS);
   }, [mode, reducedMotion, setGestureState]);
 
+  const triggerCelebration = useCallback(() => {
+    if (mode !== "expressive") return;
+    if (manualTimerRef.current) clearTimeout(manualTimerRef.current);
+    setTemporaryExpression("happy");
+    if (reducedMotion) {
+      setGestureState("none");
+      manualTimerRef.current = setTimeout(() => setTemporaryExpression(null), CELEBRATION_DURATION_MS);
+      return;
+    }
+    setGestureState("celebrate");
+    manualTimerRef.current = setTimeout(() => {
+      setGestureState("none");
+      setTemporaryExpression(null);
+    }, CELEBRATION_DURATION_MS);
+  }, [mode, reducedMotion, setGestureState]);
+
+  useEffect(() => {
+    if (celebrationSignal === undefined || celebrationSignal === lastCelebrationSignalRef.current) return;
+    lastCelebrationSignalRef.current = celebrationSignal;
+    triggerCelebration();
+  }, [celebrationSignal, triggerCelebration]);
+
   return {
     elementRef,
     blinking,
     gesture,
     expression: temporaryExpression ?? baseExpression,
     reducedMotion,
-    triggerWave
+    triggerWave,
+    triggerCelebration
   };
 }

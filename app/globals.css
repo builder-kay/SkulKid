@@ -310,6 +310,80 @@ input {
   }
 }
 
+@keyframes avatar-motion-celebrate-body {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  12% {
+    transform: translateY(-15px) rotate(-2deg);
+  }
+  24% {
+    transform: translateY(0) rotate(1deg);
+  }
+  38% {
+    transform: translateY(-11px) rotate(2deg);
+  }
+  52% {
+    transform: translateY(0) rotate(-1deg);
+  }
+  68% {
+    transform: translateY(-7px) rotate(1deg);
+  }
+}
+
+@keyframes avatar-motion-celebrate-arm {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  10%,
+  82% {
+    transform: rotate(-62deg);
+  }
+  30% {
+    transform: rotate(-72deg);
+  }
+  50% {
+    transform: rotate(-55deg);
+  }
+  70% {
+    transform: rotate(-72deg);
+  }
+}
+
+@keyframes avatar-motion-celebrate-forearm {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  12%,
+  84% {
+    transform: rotate(-96deg);
+  }
+  30%,
+  68% {
+    transform: rotate(-112deg);
+  }
+  50% {
+    transform: rotate(-82deg);
+  }
+}
+
+@keyframes avatar-motion-celebrate-shadow {
+  0%,
+  100% {
+    opacity: 0.13;
+    transform: scaleX(1);
+  }
+  12%,
+  38%,
+  68% {
+    opacity: 0.06;
+    transform: scaleX(0.7);
+  }
+}
+
 .avatar-motion-idle .avatar-motion-body {
   animation: avatar-motion-breathe 3.8s ease-in-out infinite;
   transform-box: fill-box;
@@ -352,11 +426,13 @@ input {
   transition: opacity 90ms linear;
 }
 
-[data-avatar-gesture="wave"] .avatar-motion-articulated-arm {
+[data-avatar-gesture="wave"] .avatar-motion-articulated-arm,
+[data-avatar-gesture="celebrate"] .avatar-motion-articulated-arm {
   opacity: 1;
 }
 
-[data-avatar-gesture="wave"] .avatar-motion-resting-wave-arm {
+[data-avatar-gesture="wave"] .avatar-motion-resting-wave-arm,
+[data-avatar-gesture="celebrate"] .avatar-motion-resting-wave-arm {
   opacity: 0;
 }
 
@@ -366,6 +442,86 @@ input {
 
 [data-avatar-gesture="wave"] .avatar-motion-wave-forearm {
   animation: avatar-motion-wave-forearm 2.2s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+[data-avatar-gesture="celebrate"] .avatar-motion-body {
+  animation: avatar-motion-celebrate-body 3.2s cubic-bezier(0.34, 1.35, 0.64, 1) both;
+}
+
+[data-avatar-gesture="celebrate"] .avatar-motion-wave-upper {
+  animation: avatar-motion-celebrate-arm 3.2s ease-in-out both;
+}
+
+[data-avatar-gesture="celebrate"] .avatar-motion-wave-forearm {
+  animation: avatar-motion-celebrate-forearm 3.2s ease-in-out both;
+}
+
+[data-avatar-gesture="celebrate"] .avatar-motion-shadow {
+  animation: avatar-motion-celebrate-shadow 3.2s ease-in-out both;
+}
+
+@keyframes student-celebration-fall {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, -8vh, 0) rotate(0deg);
+  }
+  10% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.85;
+    transform: translate3d(24px, 112vh, 0) rotate(calc(var(--celebration-rotation) + 720deg));
+  }
+}
+
+@keyframes student-celebration-card-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(22px) scale(0.86);
+  }
+  65% {
+    opacity: 1;
+    transform: translateY(-4px) scale(1.025);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes student-celebration-glow {
+  0%,
+  100% {
+    opacity: 0.58;
+  }
+  50% {
+    opacity: 0.88;
+  }
+}
+
+.student-celebration-glow {
+  animation: student-celebration-glow 1.4s ease-in-out infinite;
+  background:
+    radial-gradient(circle at 18% 24%, rgb(250 204 21 / 0.34) 0 3%, transparent 13%),
+    radial-gradient(circle at 82% 18%, rgb(34 211 238 / 0.3) 0 4%, transparent 15%),
+    radial-gradient(circle at 50% 82%, rgb(244 114 182 / 0.26) 0 5%, transparent 18%);
+}
+
+.student-celebration-confetti {
+  animation: student-celebration-fall var(--celebration-duration) linear var(--celebration-delay) both;
+  background: var(--celebration-colour);
+  height: calc(var(--celebration-size) * 1.55);
+  width: var(--celebration-size);
+}
+
+.student-celebration-confetti-star {
+  aspect-ratio: 1;
+  clip-path: polygon(50% 0%, 61% 35%, 100% 38%, 69% 59%, 79% 100%, 50% 75%, 21% 100%, 31% 59%, 0% 38%, 39% 35%);
+  height: var(--celebration-size);
+}
+
+.student-celebration-card {
+  animation: student-celebration-card-enter 420ms cubic-bezier(0.2, 1.25, 0.45, 1) both;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -388,11 +544,28 @@ input {
   .avatar-motion-idle .avatar-motion-head,
   .avatar-motion-idle .avatar-motion-shadow,
   [data-avatar-gesture="wave"] .avatar-motion-wave-upper,
-  [data-avatar-gesture="wave"] .avatar-motion-wave-forearm {
+  [data-avatar-gesture="wave"] .avatar-motion-wave-forearm,
+  [data-avatar-gesture="celebrate"] .avatar-motion-body,
+  [data-avatar-gesture="celebrate"] .avatar-motion-wave-upper,
+  [data-avatar-gesture="celebrate"] .avatar-motion-wave-forearm,
+  [data-avatar-gesture="celebrate"] .avatar-motion-shadow {
     animation: none !important;
   }
 
   .avatar-motion-eye {
     transition: none !important;
+  }
+
+  .student-celebration-confetti {
+    display: none;
+  }
+
+  .student-celebration-card,
+  .student-celebration-glow {
+    animation: none !important;
+  }
+
+  .student-celebration-glow {
+    opacity: 0.75;
   }
 }

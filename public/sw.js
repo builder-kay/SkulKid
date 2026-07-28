@@ -1,4 +1,4 @@
-const CACHE_VERSION = "skulkid-static-v1";
+const CACHE_VERSION = "skulkid-static-v2";
 const OFFLINE_PAGE = "/offline.html";
 const PRECACHE = [
   OFFLINE_PAGE,
@@ -9,11 +9,16 @@ const PRECACHE = [
   "/pwa/maskable-512.png",
   "/pwa/apple-touch-icon.png"
 ];
+const OPTIONAL_PRECACHE = [
+  "/audio/student-celebration.mp3"
+];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_VERSION)
       .then((cache) => cache.addAll(PRECACHE))
+      .then(() => caches.open(CACHE_VERSION))
+      .then((cache) => Promise.allSettled(OPTIONAL_PRECACHE.map((asset) => cache.add(asset))))
       .then(() => self.skipWaiting())
   );
 });
@@ -58,7 +63,8 @@ self.addEventListener("fetch", (event) => {
     || url.pathname.startsWith("/brand/")
     || url.pathname.startsWith("/pwa/")
     || url.pathname.startsWith("/placeholders/")
-    || ["style", "script", "font", "image"].includes(request.destination);
+    || url.pathname.startsWith("/audio/")
+    || ["style", "script", "font", "image", "audio"].includes(request.destination);
 
   if (!cacheableStaticAsset) return;
 

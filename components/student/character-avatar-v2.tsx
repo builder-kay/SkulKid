@@ -14,6 +14,7 @@ type Props = {
   animated?: boolean;
   motion?: AvatarMotionMode;
   interactive?: boolean;
+  celebrationSignal?: string | number;
 };
 
 /**
@@ -28,12 +29,13 @@ export function CharacterAvatar({
   animated,
   motion,
   interactive = false,
+  celebrationSignal,
 }: Props) {
   const uid = useId().replace(/:/g, "");
   const motionMode: AvatarMotionMode = animated === false
     ? "static"
     : motion ?? (animated === true ? "idle" : "static");
-  const avatarMotion = useAvatarMotion(motionMode, avatar.expression ?? "classic");
+  const avatarMotion = useAvatarMotion(motionMode, avatar.expression ?? "classic", celebrationSignal);
   const asset = (category: AvatarAssetCategory) =>
     avatarShopAssets.find((item) => item.id === avatar.equippedPremium[category]);
   const shirt = asset("shirt");

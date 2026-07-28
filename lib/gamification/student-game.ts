@@ -1,6 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  dispatchStudentCelebration,
+  type StudentCelebrationInput
+} from "@/lib/gamification/student-celebration";
 
 export const gameChangedEvent = "skulkid:student-game-changed";
 export const DAILY_LEARNING_XP_GOAL = 30;
@@ -36,7 +40,12 @@ export async function readGameState(): Promise<GameState> {
 }
 
 /** Hydrate client progress from a server-authored state (e.g. after a class quiz). */
-export function applyServerGameState(saved: Partial<GameState> | Record<string, unknown> | null | undefined): GameState {
+export function applyServerGameState(
+  saved: Partial<GameState> | Record<string, unknown> | null | undefined,
+  celebration?: StudentCelebrationInput
+): GameState {
+  const previousState = currentGameState;
+  const wasHydrated = gameStateHydrated;
   const state = { ...initialState, ...(saved ?? {}) } as GameState;
   if (!Array.isArray(state.completedVideoPromptIds)) state.completedVideoPromptIds = [];
   if (!Array.isArray(state.unlockedAvatarAssetIds)) state.unlockedAvatarAssetIds = [];
@@ -58,6 +67,15 @@ export function applyServerGameState(saved: Partial<GameState> | Record<string, 
     : state;
   gameStateHydrated = true;
   window.dispatchEvent(new CustomEvent(gameChangedEvent, { detail: currentGameState }));
+  if (celebration) {
+    dispatchStudentCelebration({
+      ...celebration,
+      achievements: [
+        ...(celebration.achievements ?? []),
+        ...(wasHydrated ? newlyEarnedAchievements(previousState, currentGameState) : [])
+      ]
+    });
+  }
   return currentGameState;
 }
 function save(state: GameState) {
@@ -101,6 +119,26 @@ export function achievementsFor(state: GameState): Achievement[] {
   ];
 }
 
+function newlyEarnedAchievements(previous: GameState, next: GameState) {
+  const previouslyEarned = new Set(
+    achievementsFor(previous).filter((achievement) => achievement.earned).map((achievement) => achievement.id)
+  );
+  return achievementsFor(next)
+    .filter((achievement) => achievement.earned && !previouslyEarned.has(achievement.id))
+    .map(({ earned: _earned, ...achievement }) => achievement);
+}
+
+function celebrateReward(
+  previous: GameState,
+  next: GameState,
+  input: Omit<StudentCelebrationInput, "achievements">
+) {
+  dispatchStudentCelebration({
+    ...input,
+    achievements: newlyEarnedAchievements(previous, next)
+  });
+}
+
 export function useStudentGame() {
   const [state, setState] = useState(initialState);
   useEffect(() => { const refresh = (event?: Event) => { const next = (event as CustomEvent<GameState> | undefined)?.detail; if (next) setState(next); else void readGameState().then(setState); }; refresh(); window.addEventListener(gameChangedEvent, refresh); return () => { window.removeEventListener(gameChangedEvent, refresh); }; }, []);
@@ -110,7 +148,17 @@ export function useStudentGame() {
     const surprise = Math.random() < 0.35; const bonusXp = surprise ? 25 : 0;
     let next = addLearningXp({ ...current, completedLessonIds: [...current.completedLessonIds, lessonId], surpriseCount: current.surpriseCount + (surprise ? 1 : 0), lastReward: { title: surprise ? "Mystery bonus unlocked!" : "Lesson complete!", detail: surprise ? "You found a hidden 25 XP bonus." : "Your lesson completion reward is ready.", xp: baseXp + bonusXp, stars: 0 } }, baseXp + bonusXp);
     next = withHistory(next, { type: "lesson", title: surprise ? "Lesson completed with a mystery bonus" : "Lesson completed", detail: `Earned ${baseXp + bonusXp} XP.`, xp: baseXp + bonusXp, stars: 0 });
-    save(next); return next;
+    save(next);
+    celebrateReward(current, next, {
+      id: next.history[0].id,
+      source: "lesson",
+      title: next.lastReward?.title ?? "Lesson complete!",
+      detail: next.lastReward?.detail ?? "Your lesson reward is ready.",
+      xp: baseXp + bonusXp,
+      stars: 0,
+      createdAt: next.history[0].createdAt
+    });
+    return next;
   }, []);
 
   const submitQuiz = useCallback((lessonId: string, answers: QuizAnswerResult[], passingScore: number, masteryScore: number) => {
@@ -127,7 +175,17 @@ export function useStudentGame() {
     const record = { bestScore: Math.max(previous.bestScore, score), stars: Math.max(previous.stars, earnedStars), passed: previous.passed || passed, rewardedQuestionIds: [...new Set([...previous.rewardedQuestionIds, ...newCorrect.map((answer) => answer.blockId)])], perfectBonusClaimed: previous.perfectBonusClaimed || score === 100 };
     let next = addLearningXp({ ...current, stars: current.stars + starIncrease, quizRecords: { ...current.quizRecords, [lessonId]: record }, lastReward: { title: passed ? "Quiz passed!" : "Keep practising", detail: passed ? `${score}% earned ${earnedStars} star${earnedStars === 1 ? "" : "s"}.` : `${score}%—reach ${passingScore}% to pass.`, xp: totalXp, stars: starIncrease } }, totalXp);
     next = withHistory(next, { type: "quiz", title: passed ? "Quiz passed" : "Quiz attempted", detail: `${score}% score · ${earnedStars} star${earnedStars === 1 ? "" : "s"}.`, xp: totalXp, stars: starIncrease });
-    save(next); return { state: next, score, passed, earnedStars, earnedXp: totalXp };
+    save(next);
+    celebrateReward(current, next, {
+      id: next.history[0].id,
+      source: "lesson_quiz",
+      title: passed ? "Quiz passed!" : "Practice reward earned!",
+      detail: passed ? `${score}% earned a new quiz reward.` : "Your practice earned new XP.",
+      xp: totalXp,
+      stars: starIncrease,
+      createdAt: next.history[0].createdAt
+    });
+    return { state: next, score, passed, earnedStars, earnedXp: totalXp };
   }, []);
 
   const completeVideoPrompt = useCallback((blockId: string, xp: number) => {
@@ -136,7 +194,17 @@ export function useStudentGame() {
     const rewardXp = Math.min(50, Math.max(1, Math.round(xp)));
     let next = addLearningXp({ ...current, completedVideoPromptIds: [...current.completedVideoPromptIds, blockId], lastReward: { title: "Video participation bonus!", detail: "You reflected on what you watched.", xp: rewardXp, stars: 0 } }, rewardXp);
     next = withHistory(next, { type: "lesson", title: "Video participation completed", detail: `Earned ${rewardXp} XP for a video quick check.`, xp: rewardXp, stars: 0 });
-    save(next); return next;
+    save(next);
+    celebrateReward(current, next, {
+      id: next.history[0].id,
+      source: "video",
+      title: "Video participation bonus!",
+      detail: "You reflected on what you watched.",
+      xp: rewardXp,
+      stars: 0,
+      createdAt: next.history[0].createdAt
+    });
+    return next;
   }, []);
 
   const redeemAvatarAsset = useCallback((assetId: string, cost: number) => {
@@ -150,7 +218,18 @@ export function useStudentGame() {
     const current = currentGameState; const today = localDate();
     if (current.claimedDailyReward === today || current.dailyLearningDate !== today || current.dailyLearningXp < DAILY_LEARNING_XP_GOAL) return current;
     const roll = Math.random(); const rewardXp = roll < .05 ? 50 : roll < .25 ? 30 : roll < .65 ? 20 : 10;
-    const next = withHistory({ ...current, xp: current.xp + rewardXp, avatarPoints: current.avatarPoints + rewardXp, claimedDailyReward: today, lastReward: { title: "Daily gift opened!", detail: `You discovered ${rewardXp} bonus XP.`, xp: rewardXp, stars: 0 } }, { type: "gift", title: "Daily mystery gift opened", detail: `Discovered ${rewardXp} XP and Avatar Points.`, xp: rewardXp, stars: 0 }); save(next); return next;
+    const next = withHistory({ ...current, xp: current.xp + rewardXp, avatarPoints: current.avatarPoints + rewardXp, claimedDailyReward: today, lastReward: { title: "Daily gift opened!", detail: `You discovered ${rewardXp} bonus XP.`, xp: rewardXp, stars: 0 } }, { type: "gift", title: "Daily mystery gift opened", detail: `Discovered ${rewardXp} XP and Avatar Points.`, xp: rewardXp, stars: 0 });
+    save(next);
+    celebrateReward(current, next, {
+      id: next.history[0].id,
+      source: "daily_gift",
+      title: "Daily gift opened!",
+      detail: `You discovered ${rewardXp} bonus XP.`,
+      xp: rewardXp,
+      stars: 0,
+      createdAt: next.history[0].createdAt
+    });
+    return next;
   }, []);
 
   const today = localDate(); const dailyLearningXp = state.dailyLearningDate === today ? state.dailyLearningXp : 0;

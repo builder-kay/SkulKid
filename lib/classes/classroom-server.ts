@@ -1460,6 +1460,12 @@ export async function submitClassQuiz(input: {
     }
 
     const nextXp = Number(state.xp) + xpAwarded;
+    const rewardEventId = `history-class-quiz-${input.quizId}-${attemptNumber}`;
+    const rewardCreatedAt = new Date().toISOString();
+    const rewardTitle = passed ? "Class quiz passed!" : "Class quiz reward earned!";
+    const rewardDetail = passed
+      ? `You scored ${scorePercentage}% on ${quiz.title as string}.`
+      : `Your practice on ${quiz.title as string} earned a new reward.`;
     const nextState = {
       ...state,
       xp: nextXp,
@@ -1470,21 +1476,21 @@ export async function submitClassQuiz(input: {
       dailyLearningDate: today,
       dailyLearningXp: dailyXp,
       lastReward: {
-        title: passed ? "Class quiz passed!" : "Class quiz complete",
+        title: rewardTitle,
         detail: `You scored ${scorePercentage}% on ${quiz.title as string}. These points count on the whole platform.`,
         xp: xpAwarded,
         stars: starsAwarded
       },
       history: [
         {
-          id: `history-class-quiz-${input.quizId}-${attemptNumber}`,
+          id: rewardEventId,
           type: "quiz",
           title: passed ? "Passed a class quiz" : "Finished a class quiz",
           detail: `${quiz.title as string} · ${scorePercentage}% · counts toward platform XP`,
           xp: xpAwarded,
           stars: starsAwarded,
           rank: 1,
-          createdAt: new Date().toISOString()
+          createdAt: rewardCreatedAt
         },
         ...(Array.isArray(state.history) ? state.history : [])
       ]
@@ -1514,8 +1520,17 @@ export async function submitClassQuiz(input: {
       canRetake,
       bestScore,
       gameState: nextState,
-      appliesToPlatform: true as const
-      ,review
+      appliesToPlatform: true as const,
+      celebration: {
+        id: rewardEventId,
+        source: "class_quiz" as const,
+        title: rewardTitle,
+        detail: rewardDetail,
+        xp: xpAwarded,
+        stars: starsAwarded,
+        createdAt: rewardCreatedAt
+      },
+      review
     };
   }
 

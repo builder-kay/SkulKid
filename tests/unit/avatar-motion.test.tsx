@@ -92,6 +92,22 @@ describe("expressive avatar motion", () => {
     expect(avatar).toHaveAttribute("data-avatar-gesture", "wave");
   });
 
+  it("runs a controlled celebration and restores the saved face", () => {
+    const { container, rerender } = render(
+      <CharacterAvatar avatar={{ ...defaultAvatar, expression: "smirk" }} celebrationSignal="reward-1" label="Learner" motion="expressive" />
+    );
+    const avatar = container.querySelector("svg");
+    expect(avatar).toHaveAttribute("data-avatar-gesture", "celebrate");
+    expect(avatar).toHaveAttribute("data-avatar-expression", "happy");
+
+    rerender(
+      <CharacterAvatar avatar={{ ...defaultAvatar, expression: "smirk" }} celebrationSignal="reward-1" label="Learner" motion="expressive" />
+    );
+    act(() => vi.advanceTimersByTime(3_200));
+    expect(avatar).toHaveAttribute("data-avatar-gesture", "none");
+    expect(avatar).toHaveAttribute("data-avatar-expression", "smirk");
+  });
+
   it("disables automatic movement when reduced motion is requested", () => {
     Object.defineProperty(window, "matchMedia", {
       configurable: true,
