@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { Children, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
   BookOpen,
   CalendarClock,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   ClipboardList,
   Clock3,
   Loader2,
@@ -186,9 +188,9 @@ export function DashboardClassActivity() {
           </div>
 
           {activity.quizzes.length ? (
-            <div className="divide-y divide-slate-100">
-              {activity.quizzes.slice(0, 4).map((quiz) => <QuizShortcut key={quiz.id} quiz={quiz} />)}
-            </div>
+            <ActivityCarousel label="Quiz challenges">
+              {activity.quizzes.map((quiz) => <QuizShortcut key={quiz.id} quiz={quiz} />)}
+            </ActivityCarousel>
           ) : (
             <ActivityEmpty
               icon={CheckCircle2}
@@ -213,28 +215,11 @@ export function DashboardClassActivity() {
           </div>
 
           {activity.subjects.length ? (
-            <div className="divide-y divide-slate-100">
-              {activity.subjects.slice(0, 4).map((subject) => (
-                <Link
-                  className="group flex min-h-20 items-center gap-3 px-5 py-3 transition hover:bg-emerald-50/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500"
-                  href={subject.courseSlug ? `/courses/${subject.courseSlug}?classId=${encodeURIComponent(subject.classId)}` : `/classes/${subject.classId}`}
-                  key={subject.id}
-                >
-                  <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-emerald-100 font-black text-emerald-800">
-                    {subject.courseName.charAt(0).toUpperCase()}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="flex flex-wrap items-center gap-2">
-                      <span className="truncate font-black text-text-primary">{subject.courseName}</span>
-                      {subject.isClassOnly ? <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[0.65rem] font-black text-violet-800">Class-only</span> : null}
-                    </span>
-                    <span className="block truncate text-xs font-bold text-text-secondary">{subject.className}</span>
-                    {subject.note ? <span className="mt-0.5 block truncate text-xs text-slate-500">{subject.note}</span> : null}
-                  </span>
-                  <ArrowRight aria-hidden="true" className="size-4 shrink-0 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-emerald-700" />
-                </Link>
+            <ActivityCarousel label="Class subjects">
+              {activity.subjects.map((subject) => (
+                <SubjectShortcut key={subject.id} subject={subject} />
               ))}
-            </div>
+            </ActivityCarousel>
           ) : (
             <ActivityEmpty
               icon={BookOpen}
@@ -261,22 +246,174 @@ function QuizShortcut({ quiz }: { quiz: StudentDashboardActivity["quizzes"][numb
 
   return (
     <Link
-      className="group flex min-h-24 items-center gap-3 px-5 py-3 transition hover:bg-indigo-50/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500"
+      className="group block min-h-60 rounded-2xl border border-indigo-100 bg-gradient-to-br from-white to-indigo-50/70 p-5 transition hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
       href={href}
     >
-      <span className={`grid size-10 shrink-0 place-items-center rounded-xl ${completed ? "bg-emerald-100 text-emerald-700" : upcoming ? "bg-sky-100 text-sky-700" : "bg-amber-100 text-amber-800"}`}>
-        {completed ? <CheckCircle2 aria-hidden="true" className="size-5" /> : upcoming ? <CalendarClock aria-hidden="true" className="size-5" /> : <Star aria-hidden="true" className="size-5" />}
+      <span className="flex items-start justify-between gap-3">
+        <span className={`grid size-11 shrink-0 place-items-center rounded-2xl ${completed ? "bg-emerald-100 text-emerald-700" : upcoming ? "bg-sky-100 text-sky-700" : "bg-amber-100 text-amber-800"}`}>
+          {completed ? <CheckCircle2 aria-hidden="true" className="size-5" /> : upcoming ? <CalendarClock aria-hidden="true" className="size-5" /> : <Star aria-hidden="true" className="size-5" />}
+        </span>
+        <span className={`rounded-full px-3 py-1 text-[0.68rem] font-black uppercase tracking-wide ${completed ? "bg-emerald-100 text-emerald-800" : upcoming ? "bg-sky-100 text-sky-800" : "bg-amber-100 text-amber-900"}`}>
+          {completed ? "Completed" : upcoming ? "Coming soon" : "Ready now"}
+        </span>
       </span>
-      <span className="min-w-0 flex-1">
-        <span className="block truncate font-black text-text-primary">{quiz.title}</span>
-        <span className="block truncate text-xs font-bold text-text-secondary">{quiz.className} · {quiz.questionCount} questions · {quiz.baseXpReward} XP</span>
-        <span className={`mt-1 block text-xs font-black ${upcoming ? "text-sky-700" : completed ? "text-emerald-700" : "text-amber-800"}`}>{timeLabel}</span>
+      <span className="mt-4 block">
+        <span className="line-clamp-2 text-xl font-black leading-7 text-text-primary">{quiz.title}</span>
+        <span className="mt-1 block truncate text-sm font-bold text-text-secondary">{quiz.className}</span>
       </span>
-      <span className="hidden shrink-0 items-center gap-1 text-xs font-black text-indigo-700 sm:inline-flex">
-        {action}
+      <span className="mt-4 grid grid-cols-2 gap-2 text-center">
+        <span className="rounded-xl bg-white px-3 py-2 ring-1 ring-indigo-100">
+          <strong className="block text-lg font-black text-indigo-800">{quiz.questionCount}</strong>
+          <span className="text-[0.68rem] font-black uppercase text-slate-500">Questions</span>
+        </span>
+        <span className="rounded-xl bg-white px-3 py-2 ring-1 ring-indigo-100">
+          <strong className="block text-lg font-black text-indigo-800">{quiz.baseXpReward}</strong>
+          <span className="text-[0.68rem] font-black uppercase text-slate-500">XP reward</span>
+        </span>
+      </span>
+      <span className="mt-4 flex items-center justify-between gap-3">
+        <span className={`text-xs font-black ${upcoming ? "text-sky-700" : completed ? "text-emerald-700" : "text-amber-800"}`}>{timeLabel}</span>
+        <span className="inline-flex shrink-0 items-center gap-1 rounded-xl bg-indigo-700 px-3 py-2 text-xs font-black text-white">
+          {action}
+          <ArrowRight aria-hidden="true" className="size-4 transition group-hover:translate-x-0.5" />
+        </span>
+      </span>
+    </Link>
+  );
+}
+
+function SubjectShortcut({ subject }: { subject: StudentDashboardActivity["subjects"][number] }) {
+  const href = subject.courseSlug
+    ? `/courses/${subject.courseSlug}?classId=${encodeURIComponent(subject.classId)}`
+    : `/classes/${subject.classId}`;
+
+  return (
+    <Link
+      className="group block min-h-60 rounded-2xl border border-emerald-100 bg-gradient-to-br from-white to-emerald-50/70 p-5 transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+      href={href}
+    >
+      <span className="flex items-start justify-between gap-3">
+        <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-emerald-600 text-xl font-black text-white shadow-sm">
+          {subject.courseName.charAt(0).toUpperCase()}
+        </span>
+        <span className={`rounded-full px-3 py-1 text-[0.68rem] font-black uppercase tracking-wide ${subject.isClassOnly ? "bg-violet-100 text-violet-800" : "bg-emerald-100 text-emerald-800"}`}>
+          {subject.isClassOnly ? "My class only" : "Class learning"}
+        </span>
+      </span>
+      <span className="mt-5 block">
+        <span className="line-clamp-2 text-xl font-black leading-7 text-text-primary">{subject.courseName}</span>
+        <span className="mt-2 inline-flex items-center gap-2 text-sm font-bold text-text-secondary">
+          <School aria-hidden="true" className="size-4 text-emerald-700" />
+          {subject.className}
+        </span>
+      </span>
+      <span className="mt-5 block rounded-2xl bg-white p-3 text-sm leading-6 text-slate-600 ring-1 ring-emerald-100">
+        Continue with the lessons your teacher picked for this class.
+      </span>
+      <span className="mt-4 inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-black text-white">
+        Open subject
         <ArrowRight aria-hidden="true" className="size-4 transition group-hover:translate-x-0.5" />
       </span>
     </Link>
+  );
+}
+
+function ActivityCarousel({ label, children }: { label: string; children: React.ReactNode }) {
+  const slides = Children.toArray(children);
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const [current, setCurrent] = useState(0);
+
+  function moveTo(index: number) {
+    const next = Math.max(0, Math.min(slides.length - 1, index));
+    const viewport = viewportRef.current;
+    const track = viewport?.firstElementChild as HTMLElement | null;
+    const slide = track?.children.item(next) as HTMLElement | null;
+    if (!viewport || !slide) return;
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    viewport.scrollTo({ left: slide.offsetLeft, behavior: reducedMotion ? "auto" : "smooth" });
+    setCurrent(next);
+  }
+
+  function updateCurrentFromScroll() {
+    const viewport = viewportRef.current;
+    const track = viewport?.firstElementChild as HTMLElement | null;
+    if (!viewport || !track) return;
+    const slideElements = Array.from(track.children) as HTMLElement[];
+    let closest = 0;
+    let distance = Number.POSITIVE_INFINITY;
+    for (const [index, slide] of slideElements.entries()) {
+      const nextDistance = Math.abs(slide.offsetLeft - viewport.scrollLeft);
+      if (nextDistance < distance) {
+        distance = nextDistance;
+        closest = index;
+      }
+    }
+    setCurrent(closest);
+  }
+
+  return (
+    <div className="p-4 sm:p-5">
+      <div
+        aria-label={label}
+        aria-roledescription="carousel"
+        className="overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        onScroll={updateCurrentFromScroll}
+        ref={viewportRef}
+        role="region"
+      >
+        <div className="flex snap-x snap-mandatory gap-3">
+          {slides.map((slide, index) => (
+            <div
+              aria-label={`${index + 1} of ${slides.length}`}
+              aria-roledescription="slide"
+              className="min-w-full snap-start"
+              key={index}
+              role="group"
+            >
+              {slide}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {slides.length > 1 ? (
+        <div className="mt-4 flex items-center justify-between gap-3">
+          <button
+            aria-label={`Previous ${label.toLowerCase()}`}
+            className="grid size-11 place-items-center rounded-xl border border-slate-200 bg-white text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+            disabled={current === 0}
+            onClick={() => moveTo(current - 1)}
+            type="button"
+          >
+            <ChevronLeft aria-hidden="true" className="size-5" />
+          </button>
+
+          <div className="flex min-w-0 items-center gap-3">
+            <span aria-live="polite" className="text-xs font-black text-slate-600">
+              {current + 1} of {slides.length}
+            </span>
+            <span aria-hidden="true" className="flex max-w-32 gap-1.5 overflow-hidden">
+              {slides.map((_, index) => (
+                <span
+                  className={`h-2 rounded-full transition-all ${index === current ? "w-5 bg-sky-600" : "w-2 bg-slate-300"}`}
+                  key={index}
+                />
+              ))}
+            </span>
+          </div>
+
+          <button
+            aria-label={`Next ${label.toLowerCase()}`}
+            className="grid size-11 place-items-center rounded-xl border border-slate-200 bg-white text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+            disabled={current === slides.length - 1}
+            onClick={() => moveTo(current + 1)}
+            type="button"
+          >
+            <ChevronRight aria-hidden="true" className="size-5" />
+          </button>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
