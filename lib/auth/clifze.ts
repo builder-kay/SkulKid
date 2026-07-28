@@ -1,6 +1,8 @@
 import "server-only";
 import { otpSmsMessage, type OtpSmsReason } from "@/lib/auth/sms-links";
 import { sendArkeselOtp, sendArkeselSms, verifyArkeselOtp } from "@/lib/auth/arkesel";
+import { bmsConfigured, sendBmsOtp } from "@/lib/auth/bms";
+import { createFallbackOtp, verifyFallbackOtp } from "@/lib/auth/otp-challenge";
 
 const baseUrl = "https://clifze.shop/api/v1";
 const requestTimeoutMs = 8_000;
@@ -40,24 +42,43 @@ function arkeselConfigured() {
 }
 
 export async function sendOtp(recipient: string, reason: OtpSmsReason, actionUrl: string) {
+  const sends: Promise<{ provider: string; shortcode?: string }>[] = [
+    request("/otp/send", { recipient, message: otpSmsMessage(reason, actionUrl), expiry: "10" })
+      .then(() => ({ provider: "clifze" }))
+  ];
   if (arkeselConfigured()) {
-    try {
-      return await sendArkeselOtp(recipient, reason, actionUrl);
-    } catch (primaryError) {
-      try {
-        await request("/otp/send", { recipient, message: otpSmsMessage(reason, actionUrl), expiry: "10" });
-        return { provider: "clifze" as const, shortcode: undefined };
-      } catch (backupError) {
-        throw new AggregateError([primaryError, backupError], "Neither SMS provider could send the verification code.");
-      }
-    }
+    sends.push(sendArkeselOtp(recipient, reason, actionUrl));
+  }
+  if (bmsConfigured()) {
+    sends.push(
+      createFallbackOtp(recipient).then((code) =>
+        sendBmsOtp(recipient, otpSmsMessage(reason, actionUrl).replace("[otp]", code))
+      )
+    );
   }
 
-  await request("/otp/send", { recipient, message: otpSmsMessage(reason, actionUrl), expiry: "10" });
-  return { provider: "clifze" as const, shortcode: undefined };
+  const results = await Promise.allSettled(sends);
+  const successful = results
+    .filter((result): result is PromiseFulfilledResult<{ provider: string; shortcode?: string }> => result.status === "fulfilled")
+    .map((result) => result.value);
+  if (successful.length === 0) {
+    throw new AggregateError(
+      results.filter((result) => result.status === "rejected").map((result) => result.reason),
+      "No SMS provider could send the verification code."
+    );
+  }
+  return {
+    providers: successful.map((result) => result.provider),
+    shortcode: successful.find((result) => result.shortcode)?.shortcode
+  };
 }
 
 export async function verifyOtp(recipient: string, otpCode: string) {
+  try {
+    if (await verifyFallbackOtp(recipient, otpCode)) return { provider: "bms" as const };
+  } catch {
+    // BMS fallback storage may be unavailable while provider-managed OTPs still work.
+  }
   let primaryError: unknown;
   try {
     await request("/otp/verify", { recipient, otp_code: otpCode });

@@ -45,12 +45,12 @@ ARKESEL_SENDER_ID="SkulKid"
 
 ## Authentication
 
-Student accounts use Supabase Auth with a phone number and password. When Arkesel is configured, it sends the six-digit code used to confirm signup and password resets so the verification screen can also display its returned USSD shortcode. Clifze remains the automatic fallback if Arkesel cannot send the code.
+Student accounts use Supabase Auth with a phone number and password. OTP requests fan out concurrently to all configured providers (Clifze, Arkesel, and BMS) so a delayed provider does not block delivery. Codes issued by any provider are accepted; Arkesel's returned USSD shortcode is also displayed on the verification screen. BMS campaign IDs support asynchronous delivery reporting through its API.
 
 1. Create a Supabase project and copy `.env.example` to `.env.local`.
 2. Add the Supabase URL, publishable key and service-role key.
 3. Enable the Phone provider in Supabase Authentication. Supabase does not send the verification message in this application; Clifze does.
-4. Add the Clifze API key, the Arkesel main SMS API key, and approved sender IDs. Arkesel OTP does not accept a multiple/sub-account API key. Never prefix either secret with `NEXT_PUBLIC_`.
+4. Add the Clifze API key, the Arkesel main SMS API key, the BMS API key, approved sender IDs, and a strong random `OTP_HMAC_SECRET`. Arkesel OTP does not accept a multiple/sub-account API key. Never prefix these secrets with `NEXT_PUBLIC_`.
 5. Run the SQL files in `supabase/migrations` using the Supabase SQL Editor.
 6. Start the app.
 
