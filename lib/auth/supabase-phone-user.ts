@@ -1,6 +1,7 @@
 import "server-only";
 import type { User } from "@supabase/supabase-js";
 import { normalizeGhanaPhone } from "@/lib/auth/phone";
+import { withTimeout } from "@/lib/server/with-timeout";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export function phoneIdentityEmail(phone: string) {
@@ -20,7 +21,11 @@ export async function findSupabaseUserByPhone(phoneInput: string) {
   const phone = normalizeGhanaPhone(phoneInput);
   const admin = createAdminClient();
   for (let page = 1; page <= 20; page += 1) {
-    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 100 });
+    const { data, error } = await withTimeout(
+      admin.auth.admin.listUsers({ page, perPage: 100 }),
+      6_000,
+      "The account lookup took too long. Please try again."
+    );
     if (error) throw error;
     const user = data.users.find((candidate) => samePhone(candidate, phone));
     if (user) return user;

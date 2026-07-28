@@ -13,6 +13,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { findSupabaseUserByPhone, phoneIdentityEmail } from "@/lib/auth/supabase-phone-user";
 import { isUsernameConflictError } from "@/lib/auth/username";
 import { assertTeacherPhoneNotBanned } from "@/lib/moderation/teacher-phone-ban";
+import { withTimeout } from "@/lib/server/with-timeout";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -59,41 +60,69 @@ export async function POST(request: Request) {
     const admin = createAdminClient();
 
     if (input.role === "teacher") {
-      await assertTeacherPhoneNotBanned(phone);
-      if (await findSupabaseUserByPhone(phone)) {
+      const [, existingTeacher] = await Promise.all([
+        assertTeacherPhoneNotBanned(phone),
+        findSupabaseUserByPhone(phone)
+      ]);
+      if (existingTeacher) {
         throw new Error("An account already exists for this phone number. Please sign in or reset the password.");
       }
-      const { data, error } = await admin.auth.admin.createUser({
-        email: phoneIdentityEmail(phone),
-        password: input.password,
-        email_confirm: true,
-        user_metadata: {
-          display_name: input.displayName,
-          school: input.school,
-          subjects_taught: input.subjectsTaught,
-          phone_e164: phone,
-          account_type: "teacher"
-        },
-        app_metadata: { role: "teacher" }
-      });
+      const { data, error } = await withTimeout(
+        admin.auth.admin.createUser({
+          email: phoneIdentityEmail(phone),
+          password: input.password,
+          email_confirm: true,
+          user_metadata: {
+            display_name: input.displayName,
+            school: input.school,
+            subjects_taught: input.subjectsTaught,
+            phone_e164: phone,
+            account_type: "teacher"
+          },
+          app_metadata: { role: "teacher" }
+        }),
+        8_000,
+        "Account creation took too long. Please try again."
+      );
       if (error || !data.user) throw new Error(error?.message || "Unable to create the account.");
-      const { error: trustError } = await admin.from("TeacherTrustProfile").upsert({
-        teacherId: data.user.id,
-        status: "probation",
-        cleanLessonCount: 0,
-        requiredCleanLessons: 10,
-        monitoringRemaining: 0
-      }, { onConflict: "teacherId" });
+      const { error: trustError } = await withTimeout(
+        admin.from("TeacherTrustProfile").upsert({
+          teacherId: data.user.id,
+          status: "probation",
+          cleanLessonCount: 0,
+          requiredCleanLessons: 10,
+          monitoringRemaining: 0
+        }, { onConflict: "teacherId" }),
+        6_000,
+        "Teacher account setup took too long. Please try again."
+      );
       if (trustError) {
-        await admin.auth.admin.deleteUser(data.user.id);
+        console.error("Teacher trust profile creation failed:", trustError.message);
+        await withTimeout(
+          admin.auth.admin.deleteUser(data.user.id),
+          4_000,
+          "Teacher account cleanup took too long."
+        ).catch((cleanupError) => {
+          console.error(
+            "Incomplete teacher account cleanup failed:",
+            cleanupError instanceof Error ? cleanupError.message : "Unknown cleanup error"
+          );
+        });
         throw new Error("Unable to finish creating the teacher account. Please try again.");
       }
 
       const supabase = await createServerSupabaseClient();
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: phoneIdentityEmail(phone),
-        password: input.password
-      });
+      const signInResult = await withTimeout(
+        supabase.auth.signInWithPassword({
+          email: phoneIdentityEmail(phone),
+          password: input.password
+        }),
+        6_000,
+        "Automatic sign-in took too long."
+      ).catch((signInFailure) => ({
+        error: signInFailure instanceof Error ? signInFailure : new Error("Automatic sign-in failed.")
+      }));
+      const signInError = signInResult.error;
       if (signInError) {
         return NextResponse.json({
           ok: true,

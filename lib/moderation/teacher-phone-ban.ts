@@ -2,6 +2,7 @@ import "server-only";
 
 import { createHmac } from "node:crypto";
 import { normalizeGhanaPhone } from "@/lib/auth/phone";
+import { withTimeout } from "@/lib/server/with-timeout";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 function secret() {
@@ -17,12 +18,16 @@ export function teacherPhoneHash(phoneInput: string) {
 
 export async function isTeacherPhoneBanned(phoneInput: string) {
   const admin = createAdminClient();
-  const { data, error } = await admin
-    .from("TeacherPhoneBan")
-    .select("id")
-    .eq("phoneHash", teacherPhoneHash(phoneInput))
-    .eq("active", true)
-    .maybeSingle();
+  const { data, error } = await withTimeout(
+    admin
+      .from("TeacherPhoneBan")
+      .select("id")
+      .eq("phoneHash", teacherPhoneHash(phoneInput))
+      .eq("active", true)
+      .maybeSingle(),
+    6_000,
+    "The teacher safety check took too long. Please try again."
+  );
   if (error) throw new Error(error.message);
   return Boolean(data);
 }

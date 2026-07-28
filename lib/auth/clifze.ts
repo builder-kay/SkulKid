@@ -2,7 +2,7 @@ import "server-only";
 import { otpSmsMessage, type OtpSmsReason } from "@/lib/auth/sms-links";
 
 const baseUrl = "https://clifze.shop/api/v1";
-const requestTimeoutMs = 15_000;
+const requestTimeoutMs = 8_000;
 
 function config() {
   const apiKey = process.env.CLIFZE_API_KEY;

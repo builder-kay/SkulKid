@@ -32,9 +32,9 @@ export async function POST(request: Request) {
   try {
     const raw = await request.json() as { purpose?: string };
     if (raw.purpose === "password-reset") {
-      return handlePasswordResetOtp(resetSchema.parse(raw), request);
+      return await handlePasswordResetOtp(resetSchema.parse(raw), request);
     }
-    return handleSignupOtp(signupSchema.parse(raw), request);
+    return await handleSignupOtp(signupSchema.parse(raw), request);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to send the code.";
     return NextResponse.json({ error: message }, { status: 400 });
@@ -49,8 +49,10 @@ async function handleSignupOtp(input: z.infer<typeof signupSchema>, request: Req
   }
 
   if (input.role === "teacher") {
-    await assertTeacherPhoneNotBanned(phone);
-    const existingUser = await findSupabaseUserByPhone(phone);
+    const [, existingUser] = await Promise.all([
+      assertTeacherPhoneNotBanned(phone),
+      findSupabaseUserByPhone(phone)
+    ]);
     if (existingUser) {
       return NextResponse.json({
         error: "This phone number already has a SkulKid account.",
