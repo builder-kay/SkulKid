@@ -45,7 +45,7 @@ ARKESEL_SENDER_ID="SkulKid"
 
 ## Authentication
 
-Student accounts use Supabase Auth with a phone number and password. OTP requests fan out concurrently to all configured providers (Clifze, Arkesel, and BMS) so a delayed provider does not block delivery. Codes issued by any provider are accepted; Arkesel's returned USSD shortcode is also displayed on the verification screen. BMS campaign IDs support asynchronous delivery reporting through its API.
+Student accounts use Supabase Auth with a phone number and password. OTP requests fan out concurrently to all configured providers (Clifze API v3, Arkesel, and BMS) so a delayed provider does not block delivery. Codes issued by any provider are accepted; Arkesel's returned USSD shortcode is also displayed on the verification screen. BMS campaign IDs support asynchronous delivery reporting through its API.
 
 1. Create a Supabase project and copy `.env.example` to `.env.local`.
 2. Add the Supabase URL, publishable key and service-role key.

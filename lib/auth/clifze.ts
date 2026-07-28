@@ -4,7 +4,7 @@ import { sendArkeselOtp, sendArkeselSms, verifyArkeselOtp } from "@/lib/auth/ark
 import { bmsConfigured, sendBmsOtp } from "@/lib/auth/bms";
 import { createFallbackOtp, verifyFallbackOtp } from "@/lib/auth/otp-challenge";
 
-const baseUrl = "https://clifze.shop/api/v1";
+const baseUrl = "https://clifze.shop/api/v3";
 const requestTimeoutMs = 8_000;
 
 function config() {
