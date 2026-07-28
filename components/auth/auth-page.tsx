@@ -69,7 +69,7 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
   const [otp, setOtp] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [school, setSchool] = useState("");
-  const [subjectsTaught, setSubjectsTaught] = useState("Mathematics");
+  const [subjectsTaught, setSubjectsTaught] = useState("");
   const [gender, setGender] = useState<"male" | "female">("male");
   const [age, setAge] = useState(9);
   const [grade, setGrade] = useState(3);
@@ -119,7 +119,7 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
   ][learnerSignupStep - 1];
   const teacherStepCopy = [
     { title: "Tell us about you", description: "Start with your name and school or learning centre." },
-    { title: "What do you teach?", description: "Choose the main subject you plan to teach on SkulKid." },
+    { title: "What do you teach?", description: "Enter the subject or subjects you plan to teach on SkulKid." },
     { title: "Verify your phone", description: "Use your Ghana phone number to protect and recover your account." },
     { title: "Create your password", description: "Choose a strong password that only you know." },
     { title: "Enter your code", description: "Enter the six-digit code sent to your registered phone." }
@@ -520,21 +520,31 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
                 ) : null}
 
                 {isTeacherSteppedSignup && teacherSignupStep === 2 ? (
-                  <Field label="Choose your main teaching area">
-                    <div className="grid grid-cols-2 gap-2">
-                      {["Mathematics", "English", "Science", "Computing", "Multiple subjects"].map((subject) => (
-                        <button
-                          aria-pressed={subjectsTaught === subject}
-                          className={`min-h-12 rounded-xl border-2 px-3 py-2 text-left text-sm font-black transition motion-reduce:transition-none ${subject === "Multiple subjects" ? "col-span-2" : ""} ${subjectsTaught === subject ? "border-violet-600 bg-violet-50 text-violet-800" : "border-slate-200 bg-white text-slate-600 hover:border-violet-200"}`}
-                          key={subject}
-                          onClick={() => setSubjectsTaught(subject)}
-                          type="button"
-                        >
-                          {subject}
-                        </button>
-                      ))}
-                    </div>
-                    <span className="text-xs font-medium text-muted">You can still create courses and lessons for other subjects later.</span>
+                  <Field label="What subject do you teach?">
+                    <input
+                      aria-describedby="teacher-subject-help teacher-subject-count"
+                      autoComplete="off"
+                      list="teacher-subject-suggestions"
+                      maxLength={80}
+                      minLength={2}
+                      onChange={(event) => setSubjectsTaught(event.target.value)}
+                      placeholder="e.g. Creative Arts or Mathematics and Science"
+                      required
+                      value={subjectsTaught}
+                    />
+                    <datalist id="teacher-subject-suggestions">
+                      <option value="Mathematics" />
+                      <option value="English Language" />
+                      <option value="Science" />
+                      <option value="Computing" />
+                      <option value="Creative Arts" />
+                      <option value="Religious and Moral Education" />
+                      <option value="Our World Our People" />
+                      <option value="French" />
+                      <option value="Multiple subjects" />
+                    </datalist>
+                    <span className="text-xs font-medium text-muted" id="teacher-subject-help">Type your subject in your own words. You can list more than one, and you may create other subjects later.</span>
+                    <span className="text-right text-xs font-bold text-muted" id="teacher-subject-count">{subjectsTaught.length}/80</span>
                   </Field>
                 ) : null}
 
