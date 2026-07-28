@@ -12,6 +12,7 @@ import { CourseCard } from "@/components/student/course-card";
 import { GamificationArena } from "@/components/gamification/gamification-arena";
 import { StudentShell } from "@/components/student/student-shell";
 import { CharacterAvatar } from "@/components/student/character-avatar";
+import { DailyEncouragement } from "@/components/student/daily-encouragement";
 import { DashboardClassActivity } from "@/components/student/dashboard-class-activity";
 import { SkulKidCard } from "@/components/shared/skulkid-card";
 import { usePublishedCourses } from "@/lib/courses/published-courses";
@@ -41,7 +42,7 @@ export function StudentDashboard() {
                 <h1 className="truncate text-2xl font-bold text-text-primary sm:text-4xl">
                   Hi, {profile.displayName}
                 </h1>
-                <p className="mt-1 text-sm text-text-secondary sm:text-base">Your next small win is ready.</p>
+                <DailyEncouragement />
             </div>
             <Link
               aria-label={`Open ${profile.displayName}'s avatar page`}
