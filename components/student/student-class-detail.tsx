@@ -349,7 +349,7 @@ export function StudentClassDetail({ classId }: { classId: string }) {
                 ) : detail.courses.map((course) => (
                   <Link
                     className="group overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-sky-300 hover:shadow-md"
-                    href={course.courseSlug ? `/courses/${course.courseSlug}` : "/courses"}
+                    href={course.courseSlug ? `/courses/${course.courseSlug}?classId=${encodeURIComponent(classId)}` : `/classes/${classId}`}
                     key={course.id}
                   >
                     <div className="flex items-start justify-between gap-3">

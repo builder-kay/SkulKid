@@ -1,3 +1,6 @@
+import type { Lesson } from "@/types/lesson";
+import type { Subject } from "@/types/subject";
+
 export type ClassStatus = "active" | "archived";
 export type MembershipStatus = "active" | "left";
 export type QuizStatus = "draft" | "published" | "closed";
@@ -150,6 +153,15 @@ export type StudentDashboardActivity = {
     assignedAt: string;
     isClassOnly: boolean;
   }>;
+};
+
+export type StudentClassCourse = {
+  classroom: {
+    id: string;
+    name: string;
+  };
+  course: Subject;
+  lessons: Lesson[];
 };
 
 export type ClassLeaderboardEntry = {

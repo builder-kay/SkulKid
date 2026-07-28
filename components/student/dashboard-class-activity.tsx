@@ -217,7 +217,7 @@ export function DashboardClassActivity() {
               {activity.subjects.slice(0, 4).map((subject) => (
                 <Link
                   className="group flex min-h-20 items-center gap-3 px-5 py-3 transition hover:bg-emerald-50/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500"
-                  href={subject.courseSlug ? `/courses/${subject.courseSlug}` : `/classes/${subject.classId}`}
+                  href={subject.courseSlug ? `/courses/${subject.courseSlug}?classId=${encodeURIComponent(subject.classId)}` : `/classes/${subject.classId}`}
                   key={subject.id}
                 >
                   <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-emerald-100 font-black text-emerald-800">

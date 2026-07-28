@@ -31,17 +31,24 @@ function mergeWithCoreSubjects(liveCourses: Subject[]) {
   return [...core, ...liveCourses.filter((course) => !coreSubjects.some((subject) => subject.slug === course.slug))];
 }
 
-export function usePublishedCourses() {
-  const [courses, setCourses] = useState<Subject[]>(cachedCourses ?? []);
-  const [loading, setLoading] = useState(cachedCourses === null);
+export function usePublishedCourses(enabled = true) {
+  const [courses, setCourses] = useState<Subject[]>(enabled ? cachedCourses ?? [] : []);
+  const [loading, setLoading] = useState(enabled && cachedCourses === null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
+    if (!enabled) {
+      setCourses([]);
+      setLoading(false);
+      setError(null);
+      return;
+    }
     let active = true;
+    setLoading(cachedCourses === null);
     void loadPublishedCourses()
       .then((next) => { if (active) { setCourses(next); setError(null); } })
       .catch((cause) => { if (active) setError(cause instanceof Error ? cause.message : "Could not load courses."); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, []);
+  }, [enabled]);
   return { courses, loading, error };
 }

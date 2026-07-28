@@ -18,6 +18,7 @@ import {
 import { StudentShell } from "@/components/student/student-shell";
 import type { StudentNavItem } from "@/components/student/student-shell";
 import { StudentPageNav } from "@/components/student/student-page-nav";
+import { useStudentClassCourse } from "@/lib/classes/student-class-course";
 import { usePublishedCourses } from "@/lib/courses/published-courses";
 import { getCourseSummary } from "@/lib/lessons/course-summary";
 import { resolveLessonStatus } from "@/lib/lessons/resolve-lesson-status";
@@ -30,6 +31,7 @@ import type { SubjectName } from "@/types/subject";
 
 export type CourseDetailProps = {
   subjectSlug: string;
+  classId?: string;
 };
 
 const subjectThemes: Record<
@@ -90,14 +92,28 @@ const statusCopy: Record<StudentLessonStatus, { label: string; tone: string }> =
   revision_required: { label: "Retry", tone: "bg-orange-100 text-orange-900" }
 };
 
-export function CourseDetail({ subjectSlug }: CourseDetailProps) {
-  const lessons = usePublishedLessons();
+export function CourseDetail({ subjectSlug, classId }: CourseDetailProps) {
+  const publicLessons = usePublishedLessons(!classId);
   const { state } = useStudentGame();
-  const { courses, loading } = usePublishedCourses();
-  const subject = courses.find((candidate) => candidate.slug === subjectSlug);
+  const { courses, loading: publicLoading } = usePublishedCourses(!classId);
+  const classCourse = useStudentClassCourse(classId, subjectSlug);
+  const subject = classId
+    ? classCourse.data?.course
+    : courses.find((candidate) => candidate.slug === subjectSlug);
+  const lessons = classId ? classCourse.data?.lessons ?? [] : publicLessons;
+  const loading = classId ? classCourse.loading : publicLoading;
+  const classHref = classId ? `/classes/${encodeURIComponent(classId)}` : "/courses";
+  const courseHref = classId
+    ? `/courses/${encodeURIComponent(subjectSlug)}?classId=${encodeURIComponent(classId)}`
+    : `/courses/${encodeURIComponent(subjectSlug)}`;
+  const lessonHref = (lessonId: string) => classId
+    ? `/preview/lessons/${encodeURIComponent(lessonId)}?classId=${encodeURIComponent(classId)}&course=${encodeURIComponent(subjectSlug)}`
+    : `/preview/lessons/${encodeURIComponent(lessonId)}`;
+  const backLabel = classId ? `Back to ${classCourse.data?.classroom.name ?? "class"}` : "Back to subjects";
+  const sectionLabel = classId ? "My Classes" : "Subjects";
 
   if (loading) {
-    return <StudentShell activeItem="courses"><main className="mx-auto grid min-h-72 w-full max-w-6xl place-items-center"><p className="font-bold text-muted">Loading subject…</p></main></StudentShell>;
+    return <StudentShell activeItem={classId ? "classes" : "courses"}><main className="mx-auto grid min-h-72 w-full max-w-6xl place-items-center"><p className="font-bold text-muted">Loading subject…</p></main></StudentShell>;
   }
   if (!subject) {
     notFound();
@@ -106,7 +122,7 @@ export function CourseDetail({ subjectSlug }: CourseDetailProps) {
   const progressRecords = lessonProgressFromGameState("current-student", state.completedLessonIds, state.quizRecords);
   const course = getCourseSummary(subject, lessons, progressRecords);
   const theme = subjectThemes[subject.name] ?? subjectThemes.Mathematics;
-  const activeItem: StudentNavItem = subject.slug === "mathematics" ? "mathematics" : "courses";
+  const activeItem: StudentNavItem = classId ? "classes" : subject.slug === "mathematics" ? "mathematics" : "courses";
   const unit = subject.units[0];
   const topic = unit?.topics[0];
   const nextLesson = course.lessons.find((lesson) => {
@@ -124,11 +140,11 @@ export function CourseDetail({ subjectSlug }: CourseDetailProps) {
       <StudentShell activeItem={activeItem}>
         <main className="mx-auto w-full max-w-5xl space-y-5">
           <StudentPageNav
-            backHref="/courses"
-            backLabel="Back to subjects"
+            backHref={classHref}
+            backLabel={backLabel}
             crumbs={[
               { label: "Home", href: "/dashboard" },
-              { label: "Subjects", href: "/courses" },
+              { label: sectionLabel, href: classHref },
               { label: subject.name }
             ]}
           />
@@ -140,9 +156,9 @@ export function CourseDetail({ subjectSlug }: CourseDetailProps) {
             </p>
             <Link
               className="mt-6 inline-flex min-h-11 items-center gap-2 rounded-xl bg-white px-5 font-black text-slate-900"
-              href="/courses"
+              href={classHref}
             >
-              Browse subjects
+              {classId ? "Return to class" : "Browse subjects"}
             </Link>
           </section>
         </main>
@@ -180,7 +196,7 @@ export function CourseDetail({ subjectSlug }: CourseDetailProps) {
                     "mt-6 inline-flex min-h-12 items-center gap-2 rounded-2xl px-6 text-base font-black shadow-lg transition",
                     theme.cta
                   )}
-                  href={`/preview/lessons/${nextLesson.id}`}
+                  href={lessonHref(nextLesson.id)}
                 >
                   <Play aria-hidden="true" className="size-5 fill-current" />
                   Continue: {nextLesson.title}
@@ -228,12 +244,12 @@ export function CourseDetail({ subjectSlug }: CourseDetailProps) {
         </header>
 
         <StudentPageNav
-          backHref="/courses"
-          backLabel="Back to subjects"
+          backHref={classHref}
+          backLabel={backLabel}
           crumbs={[
             { label: "Home", href: "/dashboard" },
-            { label: "Subjects", href: "/courses" },
-            { label: subject.name, href: `/courses/${subject.slug}` },
+            { label: sectionLabel, href: classHref },
+            { label: subject.name, href: courseHref },
             { label: unit?.title ?? "Mission path" }
           ]}
         />
@@ -365,7 +381,7 @@ export function CourseDetail({ subjectSlug }: CourseDetailProps) {
                                 ? "bg-emerald-600 text-white hover:bg-emerald-500"
                                 : "bg-primary text-white hover:bg-primary-dark"
                           )}
-                          href={`/preview/lessons/${lesson.id}`}
+                          href={lessonHref(lesson.id)}
                         >
                           {cleared ? (
                             <>

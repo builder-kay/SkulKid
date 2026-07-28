@@ -10,11 +10,20 @@ import type { StudentNavItem } from "@/components/student/student-shell";
 import { StudentPageNav } from "@/components/student/student-page-nav";
 import { SkulKidCard } from "@/components/shared/skulkid-card";
 import { subjects } from "@/data/subjects";
+import { useStudentClassCourse } from "@/lib/classes/student-class-course";
 import { usePublishedLesson } from "@/lib/lessons/published-lessons";
 import { useStudentGame, type QuizAnswerResult } from "@/lib/gamification/student-game";
 import type { LessonBlock } from "@/types/lesson";
 
-export function PublishedLessonPlayer({ lessonId }: { lessonId: string }) {
+export function PublishedLessonPlayer({
+  lessonId,
+  classId,
+  courseSlug
+}: {
+  lessonId: string;
+  classId?: string;
+  courseSlug?: string;
+}) {
   const { state, completeLesson, completeVideoPrompt, submitQuiz } = useStudentGame();
   const [quizResult, setQuizResult] = useState<{ score: number; passed: boolean; earnedStars: number; earnedXp: number } | null>(null);
   const [quizOpen, setQuizOpen] = useState(false);
@@ -24,10 +33,22 @@ export function PublishedLessonPlayer({ lessonId }: { lessonId: string }) {
     document.addEventListener("keydown", closeOnEscape);
     return () => document.removeEventListener("keydown", closeOnEscape);
   }, [quizOpen]);
-  const { lesson, loading } = usePublishedLesson(lessonId);
-  const subject = subjects.find((candidate) => candidate.id === lesson?.subjectId);
-  const courseHref = subject ? `/courses/${subject.slug}` : "/courses";
-  const activeItem: StudentNavItem = subject?.slug === "mathematics" ? "mathematics" : "courses";
+  const publicLesson = usePublishedLesson(lessonId, !classId);
+  const classCourse = useStudentClassCourse(classId, courseSlug);
+  const lesson = classId
+    ? classCourse.data?.lessons.find((candidate) => candidate.id === lessonId) ?? null
+    : publicLesson.lesson;
+  const subject = classId
+    ? classCourse.data?.course
+    : subjects.find((candidate) => candidate.id === lesson?.subjectId);
+  const loading = classId ? classCourse.loading : publicLesson.loading;
+  const classHref = classId ? `/classes/${encodeURIComponent(classId)}` : "/courses";
+  const courseHref = subject
+    ? classId
+      ? `/courses/${encodeURIComponent(subject.slug)}?classId=${encodeURIComponent(classId)}`
+      : `/courses/${encodeURIComponent(subject.slug)}`
+    : classHref;
+  const activeItem: StudentNavItem = classId ? "classes" : subject?.slug === "mathematics" ? "mathematics" : "courses";
   const unit = subject?.units.find((candidate) => candidate.id === lesson?.unitId);
 
   if (loading) {
@@ -39,11 +60,11 @@ export function PublishedLessonPlayer({ lessonId }: { lessonId: string }) {
       <StudentShell activeItem="courses">
         <main className="mx-auto w-full max-w-3xl space-y-5">
           <StudentPageNav
-            backHref="/courses"
-            backLabel="Back to subjects"
+            backHref={classHref}
+            backLabel={classId ? `Back to ${classCourse.data?.classroom.name ?? "class"}` : "Back to subjects"}
             crumbs={[
               { label: "Home", href: "/dashboard" },
-              { label: "Subjects", href: "/courses" },
+              { label: classId ? "My Classes" : "Subjects", href: classHref },
               { label: "Lesson" }
             ]}
           />
@@ -51,7 +72,7 @@ export function PublishedLessonPlayer({ lessonId }: { lessonId: string }) {
             <h1 className="text-3xl font-bold">Lesson unavailable</h1>
             <p className="mt-3 text-text-secondary">This lesson has not been published or is no longer available.</p>
             <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-              <Link className="inline-flex min-h-11 items-center rounded-xl bg-primary px-5 font-bold text-white" href="/courses">View subjects</Link>
+              <Link className="inline-flex min-h-11 items-center rounded-xl bg-primary px-5 font-bold text-white" href={classHref}>{classId ? "Return to class" : "View subjects"}</Link>
               <Link className="inline-flex min-h-11 items-center rounded-xl border border-slate-200 bg-white px-5 font-bold text-slate-700" href="/dashboard">Go to dashboard</Link>
             </div>
           </SkulKidCard>
@@ -83,7 +104,7 @@ export function PublishedLessonPlayer({ lessonId }: { lessonId: string }) {
           backLabel="Back to mission path"
           crumbs={[
             { label: "Home", href: "/dashboard" },
-            { label: "Subjects", href: "/courses" },
+            { label: classId ? "My Classes" : "Subjects", href: classHref },
             { label: subject?.name ?? "Subject", href: courseHref },
             ...(unit ? [{ label: unit.title, href: courseHref }] : []),
             { label: lesson.title }
@@ -98,7 +119,7 @@ export function PublishedLessonPlayer({ lessonId }: { lessonId: string }) {
         {state.lastReward && completed ? <div aria-live="polite" className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-center"><p className="font-black text-amber-950">{state.lastReward.title}</p><p className="mt-1 text-sm text-amber-900">{state.lastReward.detail} +{state.lastReward.xp} XP · +{state.lastReward.stars} stars</p></div> : null}
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <Link className="inline-flex min-h-11 items-center gap-2 rounded-xl px-4 font-black text-primary hover:bg-blue-50" href={courseHref}>← Mission path</Link>
-          <Link className="inline-flex min-h-11 items-center gap-2 rounded-xl px-4 font-black text-slate-700 hover:bg-slate-50" href="/courses">All subjects</Link>
+          <Link className="inline-flex min-h-11 items-center gap-2 rounded-xl px-4 font-black text-slate-700 hover:bg-slate-50" href={classHref}>{classId ? "My class" : "All subjects"}</Link>
           <Link className="inline-flex min-h-11 items-center gap-2 rounded-xl px-4 font-black text-slate-700 hover:bg-slate-50" href="/dashboard">Dashboard</Link>
         </div>
       </main>

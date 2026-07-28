@@ -41,25 +41,33 @@ async function readPublishedLesson(lessonId: string) {
   return request;
 }
 
-export function usePublishedLessons() {
-  const [lessons, setLessons] = useState<Lesson[]>(lessonIndex ?? []);
+export function usePublishedLessons(enabled = true) {
+  const [lessons, setLessons] = useState<Lesson[]>(enabled ? lessonIndex ?? [] : []);
   useEffect(() => {
+    if (!enabled) {
+      setLessons([]);
+      return;
+    }
     let active = true;
     void readLessonIndex().then((next) => { if (active) setLessons(next); }).catch(() => undefined);
     return () => { active = false; };
-  }, []);
+  }, [enabled]);
   return lessons;
 }
 
-export function usePublishedLesson(lessonId: string) {
-  const [lesson, setLesson] = useState<Lesson | null | undefined>(() => fullLessons.get(lessonId));
+export function usePublishedLesson(lessonId: string, enabled = true) {
+  const [lesson, setLesson] = useState<Lesson | null | undefined>(() => enabled ? fullLessons.get(lessonId) : null);
   useEffect(() => {
+    if (!enabled) {
+      setLesson(null);
+      return;
+    }
     let active = true;
     setLesson(fullLessons.get(lessonId));
     void readPublishedLesson(lessonId)
       .then((next) => { if (active) setLesson(next); })
       .catch(() => { if (active) setLesson(null); });
     return () => { active = false; };
-  }, [lessonId]);
-  return { lesson, loading: lesson === undefined };
+  }, [enabled, lessonId]);
+  return { lesson, loading: enabled && lesson === undefined };
 }
