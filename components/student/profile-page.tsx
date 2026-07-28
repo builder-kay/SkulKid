@@ -1,7 +1,29 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Check, CircleOff, Coins, Flame, Lock, Palette, Save, ShoppingBag, Sparkles, Trophy, UserRound, Zap } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  Award,
+  BookHeart,
+  CalendarDays,
+  Check,
+  CircleAlert,
+  CircleOff,
+  Coins,
+  Flame,
+  GraduationCap,
+  Heart,
+  Loader2,
+  Lock,
+  Palette,
+  RotateCcw,
+  Save,
+  School,
+  ShoppingBag,
+  Sparkles,
+  Trophy,
+  UserRound,
+  Zap
+} from "lucide-react";
 import { CharacterAvatar, PremiumAssetPreview } from "@/components/student/character-avatar";
 import { StudentShell } from "@/components/student/student-shell";
 import { StudentPageNav } from "@/components/student/student-page-nav";
@@ -12,16 +34,35 @@ import { defaultAvatar, useStudentProfile, type AvatarConfig, type StudentProfil
 
 export function ProfilePage() {
   const { profile, save } = useStudentProfile();
-  const { state, redeemAvatarAsset } = useStudentGame();
+  const { state, achievements, redeemAvatarAsset } = useStudentGame();
   const [form, setForm] = useState(profile);
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
   const [activeTab, setActiveTab] = useState<"avatar" | "about">("avatar");
   const [studioTab, setStudioTab] = useState<"body" | "head" | "hair" | "face" | "shirt" | "bottoms" | "shoes">("body");
   const [shopCategory, setShopCategory] = useState<AvatarAsset["category"]>("shirt");
   const level = getStudentLevel(state.xp);
+  const hasChanges = useMemo(() => JSON.stringify(form) !== JSON.stringify(profile), [form, profile]);
+  const profileCompletion = useMemo(() => {
+    const checks = [
+      form.displayName.trim().length >= 2,
+      form.age >= 5 && form.age <= 18,
+      /^Basic [1-6]$/.test(form.grade),
+      form.school.trim().length >= 2,
+      form.bio.trim().length >= 10,
+      form.favouriteSubject.trim().length >= 2
+    ];
+    return Math.round((checks.filter(Boolean).length / checks.length) * 100);
+  }, [form]);
+  const earnedAchievements = achievements.filter((achievement) => achievement.earned).length;
   useEffect(() => setForm(profile), [profile]);
 
-  const update = <K extends keyof StudentProfileData>(field: K, value: StudentProfileData[K]) => { setForm((current) => ({ ...current, [field]: value })); setSaved(false); };
+  const update = <K extends keyof StudentProfileData>(field: K, value: StudentProfileData[K]) => {
+    setForm((current) => ({ ...current, [field]: value }));
+    setSaved(false);
+    setSaveError("");
+  };
   const updateGender = (gender: StudentProfileData["gender"]) => {
     setForm((current) => {
       const switchingToGirl = gender === "female" && current.gender !== "female";
@@ -39,34 +80,70 @@ export function ProfilePage() {
       };
     });
     setSaved(false);
+    setSaveError("");
   };
-  const updateAvatar = <K extends keyof AvatarConfig>(field: K, value: AvatarConfig[K]) => { setForm((current) => ({ ...current, avatarUrl: null, avatar: { ...current.avatar, [field]: value } })); setSaved(false); };
-  function submit(event: React.FormEvent) { event.preventDefault(); save(form); setSaved(true); }
-  function equip(asset: AvatarAsset) { setForm((current) => { const next = { ...current, avatarUrl: null, avatar: { ...current.avatar, pantsStyle: asset.category === "bottoms" ? "shorts" as const : current.avatar.pantsStyle, equippedPremium: { ...current.avatar.equippedPremium, [asset.category]: asset.id } } }; void save(next); return next; }); setSaved(true); }
+  const updateAvatar = <K extends keyof AvatarConfig>(field: K, value: AvatarConfig[K]) => {
+    setForm((current) => ({ ...current, avatarUrl: null, avatar: { ...current.avatar, [field]: value } }));
+    setSaved(false);
+    setSaveError("");
+  };
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    setSaving(true);
+    setSaved(false);
+    setSaveError("");
+    try {
+      await save({ ...form, displayName: form.displayName.trim(), school: form.school.trim(), bio: form.bio.trim() });
+      setSaved(true);
+    } catch {
+      setSaveError("We could not save your changes. Check your connection and try again.");
+    } finally {
+      setSaving(false);
+    }
+  }
+  function persistAvatar(next: StudentProfileData) {
+    setSaving(true);
+    setSaved(false);
+    setSaveError("");
+    void save(next)
+      .then(() => setSaved(true))
+      .catch(() => setSaveError("Your avatar change could not be saved. Please try again."))
+      .finally(() => setSaving(false));
+  }
+  function equip(asset: AvatarAsset) {
+    const next = {
+      ...form,
+      avatarUrl: null,
+      avatar: {
+        ...form.avatar,
+        pantsStyle: asset.category === "bottoms" ? "shorts" as const : form.avatar.pantsStyle,
+        equippedPremium: { ...form.avatar.equippedPremium, [asset.category]: asset.id }
+      }
+    };
+    setForm(next);
+    persistAvatar(next);
+  }
   function unequip(category: AvatarAsset["category"]) {
-    setForm((current) => {
-      const equippedPremium = { ...current.avatar.equippedPremium };
-      delete equippedPremium[category];
-      const next = {
-        ...current,
-        avatarUrl: null,
-        avatar: { ...current.avatar, equippedPremium }
-      };
-      void save(next);
-      return next;
-    });
-    setSaved(true);
+    const equippedPremium = { ...form.avatar.equippedPremium };
+    delete equippedPremium[category];
+    const next = {
+      ...form,
+      avatarUrl: null,
+      avatar: { ...form.avatar, equippedPremium }
+    };
+    setForm(next);
+    persistAvatar(next);
   }
   function redeem(asset: AvatarAsset) { const result = redeemAvatarAsset(asset.id, asset.cost); if (result.redeemed) equip(asset); }
 
   return <StudentShell activeItem="profile"><main className="mx-auto grid w-full min-w-0 max-w-7xl gap-5 lg:gap-6">
-    <header className="rounded-[2rem] border border-white/90 bg-white/85 p-5 shadow-[var(--shadow-card)] backdrop-blur sm:p-6"><div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between"><div className="flex min-w-0 items-center gap-4"><Avatar profile={form} size="large" /><div className="min-w-0 flex-1"><p className="text-sm font-bold uppercase tracking-normal text-muted">My avatar</p><h1 className="truncate text-3xl font-bold text-text-primary sm:text-4xl">{form.displayName}</h1><p className="mt-1 text-sm text-text-secondary sm:text-base">{form.grade} · {level.title}</p></div></div><div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap lg:justify-center"><Pill icon={Trophy} text={`Level ${level.level}`} /><Pill icon={Zap} text={`${state.xp} XP`} /><Pill icon={Flame} text={`${state.streak} day streak`} /></div><button className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 font-black text-white shadow-sm sm:w-auto" onClick={() => setActiveTab("avatar")} type="button"><Palette className="size-5" />Customise avatar</button></div></header>
+    <header className="rounded-[2rem] border border-white/90 bg-white/85 p-5 shadow-[var(--shadow-card)] backdrop-blur sm:p-6"><div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between"><div className="flex min-w-0 items-center gap-4"><Avatar profile={form} size="large" /><div className="min-w-0 flex-1"><p className="text-sm font-bold uppercase tracking-normal text-muted">{activeTab === "about" ? "About me" : "My avatar"}</p><h1 className="truncate text-3xl font-bold text-text-primary sm:text-4xl">{form.displayName}</h1><p className="mt-1 text-sm text-text-secondary sm:text-base">{form.grade} · {level.title}</p></div></div><div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap lg:justify-center"><Pill icon={Trophy} text={`Level ${level.level}`} /><Pill icon={Zap} text={`${state.xp} XP`} /><Pill icon={Flame} text={`${state.streak} day streak`} /></div><button className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 font-black text-white shadow-sm sm:w-auto" onClick={() => setActiveTab("avatar")} type="button"><Palette className="size-5" />{activeTab === "about" ? "Open Avatar Studio" : "Customise avatar"}</button></div></header>
     <StudentPageNav
       backHref="/dashboard"
       backLabel="Back to dashboard"
       crumbs={[
         { label: "Home", href: "/dashboard" },
-        { label: "My Avatar" }
+        { label: activeTab === "about" ? "About Me" : "My Avatar" }
       ]}
     />
 
@@ -170,14 +247,153 @@ export function ProfilePage() {
         </section>
         </> : null}
         {activeTab === "about" ? <>
-        <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-[var(--shadow-card)] sm:rounded-[2rem] sm:p-6"><SectionTitle icon={UserRound} title="About me" description="The details shown on your student profile." /><div className="mt-5 grid gap-4 sm:mt-6 sm:grid-cols-2"><Field label="Display name"><input required value={form.displayName} onChange={(event) => update("displayName", event.target.value)} /></Field><Field label="Gender"><select value={form.gender} onChange={(event) => updateGender(event.target.value as StudentProfileData["gender"])}><option value="male">Boy</option><option value="female">Girl</option></select></Field><Field label="Age"><input max={18} min={5} required type="number" value={form.age} onChange={(event) => update("age", Number(event.target.value))} /></Field><Field label="Grade"><select value={form.grade} onChange={(event) => update("grade", event.target.value)}>{[1,2,3,4,5,6].map((grade) => <option key={grade}>Basic {grade}</option>)}</select></Field><Field label="School"><input placeholder="Enter your school" value={form.school} onChange={(event) => update("school", event.target.value)} /></Field><Field className="sm:col-span-2" label="My learning bio"><textarea maxLength={180} rows={3} value={form.bio} onChange={(event) => update("bio", event.target.value)} /><span className="mt-1 block text-right text-xs text-muted">{form.bio.length}/180</span></Field></div></section>
+        <section className="overflow-hidden rounded-[2rem] border border-violet-200 bg-gradient-to-br from-violet-700 via-indigo-700 to-blue-700 p-5 text-white shadow-[var(--shadow-card)] sm:p-7">
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-center">
+            <div className="flex min-w-0 items-center gap-4">
+              <div className="size-24 shrink-0 overflow-hidden rounded-3xl border-4 border-white/80 bg-white/15 shadow-xl sm:size-28">
+                <CharacterAvatar avatar={form.avatar} className="size-full rounded-2xl" label={`${form.displayName}'s avatar`} motion="idle" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-black uppercase tracking-[.18em] text-violet-200">My learner card</p>
+                <h2 className="mt-1 truncate text-2xl font-black sm:text-3xl">{form.displayName.trim() || "Your name"}</h2>
+                <p className="mt-1 text-sm font-bold text-blue-100">{form.grade} · {form.age} years old</p>
+                <button className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-xl bg-white/15 px-3 text-sm font-black ring-1 ring-white/25 transition hover:bg-white/25" onClick={() => setActiveTab("avatar")} type="button"><Palette className="size-4" />Edit my avatar</button>
+              </div>
+            </div>
+            <div className="rounded-2xl bg-white/10 p-4 ring-1 ring-white/20">
+              <div className="flex items-center justify-between gap-3"><span className="font-black">Profile power</span><span className="rounded-full bg-white px-2.5 py-1 text-sm font-black text-violet-800">{profileCompletion}%</span></div>
+              <div aria-label={`Profile ${profileCompletion}% complete`} aria-valuemax={100} aria-valuemin={0} aria-valuenow={profileCompletion} className="mt-3 h-3 overflow-hidden rounded-full bg-slate-950/25" role="progressbar"><span className="block h-full rounded-full bg-gradient-to-r from-amber-300 to-emerald-300 transition-[width] motion-reduce:transition-none" style={{ width: `${profileCompletion}%` }} /></div>
+              <p className="mt-2 text-xs leading-5 text-blue-100">{profileCompletion === 100 ? "Brilliant—your learner card is complete!" : "Add your school and learning story to complete your card."}</p>
+            </div>
+          </div>
+        </section>
 
-        <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-[var(--shadow-card)] sm:rounded-[2rem] sm:p-6"><SectionTitle icon={Sparkles} title="Learning preferences" description="Personalise your learning targets and favourite subject." /><div className="mt-5 grid gap-4 sm:mt-6 sm:grid-cols-2"><Field label="Favourite subject"><select value={form.favouriteSubject} onChange={(event) => update("favouriteSubject", event.target.value as StudentProfileData["favouriteSubject"])}><option>Mathematics</option><option>English</option><option>Science</option></select></Field><Field label="Daily XP goal"><select value={form.dailyGoalXp} onChange={(event) => update("dailyGoalXp", Number(event.target.value))}><option value={30}>30 XP · Light</option><option value={60}>60 XP · Regular</option><option value={100}>100 XP · Champion</option></select></Field></div></section>
+        <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(17rem,.65fr)] lg:items-start lg:gap-6">
+          <div className="grid min-w-0 gap-5 lg:gap-6">
+            <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-[var(--shadow-card)] sm:p-6">
+              <SectionTitle icon={UserRound} title="My details" description="Tell SkulKid what you would like to be called and where you learn." />
+              <div className="mt-5 grid gap-4 sm:grid-cols-2 sm:gap-5">
+                <Field label="My name"><input autoComplete="name" maxLength={50} minLength={2} placeholder="What should we call you?" required value={form.displayName} onChange={(event) => update("displayName", event.target.value)} /><span className="mt-1 block text-right text-xs font-bold text-muted">{form.displayName.length}/50</span></Field>
+                <Field label="My school"><div className="relative"><School className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-slate-400" /><input autoComplete="organization" className="!pl-12" maxLength={80} placeholder="Enter your school" value={form.school} onChange={(event) => update("school", event.target.value)} /></div></Field>
+                <Field label="My age"><input max={18} min={5} required type="number" value={form.age} onChange={(event) => update("age", Number(event.target.value))} /></Field>
+                <Field label="My Primary level"><select value={form.grade} onChange={(event) => update("grade", event.target.value)}>{[1, 2, 3, 4, 5, 6].map((grade) => <option key={grade}>Basic {grade}</option>)}</select></Field>
+                <fieldset className="sm:col-span-2">
+                  <legend className="text-sm font-black text-text-secondary">I am a</legend>
+                  <div className="mt-2 grid grid-cols-2 gap-3">{([["male", "Boy"], ["female", "Girl"]] as const).map(([value, label]) => <button aria-pressed={form.gender === value} className={`min-h-12 rounded-xl border-2 px-4 font-black transition motion-reduce:transition-none ${form.gender === value ? "border-violet-600 bg-violet-50 text-violet-800" : "border-slate-200 bg-white text-slate-600 hover:border-violet-200"}`} key={value} onClick={() => updateGender(value)} type="button">{label}</button>)}</div>
+                  <p className="mt-2 text-xs leading-5 text-muted">This also helps us prepare a matching starter style for your avatar.</p>
+                </fieldset>
+              </div>
+            </section>
+
+            <section className="rounded-[2rem] border border-rose-200 bg-white p-5 shadow-[var(--shadow-card)] sm:p-6">
+              <SectionTitle icon={Heart} title="My learning story" description="Write a short message about what makes learning exciting for you." />
+              <div className="mt-5">
+                <label className="text-sm font-black text-text-secondary" htmlFor="student-learning-bio">About me</label>
+                <textarea className="mt-2 min-h-32 w-full resize-y rounded-2xl border border-slate-300 p-4 leading-6 outline-none transition focus:border-violet-500 focus:ring-4 focus:ring-violet-100" id="student-learning-bio" maxLength={180} placeholder="I enjoy learning because..." rows={4} value={form.bio} onChange={(event) => update("bio", event.target.value)} />
+                <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap gap-2" aria-label="Learning story starters">{["I love discovering new things!", "I want to become a great reader.", "Solving problems makes me proud!"].map((prompt) => <button className="min-h-9 rounded-full border border-rose-200 bg-rose-50 px-3 text-left text-xs font-bold text-rose-800 hover:bg-rose-100" key={prompt} onClick={() => update("bio", prompt)} type="button">{prompt}</button>)}</div>
+                  <span className={`ml-auto text-xs font-black ${form.bio.length > 160 ? "text-amber-700" : "text-muted"}`}>{form.bio.length}/180</span>
+                </div>
+              </div>
+            </section>
+
+            <section className="rounded-[2rem] border border-blue-200 bg-white p-5 shadow-[var(--shadow-card)] sm:p-6">
+              <SectionTitle icon={BookHeart} title="How I like to learn" description="Choose a favourite subject and a daily goal that feels right for you." />
+              <fieldset className="mt-5">
+                <legend className="text-sm font-black text-text-secondary">My favourite subject</legend>
+                <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {([["Mathematics", "Maths"], ["English", "English"], ["Science", "Science"], ["Computing", "Computing"], ["Creative Arts", "Creative Arts"], ["RME", "RME"], ["OWOP", "OWOP"], ["French", "French"]] as const).map(([value, label]) => <button aria-pressed={form.favouriteSubject === value} className={`min-h-12 rounded-xl border-2 px-2 text-sm font-black transition motion-reduce:transition-none ${form.favouriteSubject === value ? "border-blue-600 bg-blue-50 text-blue-800" : "border-slate-200 bg-white text-slate-600 hover:border-blue-200"}`} key={value} onClick={() => update("favouriteSubject", value)} type="button">{label}</button>)}
+                </div>
+              </fieldset>
+              <fieldset className="mt-6">
+                <legend className="text-sm font-black text-text-secondary">My daily XP goal</legend>
+                <div className="mt-2 grid gap-3 sm:grid-cols-3">
+                  {([[30, "Easy start", "A little each day"], [60, "Keep growing", "A steady challenge"], [100, "Big mission", "Ready to go far"]] as const).map(([value, title, detail]) => (
+                    <button aria-pressed={form.dailyGoalXp === value} className={`min-h-20 rounded-2xl border-2 p-3 text-left transition motion-reduce:transition-none ${form.dailyGoalXp === value ? "border-emerald-600 bg-emerald-50 text-emerald-900" : "border-slate-200 bg-white text-slate-700 hover:border-emerald-200"}`} key={value} onClick={() => update("dailyGoalXp", value)} type="button">
+                      <span className="block font-black">{value} XP · {title}</span>
+                      <span className="mt-1 block text-xs font-medium opacity-80">{detail}</span>
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+            </section>
+          </div>
+
+          <aside className="grid gap-5 lg:sticky lg:top-24">
+            <section className="rounded-[2rem] border border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50 p-5 shadow-[var(--shadow-card)]">
+              <SectionTitle icon={Sparkles} title="My learner card" description="This is how your profile is coming together." />
+              <div className="mt-5 rounded-2xl border border-white bg-white/80 p-4 text-center shadow-sm">
+                <div className="mx-auto size-24 overflow-hidden rounded-3xl bg-gradient-to-br from-cyan-100 to-violet-100"><CharacterAvatar avatar={form.avatar} className="size-full rounded-2xl" label={`${form.displayName}'s avatar preview`} /></div>
+                <h3 className="mt-3 truncate text-xl font-black text-slate-950">{form.displayName.trim() || "Your name"}</h3>
+                <p className="mt-1 text-sm font-bold text-violet-700">{form.grade} learner</p>
+                <p className="mt-3 line-clamp-3 text-sm leading-6 text-slate-600">{form.bio.trim() || "Add your learning story to make this card yours."}</p>
+                <div className="mt-4 grid grid-cols-2 gap-2 text-left">
+                  <MiniDetail icon={School} label="School" value={form.school.trim() || "Not added"} />
+                  <MiniDetail icon={BookHeart} label="Favourite" value={subjectLabel(form.favouriteSubject)} />
+                </div>
+              </div>
+            </section>
+
+            <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-[var(--shadow-card)]">
+              <SectionTitle icon={Award} title="My journey" description="A quick look at how far you have come." />
+              <div className="mt-5 grid grid-cols-2 gap-3">
+                <JourneyStat icon={GraduationCap} label="Lessons done" value={state.completedLessonIds.length} tone="blue" />
+                <JourneyStat icon={Trophy} label="Achievements" value={earnedAchievements} tone="amber" />
+                <JourneyStat icon={Zap} label="Total XP" value={state.xp} tone="violet" />
+                <JourneyStat icon={Flame} label="Day streak" value={state.streak} tone="rose" />
+              </div>
+              <div className="mt-4 flex items-start gap-3 rounded-2xl bg-slate-50 p-3">
+                <CalendarDays className="mt-0.5 size-5 shrink-0 text-slate-500" />
+                <div><p className="text-xs font-black uppercase tracking-wide text-slate-500">Adventure started</p><p className="mt-1 text-sm font-bold text-slate-800">{formatJoinedDate(form.joinedAt)}</p></div>
+              </div>
+            </section>
+
+            <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-950">
+              <div className="flex items-start gap-3"><Lock className="mt-0.5 size-5 shrink-0 text-emerald-700" /><div><h3 className="font-black">Your private details stay private</h3><p className="mt-1 leading-5 text-emerald-900">This page never shows your phone number or password. Ask a trusted adult if you need help changing account details.</p></div></div>
+            </section>
+          </aside>
+        </div>
 
         </> : null}
-        <button className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-primary px-6 font-black text-white shadow-sm hover:bg-primary-dark" type="submit">{saved ? <Check className="size-5" /> : <Save className="size-5" />}{saved ? "Changes saved" : "Save changes"}</button>
+        <div className={`${activeTab === "about" ? "sticky bottom-20 z-20 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-[0_16px_40px_rgba(15,23,42,.16)] backdrop-blur sm:bottom-4" : ""}`}>
+          {saveError ? <div className="mb-3 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm font-bold text-rose-800" role="alert"><CircleAlert className="mt-0.5 size-4 shrink-0" />{saveError}</div> : null}
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
+            {hasChanges ? <button className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-5 font-black text-slate-700 hover:bg-slate-50" onClick={() => { setForm(profile); setSaved(false); setSaveError(""); }} type="button"><RotateCcw className="size-4" />Undo changes</button> : null}
+            <button className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-primary px-6 font-black text-white shadow-sm hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-60" disabled={saving || !hasChanges} type="submit">
+              {saving ? <Loader2 className="size-5 animate-spin" /> : saved || !hasChanges ? <Check className="size-5" /> : <Save className="size-5" />}
+              {saving ? "Saving..." : saved ? "Changes saved" : hasChanges ? "Save changes" : "Everything is saved"}
+            </button>
+          </div>
+        </div>
     </form>
   </main></StudentShell>;
+}
+
+function subjectLabel(subject: StudentProfileData["favouriteSubject"]) {
+  if (subject === "English") return "English Language";
+  if (subject === "RME") return "RME";
+  if (subject === "OWOP") return "OWOP";
+  return subject;
+}
+
+function formatJoinedDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Your first day on SkulKid";
+  return new Intl.DateTimeFormat("en-GH", { day: "numeric", month: "long", year: "numeric" }).format(date);
+}
+
+function MiniDetail({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string }) {
+  return <div className="min-w-0 rounded-xl bg-slate-50 p-2.5"><Icon className="size-4 text-violet-600" /><p className="mt-1 text-[10px] font-black uppercase tracking-wide text-slate-500">{label}</p><p className="mt-0.5 truncate text-xs font-bold text-slate-800" title={value}>{value}</p></div>;
+}
+
+function JourneyStat({ icon: Icon, label, value, tone }: { icon: React.ElementType; label: string; value: number; tone: "blue" | "amber" | "violet" | "rose" }) {
+  const tones = {
+    blue: "bg-blue-50 text-blue-700 ring-blue-100",
+    amber: "bg-amber-50 text-amber-800 ring-amber-100",
+    violet: "bg-violet-50 text-violet-700 ring-violet-100",
+    rose: "bg-rose-50 text-rose-700 ring-rose-100"
+  };
+  return <div className={`rounded-2xl p-3 ring-1 ${tones[tone]}`}><Icon className="size-5" /><p className="mt-2 text-xl font-black">{value.toLocaleString()}</p><p className="mt-0.5 text-xs font-bold opacity-80">{label}</p></div>;
 }
 
 function Avatar({ profile, size = "small" }: { profile: StudentProfileData; size?: "small" | "large" }) { return <div className={`aspect-square shrink-0 overflow-hidden rounded-2xl border-4 border-white bg-gradient-to-br from-blue-100 to-violet-100 shadow-[0_8px_24px_rgba(37,99,235,0.2)] sm:rounded-3xl ${size === "large" ? "size-20 sm:size-24" : "size-11"}`}><CharacterAvatar avatar={profile.avatar} className="size-full rounded-[.85rem] sm:rounded-[1.25rem]" label={`${profile.displayName}'s avatar`} /></div>; }
