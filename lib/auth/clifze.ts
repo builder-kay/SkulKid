@@ -1,5 +1,6 @@
 import "server-only";
 import { otpSmsMessage, type OtpSmsReason } from "@/lib/auth/sms-links";
+import { sendArkeselOtp, sendArkeselSms, verifyArkeselOtp } from "@/lib/auth/arkesel";
 
 const baseUrl = "https://clifze.shop/api/v1";
 const requestTimeoutMs = 8_000;
@@ -34,14 +35,50 @@ async function request(path: string, fields: Record<string, string>) {
   return result;
 }
 
-export function sendOtp(recipient: string, reason: OtpSmsReason, actionUrl: string) {
-  return request("/otp/send", { recipient, message: otpSmsMessage(reason, actionUrl), expiry: "10" });
+function arkeselConfigured() {
+  return Boolean(process.env.ARKESEL_API_KEY);
 }
 
-export function verifyOtp(recipient: string, otpCode: string) {
-  return request("/otp/verify", { recipient, otp_code: otpCode });
+export async function sendOtp(recipient: string, reason: OtpSmsReason, actionUrl: string) {
+  try {
+    await request("/otp/send", { recipient, message: otpSmsMessage(reason, actionUrl), expiry: "10" });
+    return { provider: "clifze" as const, shortcode: undefined };
+  } catch (primaryError) {
+    if (!arkeselConfigured()) throw primaryError;
+    try {
+      return await sendArkeselOtp(recipient, reason, actionUrl);
+    } catch (backupError) {
+      throw new AggregateError([primaryError, backupError], "Neither SMS provider could send the verification code.");
+    }
+  }
 }
 
-export function sendSms(recipient: string, message: string) {
-  return request("/send", { recipient, message });
+export async function verifyOtp(recipient: string, otpCode: string) {
+  let primaryError: unknown;
+  try {
+    await request("/otp/verify", { recipient, otp_code: otpCode });
+    return { provider: "clifze" as const };
+  } catch (error) {
+    primaryError = error;
+  }
+  if (!arkeselConfigured()) throw primaryError;
+  try {
+    return await verifyArkeselOtp(recipient, otpCode);
+  } catch (backupError) {
+    throw new AggregateError([primaryError, backupError], "The verification code is invalid or has expired.");
+  }
+}
+
+export async function sendSms(recipient: string, message: string) {
+  try {
+    await request("/send", { recipient, message });
+    return { provider: "clifze" as const };
+  } catch (primaryError) {
+    if (!arkeselConfigured()) throw primaryError;
+    try {
+      return await sendArkeselSms(recipient, message);
+    } catch (backupError) {
+      throw new AggregateError([primaryError, backupError], "Neither SMS provider could send the message.");
+    }
+  }
 }

@@ -26,6 +26,7 @@ type AuthApiResult = {
   username?: string;
   available?: boolean;
   code?: string;
+  shortcode?: string;
 };
 
 class AuthFlowError extends Error {
@@ -64,6 +65,7 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
   const [usernameAvailability, setUsernameAvailability] = useState<UsernameAvailability>("idle");
   const [phoneOwner, setPhoneOwner] = useState<PhoneOwner>("self");
   const [phoneHint, setPhoneHint] = useState("");
+  const [otpShortcode, setOtpShortcode] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [otp, setOtp] = useState("");
@@ -231,7 +233,8 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
           if (password !== confirmPassword) {
             throw new Error("The passwords do not match. Please enter them again.");
           }
-          await post("/api/auth/otp/send", { purpose: "signup", role: "teacher", phone });
+          const delivery = await post("/api/auth/otp/send", { purpose: "signup", role: "teacher", phone });
+          setOtpShortcode(delivery.shortcode || "");
           advanceTeacherSignup(5);
           return;
         }
@@ -299,7 +302,8 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
               "USERNAME_TAKEN"
             );
           }
-          await post("/api/auth/otp/send", { purpose: "signup", role: "student", phone, phoneOwner });
+          const delivery = await post("/api/auth/otp/send", { purpose: "signup", role: "student", phone, phoneOwner });
+          setOtpShortcode(delivery.shortcode || "");
           advanceLearnerSignup(5);
           return;
         }
@@ -371,9 +375,10 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
           setStep("verify");
           return;
         }
-        await post("/api/auth/otp/send", isTeacher
+        const delivery = await post("/api/auth/otp/send", isTeacher
           ? { purpose: "signup", role: "teacher", phone }
           : { purpose: "signup", role: "student", phone, phoneOwner });
+        setOtpShortcode(delivery.shortcode || "");
         setStep("verify");
         return;
       }
@@ -486,6 +491,15 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
                           ? `Enter the code sent to ${phone}.`
                           : "Enter the code sent to your linked phone."}
                     </span>
+                  </span>
+                </div>
+              ) : null}
+
+              {isSignup && (step === "verify" || (isSteppedSignup && signupStep === 5)) && otpShortcode ? (
+                <div className="mt-3 rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950" role="note">
+                  <b className="block">Still waiting for the SMS?</b>
+                  <span className="mt-1 block">
+                    Dial <span className="font-black tracking-wide">{otpShortcode}</span> from the phone you registered to view your verification code.
                   </span>
                 </div>
               ) : null}
@@ -831,7 +845,7 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
                 </button>
                 {isSteppedSignup && signupStep > 1 ? (
                   <button className="text-sm font-bold text-primary" onClick={isTeacher ? previousTeacherSignupStep : previousLearnerSignupStep} type="button">← Back</button>
-                ) : step === "verify" ? <button className="text-sm font-bold text-primary" onClick={() => { setStep("details"); setOtp(""); setError(""); setSuggestedActions([]); setPhoneHint(""); }} type="button">{isReset && !isTeacher ? "Change username" : "Go back"}</button> : null}
+                ) : step === "verify" ? <button className="text-sm font-bold text-primary" onClick={() => { setStep("details"); setOtp(""); setOtpShortcode(""); setError(""); setSuggestedActions([]); setPhoneHint(""); }} type="button">{isReset && !isTeacher ? "Change username" : "Go back"}</button> : null}
               </form>
               <div className="mt-4 border-t border-slate-200 pt-4 text-center text-sm text-text-secondary">
                 {mode === "login" ? (

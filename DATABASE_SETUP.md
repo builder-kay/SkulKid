@@ -22,11 +22,13 @@ SUPABASE_SERVICE_ROLE_KEY="sb_secret_..."
 
 CLIFZE_API_KEY="..."
 CLIFZE_SENDER_ID="SkulKid"
+ARKESEL_API_KEY="..."
+ARKESEL_SENDER_ID="SkulKid"
 GEMINI_API_KEY="..."
 ```
 
 Only the URL and publishable key may use the `NEXT_PUBLIC_` prefix. The
-service-role, Clifze, and Gemini keys must remain server-only.
+service-role, Clifze, Arkesel, and Gemini keys must remain server-only.
 
 ## 2. Build the database
 
@@ -58,8 +60,9 @@ Run a migration only once on a database.
 ## 3. Authentication
 
 Enable the Phone provider under Authentication → Providers. SkulKid uses
-Clifze to send and verify signup/password-reset codes, then uses Supabase Auth
-for phone/password sessions.
+Clifze to send and verify signup/password-reset codes, automatically falling
+back to Arkesel when Clifze fails, then uses Supabase Auth for phone/password
+sessions. Configure Arkesel with the main SMS API key (not a multiple API key).
 
 New signups receive:
 
@@ -77,7 +80,7 @@ Never allow a browser request to assign `app_metadata`.
 
 ## 4. Vercel
 
-Add the six environment values shown above to Development, Preview, and
+Add the environment values shown above to Development, Preview, and
 Production in Vercel. No PostgreSQL connection string is required by the
 application.
 

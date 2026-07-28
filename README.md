@@ -39,16 +39,18 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="your Supabase publishable key"
 SUPABASE_SERVICE_ROLE_KEY="your server-only Supabase secret key"
 CLIFZE_API_KEY="your server-only Clifze API key"
 CLIFZE_SENDER_ID="SkulKid"
+ARKESEL_API_KEY="your server-only Arkesel main SMS API key"
+ARKESEL_SENDER_ID="SkulKid"
 ```
 
 ## Authentication
 
-Student accounts use Supabase Auth with a phone number and password. Clifze sends and verifies the six-digit code used to confirm signup and password resets.
+Student accounts use Supabase Auth with a phone number and password. Clifze sends and verifies the six-digit code used to confirm signup and password resets. If Clifze fails, Arkesel automatically sends and verifies the code instead; signup also displays Arkesel's returned USSD shortcode.
 
 1. Create a Supabase project and copy `.env.example` to `.env.local`.
 2. Add the Supabase URL, publishable key and service-role key.
 3. Enable the Phone provider in Supabase Authentication. Supabase does not send the verification message in this application; Clifze does.
-4. Add the Clifze API key and an approved sender ID. Never prefix either secret with `NEXT_PUBLIC_`.
+4. Add the Clifze API key, the Arkesel main SMS API key, and approved sender IDs. Arkesel OTP does not accept a multiple/sub-account API key. Never prefix either secret with `NEXT_PUBLIC_`.
 5. Run the SQL files in `supabase/migrations` using the Supabase SQL Editor.
 6. Start the app.
 
@@ -64,7 +66,7 @@ The access flow is:
 ```text
 Unauthenticated visitor
   -> /login or /signup
-  -> Clifze phone verification for signup
+  -> Clifze phone verification, with Arkesel failover, for signup
   -> Supabase session cookie
   -> /dashboard for students
   -> /teacher for teachers

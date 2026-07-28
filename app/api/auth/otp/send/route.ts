@@ -72,12 +72,12 @@ async function handleSignupOtp(input: z.infer<typeof signupSchema>, request: Req
     }
   }
 
-  await sendOtp(
+  const delivery = await sendOtp(
     phone,
     input.role === "teacher" ? "teacher-signup" : "learner-signup",
     platformActionUrl(request, input.role === "teacher" ? "/signup/teacher" : "/signup/student")
   );
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, shortcode: delivery.shortcode });
 }
 
 async function handlePasswordResetOtp(input: z.infer<typeof resetSchema>, request: Request) {
