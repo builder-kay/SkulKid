@@ -25,6 +25,7 @@ type ApiResult = {
   attemptId?: string;
   nextStep?: Exclude<Step, "phone" | "success">;
   message?: string;
+  shortcode?: string;
 };
 
 export function ForgotUsernamePage() {
@@ -35,6 +36,7 @@ export function ForgotUsernamePage() {
   const [grade, setGrade] = useState(3);
   const [learnerName, setLearnerName] = useState("");
   const [otp, setOtp] = useState("");
+  const [otpShortcode, setOtpShortcode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [errorCode, setErrorCode] = useState("");
@@ -72,6 +74,7 @@ export function ForgotUsernamePage() {
           : { action: "name", attemptId, learnerName };
       const result = await post("/api/auth/username-recovery/start", payload);
       if (result.attemptId) setAttemptId(result.attemptId);
+      if (result.shortcode) setOtpShortcode(result.shortcode);
       if (result.nextStep) setStep(result.nextStep);
     } catch (cause) {
       const typed = cause as Error & { code?: string };
@@ -86,6 +89,7 @@ export function ForgotUsernamePage() {
     setStep("phone");
     setAttemptId("");
     setOtp("");
+    setOtpShortcode("");
     setLearnerName("");
     setError("");
     setErrorCode("");
@@ -144,6 +148,14 @@ export function ForgotUsernamePage() {
                   Identity verification
                 </div>
                 <p className="mt-2 text-sm leading-6 text-slate-600">{details}</p>
+                {step === "otp" && otpShortcode ? (
+                  <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950" role="note">
+                    <b className="block">Still waiting for the SMS?</b>
+                    <span className="mt-1 block">
+                      Dial <span className="font-black tracking-wide">{otpShortcode}</span> from the registered phone to view your verification code.
+                    </span>
+                  </div>
+                ) : null}
 
                 <form className="mt-5 grid gap-4" onSubmit={submit}>
                   {step === "phone" ? (

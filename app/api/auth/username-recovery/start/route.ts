@@ -56,8 +56,8 @@ export async function POST(request: Request) {
           stage: "otp",
           selectedUserId: students[0].id
         });
-        await sendRecoveryOtp(phone, requester, platformActionUrl(request, "/forgot-username"));
-        return NextResponse.json({ ok: true, attemptId: attempt.id, nextStep: "otp" });
+        const delivery = await sendRecoveryOtp(phone, requester, platformActionUrl(request, "/forgot-username"));
+        return NextResponse.json({ ok: true, attemptId: attempt.id, nextStep: "otp", shortcode: delivery.shortcode });
       }
       const attempt = await createRecoveryAttempt({ phone, stage: "identity" });
       return NextResponse.json({ ok: true, attemptId: attempt.id, nextStep: "identity" });
@@ -97,8 +97,8 @@ export async function POST(request: Request) {
         grade: input.grade,
         identityAttempts: attempt.identityAttempts + 1
       });
-      await sendRecoveryOtp(attempt.phone, requester, platformActionUrl(request, "/forgot-username"));
-      return NextResponse.json({ ok: true, attemptId: attempt.id, nextStep: "otp" });
+      const delivery = await sendRecoveryOtp(attempt.phone, requester, platformActionUrl(request, "/forgot-username"));
+      return NextResponse.json({ ok: true, attemptId: attempt.id, nextStep: "otp", shortcode: delivery.shortcode });
     }
 
     if (attempt.stage !== "name" || attempt.age == null || attempt.grade == null) {
@@ -128,8 +128,8 @@ export async function POST(request: Request) {
       learnerName: normalizeLearnerName(input.learnerName),
       identityAttempts: attempt.identityAttempts + 1
     });
-    await sendRecoveryOtp(attempt.phone, requester, platformActionUrl(request, "/forgot-username"));
-    return NextResponse.json({ ok: true, attemptId: attempt.id, nextStep: "otp" });
+    const delivery = await sendRecoveryOtp(attempt.phone, requester, platformActionUrl(request, "/forgot-username"));
+    return NextResponse.json({ ok: true, attemptId: attempt.id, nextStep: "otp", shortcode: delivery.shortcode });
   } catch (error) {
     return NextResponse.json({
       error: error instanceof Error ? error.message : "Unable to start username recovery."
@@ -141,5 +141,5 @@ async function sendRecoveryOtp(phone: string, requester: string, actionUrl: stri
   if (!allowOtpRequest(`username-recovery:${requester}:${phone}`)) {
     throw new Error("Too many codes requested. Please wait 10 minutes.");
   }
-  await sendOtp(phone, "username-recovery", actionUrl);
+  return sendOtp(phone, "username-recovery", actionUrl);
 }
