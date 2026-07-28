@@ -1,12 +1,18 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
   BookMarked,
   BookOpen,
+  Calculator,
   ClipboardList,
+  FlaskConical,
+  GraduationCap,
+  Languages,
+  Layers3,
   Loader2,
   MessageSquareHeart,
   ShieldAlert,
@@ -27,6 +33,12 @@ type Detail = {
     courseId: string;
     courseName: string;
     courseSlug: string;
+    description: string;
+    colourToken: string;
+    coverUrl: string | null;
+    gradeLevels: number[];
+    moduleCount: number;
+    lessonCount: number;
     note: string;
     visibility: CourseVisibility;
     isClassOnly: boolean;
@@ -62,6 +74,98 @@ type Detail = {
   notifications: Array<{ id: string; title: string; body: string; audience: string; createdAt: string }>;
   leaderboard: ClassLeaderboardEntry[];
 };
+
+const classSubjectThemes: Record<string, { gradient: string; icon: React.ElementType }> = {
+  Mathematics: { gradient: "from-blue-700 via-blue-600 to-cyan-500", icon: Calculator },
+  "English Language": { gradient: "from-violet-700 via-purple-600 to-fuchsia-500", icon: Languages },
+  Science: { gradient: "from-emerald-700 via-green-600 to-teal-500", icon: FlaskConical }
+};
+
+function ClassSubjectCard({ classId, course }: { classId: string; course: Detail["courses"][number] }) {
+  const theme = classSubjectThemes[course.courseName] ?? { gradient: "from-slate-900 via-indigo-800 to-violet-600", icon: BookOpen };
+  const SubjectIcon = theme.icon;
+  const empty = course.moduleCount === 0 && course.lessonCount === 0;
+  const href = course.courseSlug
+    ? `/courses/${course.courseSlug}?classId=${encodeURIComponent(classId)}`
+    : `/classes/${classId}`;
+  const grades = course.gradeLevels.length
+    ? course.gradeLevels.length === 1
+      ? `Grade ${course.gradeLevels[0]}`
+      : `Grades ${Math.min(...course.gradeLevels)}–${Math.max(...course.gradeLevels)}`
+    : "All grades";
+
+  return (
+    <Link
+      aria-label={`Open subject: ${course.courseName}`}
+      className="group block h-full rounded-[1.5rem] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+      href={href}
+    >
+      <article className="flex h-full flex-col overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white shadow-sm transition duration-300 group-hover:-translate-y-1 group-hover:shadow-[0_22px_50px_rgba(15,23,42,.14)]">
+        <div className={cn("relative min-h-44 overflow-hidden bg-gradient-to-br p-5 text-white", theme.gradient)}>
+          <span className="pointer-events-none absolute -right-8 -top-10 size-36 rounded-full bg-white/15" />
+          <span className="pointer-events-none absolute -bottom-12 right-20 size-28 rounded-full border-[18px] border-white/10" />
+          {course.coverUrl ? <Image alt="" className="object-cover opacity-25 mix-blend-overlay transition duration-500 group-hover:scale-105" fill src={course.coverUrl} unoptimized /> : null}
+          <div className="relative flex items-start justify-between gap-3">
+            <span className="grid size-14 place-items-center rounded-2xl bg-white/15 ring-1 ring-white/25 backdrop-blur">
+              <SubjectIcon aria-hidden="true" className="size-7" />
+            </span>
+            <div className="flex flex-col items-end gap-2">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 text-xs font-black ring-1 ring-white/20 backdrop-blur">
+                <GraduationCap className="size-3.5" />{grades}
+              </span>
+              <span className="rounded-full bg-slate-950/20 px-3 py-1.5 text-[11px] font-black uppercase tracking-wider backdrop-blur">
+                {course.isClassOnly ? "My class only" : "Platform subject"}
+              </span>
+            </div>
+          </div>
+          <div className="relative mt-5">
+            <p className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1 text-xs font-black uppercase tracking-[.12em] ring-1 ring-white/15">
+              <Sparkles className="size-3.5 text-amber-300" />Class adventure
+            </p>
+            <h3 className="mt-2 text-2xl font-black leading-tight">{course.courseName}</h3>
+          </div>
+        </div>
+
+        <div className="flex flex-1 flex-col p-5">
+          <p className="line-clamp-2 min-h-12 text-sm leading-6 text-slate-600">
+            {course.note || course.description || "A learning adventure selected by your teacher for this class."}
+          </p>
+
+          {empty ? (
+            <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+              <p className="flex items-center gap-2 text-sm font-black text-amber-950"><Sparkles className="size-4 text-amber-600" />Coming together</p>
+              <p className="mt-1 text-xs leading-5 text-amber-900">Your teacher is preparing the first module and lesson.</p>
+            </div>
+          ) : (
+            <div className="mt-4 rounded-2xl bg-sky-50 p-4">
+              <p className="text-xs font-black uppercase tracking-wider text-sky-800">Ready for class</p>
+              <p className="mt-1 text-sm text-sky-950">Open the subject to continue your teacher&apos;s learning path.</p>
+            </div>
+          )}
+
+          <div className="mt-4 grid grid-cols-2 divide-x divide-slate-200 rounded-2xl border border-slate-200 py-3 text-center">
+            <ClassSubjectStat icon={Layers3} label="Modules" value={course.moduleCount} />
+            <ClassSubjectStat icon={BookOpen} label="Lessons" value={course.lessonCount} />
+          </div>
+
+          <div className="mt-auto pt-5">
+            <span className={cn(
+              "inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl px-4 font-black text-white shadow-sm transition",
+              empty ? "bg-slate-800 group-hover:bg-violet-700" : "bg-sky-700 group-hover:bg-sky-600"
+            )}>
+              {empty ? "View subject" : "Open subject"}
+              <ArrowRight className="ml-auto size-4 transition group-hover:translate-x-1" />
+            </span>
+          </div>
+        </div>
+      </article>
+    </Link>
+  );
+}
+
+function ClassSubjectStat({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: number }) {
+  return <div className="px-3"><Icon className="mx-auto size-4 text-slate-400" /><strong className="mt-1 block text-lg text-slate-950">{value}</strong><span className="text-[10px] font-black uppercase tracking-wider text-slate-500">{label}</span></div>;
+}
 
 type SectionId = "quizzes" | "subjects" | "advice" | "board";
 
@@ -346,29 +450,7 @@ export function StudentClassDetail({ classId }: { classId: string }) {
                       action={<Link className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-sky-600 px-4 font-black text-white" href="/courses">Browse platform subjects <ArrowRight className="size-4" /></Link>}
                     />
                   </div>
-                ) : detail.courses.map((course) => (
-                  <Link
-                    className="group overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-sky-300 hover:shadow-md"
-                    href={course.courseSlug ? `/courses/${course.courseSlug}?classId=${encodeURIComponent(classId)}` : `/classes/${classId}`}
-                    key={course.id}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <span className="grid size-11 place-items-center rounded-2xl bg-emerald-50 text-emerald-700">
-                        <BookOpen className="size-5" />
-                      </span>
-                      {course.isClassOnly ? (
-                        <span className="rounded-full bg-sky-100 px-2.5 py-0.5 text-[11px] font-black uppercase tracking-wider text-sky-800">Class only</span>
-                      ) : (
-                        <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-black uppercase tracking-wider text-slate-600">Platform</span>
-                      )}
-                    </div>
-                    <h3 className="mt-4 text-lg font-black text-slate-950">{course.courseName}</h3>
-                    <p className="mt-1 text-sm leading-6 text-slate-600">{course.note || "Assigned class adventure"}</p>
-                    <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-black text-sky-700 transition group-hover:gap-2.5">
-                      Open subject <ArrowRight className="size-4" />
-                    </span>
-                  </Link>
-                ))}
+                ) : detail.courses.map((course) => <ClassSubjectCard classId={classId} course={course} key={course.id} />)}
               </section>
             ) : null}
 

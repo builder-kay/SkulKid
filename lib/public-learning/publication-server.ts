@@ -39,7 +39,10 @@ export function snapshotHash(snapshot: PublicLearningSnapshot) {
   return createHash("sha256").update(JSON.stringify(snapshot)).digest("hex");
 }
 
-export async function buildPublicLearningSnapshot(courseId: string): Promise<PublicLearningSnapshot> {
+export async function buildPublicLearningSnapshot(
+  courseId: string,
+  options: { allowEmpty?: boolean } = {}
+): Promise<PublicLearningSnapshot> {
   const admin = createAdminClient();
   const [courseResult, unitsResult, topicsResult, lessonsResult] = await Promise.all([
     admin.from("Subject")
@@ -70,7 +73,7 @@ export async function buildPublicLearningSnapshot(courseId: string): Promise<Pub
     unitId: (row.unitId as string | null) ?? null,
     topicId: (row.topicId as string | null) ?? null
   }));
-  if (!lessons.length) {
+  if (!lessons.length && !options.allowEmpty) {
     throw new Error("Publish at least one complete lesson before submitting this course to Public Learning.");
   }
 

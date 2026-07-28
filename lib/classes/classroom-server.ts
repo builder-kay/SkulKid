@@ -1049,10 +1049,28 @@ export async function getStudentClassDetail(studentId: string, classId: string) 
   const disputeByDeduction = new Map((disputeRows ?? []).map((row) => [row.deductionId as string, row]));
 
   const courseIds = (courses ?? []).map((row) => row.courseId as string);
-  const { data: subjects } = courseIds.length
-    ? await admin.from("Subject").select("id,name,slug,visibility,ownerClassId").in("id", courseIds)
-    : { data: [] as Array<{ id: string; name: string; slug: string; visibility?: string; ownerClassId?: string | null }> };
+  const [{ data: subjects }, { data: courseUnits }, { data: courseLessons }] = courseIds.length
+    ? await Promise.all([
+      admin.from("Subject").select("id,name,slug,description,colourToken,coverUrl,gradeLevels,visibility,ownerClassId").in("id", courseIds),
+      admin.from("Unit").select("id,subjectId").in("subjectId", courseIds),
+      admin.from("AdminLessonRecord").select("id,courseId,status").in("courseId", courseIds).eq("status", "published")
+    ])
+    : [
+      { data: [] as Array<{ id: string; name: string; slug: string; description?: string; colourToken?: string; coverUrl?: string | null; gradeLevels?: number[]; visibility?: string; ownerClassId?: string | null }> },
+      { data: [] as Array<{ id: string; subjectId: string }> },
+      { data: [] as Array<{ id: string; courseId: string; status: string }> }
+    ];
   const subjectById = new Map((subjects ?? []).map((subject) => [subject.id as string, subject]));
+  const moduleCountByCourse = new Map<string, number>();
+  for (const unit of courseUnits ?? []) {
+    const courseId = String(unit.subjectId);
+    moduleCountByCourse.set(courseId, (moduleCountByCourse.get(courseId) ?? 0) + 1);
+  }
+  const lessonCountByCourse = new Map<string, number>();
+  for (const lesson of courseLessons ?? []) {
+    const courseId = String(lesson.courseId);
+    lessonCountByCourse.set(courseId, (lessonCountByCourse.get(courseId) ?? 0) + 1);
+  }
 
   const attemptsByQuiz = new Map<string, ClassQuizAttemptSummary[]>();
   for (const attempt of attempts ?? []) {
@@ -1089,6 +1107,12 @@ export async function getStudentClassDetail(studentId: string, classId: string) 
         courseId: row.courseId as string,
         courseName: subject?.name ?? "Course",
         courseSlug: subject?.slug ?? "",
+        description: (subject?.description as string) ?? "",
+        colourToken: (subject?.colourToken as string) ?? "",
+        coverUrl: (subject?.coverUrl as string | null) ?? null,
+        gradeLevels: Array.isArray(subject?.gradeLevels) ? subject.gradeLevels.map(Number) : [],
+        moduleCount: moduleCountByCourse.get(row.courseId as string) ?? 0,
+        lessonCount: lessonCountByCourse.get(row.courseId as string) ?? 0,
         note: (row.note as string) ?? "",
         assignedAt: row.assignedAt as string,
         visibility,

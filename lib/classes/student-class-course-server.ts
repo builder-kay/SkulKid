@@ -50,7 +50,7 @@ export async function getStudentClassCourse(
   const isOwnedClassCourse = subject.visibility === "class" && subject.ownerClassId === classId;
   if (!assignment && !isOwnedClassCourse) throw new Error("This subject is not assigned to your class.");
 
-  const snapshot = await buildPublicLearningSnapshot(String(subject.id));
+  const snapshot = await buildPublicLearningSnapshot(String(subject.id), { allowEmpty: true });
   return {
     classroom: { id: String(classroom.id), name: String(classroom.name) },
     course: { ...snapshot.course, units: snapshot.units },
