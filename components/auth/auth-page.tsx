@@ -367,11 +367,13 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
             username
           });
           setPhoneHint(result.phoneHint || "");
+          setOtpShortcode(result.shortcode || "");
           setStep("verify");
           return;
         }
         if (isReset && isTeacher) {
-          await post("/api/auth/otp/send", { purpose: "password-reset", role: "teacher", phone });
+          const delivery = await post("/api/auth/otp/send", { purpose: "password-reset", role: "teacher", phone });
+          setOtpShortcode(delivery.shortcode || "");
           setStep("verify");
           return;
         }
@@ -495,7 +497,7 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
                 </div>
               ) : null}
 
-              {isSignup && (step === "verify" || (isSteppedSignup && signupStep === 5)) && otpShortcode ? (
+              {(step === "verify" || (isSteppedSignup && signupStep === 5)) && otpShortcode ? (
                 <div className="mt-3 rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950" role="note">
                   <b className="block">Still waiting for the SMS?</b>
                   <span className="mt-1 block">

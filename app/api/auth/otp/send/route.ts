@@ -102,8 +102,12 @@ async function handlePasswordResetOtp(input: z.infer<typeof resetSchema>, reques
     if (!allowOtpRequest(`${forwardedFor}:${phone}`)) {
       return NextResponse.json({ error: "Too many codes requested. Please wait 10 minutes." }, { status: 429 });
     }
-    await sendOtp(phone, "learner-password-reset", platformActionUrl(request, "/forgot-password"));
-    return NextResponse.json({ ok: true, phoneHint: maskPhone(phone) });
+    const delivery = await sendOtp(phone, "learner-password-reset", platformActionUrl(request, "/forgot-password"));
+    return NextResponse.json({
+      ok: true,
+      phoneHint: maskPhone(phone),
+      shortcode: delivery.shortcode
+    });
   }
 
   if (!input.phone) {
@@ -122,8 +126,8 @@ async function handlePasswordResetOtp(input: z.infer<typeof resetSchema>, reques
       actions: ["signup"]
     }, { status: 404 });
   }
-  await sendOtp(phone, "teacher-password-reset", platformActionUrl(request, "/forgot-password/teacher"));
-  return NextResponse.json({ ok: true });
+  const delivery = await sendOtp(phone, "teacher-password-reset", platformActionUrl(request, "/forgot-password/teacher"));
+  return NextResponse.json({ ok: true, shortcode: delivery.shortcode });
 }
 
 function maskPhone(phone: string) {
