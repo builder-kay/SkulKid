@@ -77,12 +77,16 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [guardianInfoOpen, setGuardianInfoOpen] = useState(false);
   const [learnerSignupStep, setLearnerSignupStep] = useState<1 | 2 | 3 | 4 | 5>(1);
-  const learnerHeadingRef = useRef<HTMLHeadingElement>(null);
+  const [teacherSignupStep, setTeacherSignupStep] = useState<1 | 2 | 3 | 4 | 5>(1);
+  const signupHeadingRef = useRef<HTMLHeadingElement>(null);
 
   const isTeacher = audience === "teacher";
   const isSignup = mode === "signup";
   const isReset = mode === "reset";
   const isLearnerSteppedSignup = isSignup && !isTeacher;
+  const isTeacherSteppedSignup = isSignup && isTeacher;
+  const isSteppedSignup = isLearnerSteppedSignup || isTeacherSteppedSignup;
+  const signupStep = isTeacher ? teacherSignupStep : learnerSignupStep;
   const isGuardianPhone = !isTeacher && phoneOwner === "guardian";
   const loginPath = isTeacher ? "/login/teacher" : "/login/student";
   const signupPath = isTeacher ? "/signup/teacher" : "/signup/student";
@@ -113,6 +117,14 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
     { title: "Create your secret password", description: "Choose something you can remember but others cannot guess." },
     { title: "Ask for the code", description: "Enter the six-digit code sent to the registered phone." }
   ][learnerSignupStep - 1];
+  const teacherStepCopy = [
+    { title: "Tell us about you", description: "Start with your name and school or learning centre." },
+    { title: "What do you teach?", description: "Choose the main subject you plan to teach on SkulKid." },
+    { title: "Verify your phone", description: "Use your Ghana phone number to protect and recover your account." },
+    { title: "Create your password", description: "Choose a strong password that only you know." },
+    { title: "Enter your code", description: "Enter the six-digit code sent to your registered phone." }
+  ][teacherSignupStep - 1];
+  const signupStepCopy = isTeacher ? teacherStepCopy : learnerStepCopy;
 
   useEffect(() => {
     if (!isLearnerSteppedSignup) return;
@@ -130,9 +142,24 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
   }, [isLearnerSteppedSignup]);
 
   useEffect(() => {
-    if (!isLearnerSteppedSignup) return;
-    learnerHeadingRef.current?.focus();
-  }, [isLearnerSteppedSignup, learnerSignupStep]);
+    if (!isTeacherSteppedSignup) return;
+    window.history.replaceState({ ...window.history.state, skulkidSignupStep: 1 }, "");
+    const onPopState = (event: PopStateEvent) => {
+      const next = Number(event.state?.skulkidSignupStep);
+      if (next >= 1 && next <= 5) {
+        setTeacherSignupStep(next as 1 | 2 | 3 | 4 | 5);
+        setError("");
+        setSuggestedActions([]);
+      }
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [isTeacherSteppedSignup]);
+
+  useEffect(() => {
+    if (!isSteppedSignup) return;
+    signupHeadingRef.current?.focus();
+  }, [isSteppedSignup, signupStep]);
 
   function advanceLearnerSignup(next: 2 | 3 | 4 | 5) {
     window.history.pushState({ ...window.history.state, skulkidSignupStep: next }, "");
@@ -143,6 +170,17 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
 
   function previousLearnerSignupStep() {
     if (learnerSignupStep > 1) window.history.back();
+  }
+
+  function advanceTeacherSignup(next: 2 | 3 | 4 | 5) {
+    window.history.pushState({ ...window.history.state, skulkidSignupStep: next }, "");
+    setTeacherSignupStep(next);
+    setError("");
+    setSuggestedActions([]);
+  }
+
+  function previousTeacherSignupStep() {
+    if (teacherSignupStep > 1) window.history.back();
   }
 
   async function post(url: string, body: unknown) {
@@ -173,6 +211,61 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
 
   async function submit(event: FormEvent) {
     event.preventDefault();
+    if (isTeacherSteppedSignup) {
+      setBusy(true); setError(""); setSuggestedActions([]); setSuccess("");
+      try {
+        if (teacherSignupStep === 1) {
+          advanceTeacherSignup(2);
+          return;
+        }
+        if (teacherSignupStep === 2) {
+          advanceTeacherSignup(3);
+          return;
+        }
+        if (teacherSignupStep === 3) {
+          normalizeGhanaPhone(phone);
+          advanceTeacherSignup(4);
+          return;
+        }
+        if (teacherSignupStep === 4) {
+          if (password !== confirmPassword) {
+            throw new Error("The passwords do not match. Please enter them again.");
+          }
+          await post("/api/auth/otp/send", { purpose: "signup", role: "teacher", phone });
+          advanceTeacherSignup(5);
+          return;
+        }
+
+        const result = await post("/api/auth/signup", {
+          role: "teacher", phone, password, otp, displayName, school, subjectsTaught
+        });
+        if (result.requiresSignIn) {
+          setSuccess(result.message || "Your teacher account is ready! Please sign in.");
+          window.setTimeout(() => router.replace(`${loginPath}?created=success`), 1800);
+          return;
+        }
+        setSuccess("Welcome to SkulKid! Your teacher workspace is ready.");
+        window.setTimeout(() => {
+          router.replace(roleHome(result.role ?? "teacher"));
+          router.refresh();
+        }, 1200);
+      } catch (cause) {
+        if (
+          cause instanceof AuthFlowError &&
+          teacherSignupStep === 4 &&
+          cause.code === "ACCOUNT_EXISTS"
+        ) {
+          window.history.replaceState({ ...window.history.state, skulkidSignupStep: 3 }, "");
+          setTeacherSignupStep(3);
+        }
+        setError(cause instanceof Error ? cause.message : "Something went wrong.");
+        setSuggestedActions(cause instanceof AuthFlowError ? cause.actions : []);
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
+
     if (isLearnerSteppedSignup) {
       setBusy(true); setError(""); setSuggestedActions([]); setSuccess("");
       try {
@@ -369,19 +462,19 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
             <div className="mx-auto max-w-md">
               <div className="flex items-center justify-between gap-3">
                 <span className={`grid size-11 place-items-center rounded-2xl sm:size-12 ${isTeacher ? "bg-violet-100 text-violet-700" : "bg-blue-100 text-primary"}`}>{mode === "login" ? <KeyRound className="size-5" /> : isSignup ? <UserRound className="size-5" /> : <LockKeyhole className="size-5" />}</span>
-                {isLearnerSteppedSignup ? (
-                  <div aria-label={`Step ${learnerSignupStep} of 5`} className="text-right">
-                    <p className="text-xs font-black uppercase tracking-wider text-primary">Step {learnerSignupStep} of 5</p>
+                {isSteppedSignup ? (
+                  <div aria-label={`Step ${signupStep} of 5`} className="text-right">
+                    <p className={`text-xs font-black uppercase tracking-wider ${isTeacher ? "text-violet-700" : "text-primary"}`}>Step {signupStep} of 5</p>
                     <div className="mt-2 flex gap-1.5" aria-hidden="true">
-                      {[1, 2, 3, 4, 5].map((item) => <span className={`h-1.5 w-7 rounded-full transition-colors motion-reduce:transition-none ${item <= learnerSignupStep ? "bg-primary" : "bg-slate-200"}`} key={item} />)}
+                      {[1, 2, 3, 4, 5].map((item) => <span className={`h-1.5 w-7 rounded-full transition-colors motion-reduce:transition-none ${item <= signupStep ? (isTeacher ? "bg-violet-600" : "bg-primary") : "bg-slate-200"}`} key={item} />)}
                     </div>
                   </div>
                 ) : mode !== "login" ? <div className="flex items-center gap-2" aria-label={`Step ${step === "details" ? 1 : 2} of 2`}><span className="grid size-7 place-items-center rounded-full bg-primary text-xs font-black text-white">1</span><span className={`h-1 w-8 rounded-full ${step === "verify" ? "bg-primary" : "bg-slate-200"}`} /><span className={`grid size-7 place-items-center rounded-full text-xs font-black ${step === "verify" ? "bg-primary text-white" : "bg-slate-100 text-muted"}`}>2</span></div> : null}
               </div>
-              <h1 className="mt-3 text-2xl font-black tracking-tight text-slate-950 outline-none sm:mt-4 sm:text-3xl" ref={isLearnerSteppedSignup ? learnerHeadingRef : undefined} tabIndex={isLearnerSteppedSignup ? -1 : undefined}>{isLearnerSteppedSignup ? learnerStepCopy.title : title}</h1>
-              <p className="mt-1.5 text-sm leading-5 text-text-secondary sm:text-base sm:leading-6">{isLearnerSteppedSignup ? learnerStepCopy.description : description}</p>
+              <h1 className="mt-3 text-2xl font-black tracking-tight text-slate-950 outline-none sm:mt-4 sm:text-3xl" ref={isSteppedSignup ? signupHeadingRef : undefined} tabIndex={isSteppedSignup ? -1 : undefined}>{isSteppedSignup ? signupStepCopy.title : title}</h1>
+              <p className="mt-1.5 text-sm leading-5 text-text-secondary sm:text-base sm:leading-6">{isSteppedSignup ? signupStepCopy.description : description}</p>
 
-              {(step === "verify" || (isLearnerSteppedSignup && learnerSignupStep === 5)) ? (
+              {(step === "verify" || (isSteppedSignup && signupStep === 5)) ? (
                 <div className="mt-3 flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
                   <CheckCircle2 className="mt-0.5 size-5 shrink-0" />
                   <span>
@@ -398,6 +491,99 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
               ) : null}
 
               <form className="mt-4 grid gap-3" onSubmit={submit}>
+                {isTeacherSteppedSignup && teacherSignupStep === 1 ? (
+                  <>
+                    <Field label="Your full name">
+                      <input
+                        autoComplete="name"
+                        maxLength={50}
+                        minLength={2}
+                        onChange={(event) => setDisplayName(event.target.value)}
+                        placeholder="e.g. Abena Mensah"
+                        required
+                        value={displayName}
+                      />
+                    </Field>
+                    <Field label="School or learning centre">
+                      <input
+                        autoComplete="organization"
+                        maxLength={100}
+                        minLength={2}
+                        onChange={(event) => setSchool(event.target.value)}
+                        placeholder="Where do you teach?"
+                        required
+                        value={school}
+                      />
+                      <span className="text-xs font-medium text-muted">Enter the school, learning centre, or organisation you teach with.</span>
+                    </Field>
+                  </>
+                ) : null}
+
+                {isTeacherSteppedSignup && teacherSignupStep === 2 ? (
+                  <Field label="Choose your main teaching area">
+                    <div className="grid grid-cols-2 gap-2">
+                      {["Mathematics", "English", "Science", "Computing", "Multiple subjects"].map((subject) => (
+                        <button
+                          aria-pressed={subjectsTaught === subject}
+                          className={`min-h-12 rounded-xl border-2 px-3 py-2 text-left text-sm font-black transition motion-reduce:transition-none ${subject === "Multiple subjects" ? "col-span-2" : ""} ${subjectsTaught === subject ? "border-violet-600 bg-violet-50 text-violet-800" : "border-slate-200 bg-white text-slate-600 hover:border-violet-200"}`}
+                          key={subject}
+                          onClick={() => setSubjectsTaught(subject)}
+                          type="button"
+                        >
+                          {subject}
+                        </button>
+                      ))}
+                    </div>
+                    <span className="text-xs font-medium text-muted">You can still create courses and lessons for other subjects later.</span>
+                  </Field>
+                ) : null}
+
+                {isTeacherSteppedSignup && teacherSignupStep === 3 ? (
+                  <Field label="Your Ghana phone number">
+                    <div className="relative w-full">
+                      <span className="pointer-events-none absolute inset-y-0 left-0 z-10 grid w-12 place-items-center text-muted"><Phone className="size-5" /></span>
+                      <input
+                        autoComplete="tel"
+                        className="!pl-12 !pr-16"
+                        inputMode="tel"
+                        onChange={(event) => setPhone(event.target.value)}
+                        placeholder="024 123 4567"
+                        required
+                        value={phone}
+                      />
+                      <span className="pointer-events-none absolute inset-y-0 right-3 grid place-items-center text-xs font-black text-emerald-700">+233</span>
+                    </div>
+                    <span className="text-xs font-medium text-muted">We will use this number for verification and account recovery. One teacher account can use each number.</span>
+                  </Field>
+                ) : null}
+
+                {isTeacherSteppedSignup && teacherSignupStep === 4 ? (
+                  <>
+                    <Field label="Create a password">
+                      <div className="relative w-full">
+                        <span className="pointer-events-none absolute inset-y-0 left-0 z-10 grid w-12 place-items-center text-muted"><LockKeyhole className="size-5" /></span>
+                        <input autoComplete="new-password" className="!pl-12 !pr-12" minLength={8} onChange={(event) => setPassword(event.target.value)} required type={showPassword ? "text" : "password"} value={password} />
+                        <button aria-label={showPassword ? "Hide password" : "Show password"} className="absolute inset-y-0 right-1 z-10 my-auto grid size-10 place-items-center rounded-lg text-muted hover:bg-slate-100" onClick={() => setShowPassword((visible) => !visible)} type="button">{showPassword ? <EyeOff className="size-5" /> : <Eye className="size-5" />}</button>
+                      </div>
+                      <span className="text-xs font-medium text-muted">Use at least 8 characters and keep it private.</span>
+                    </Field>
+                    <Field label="Confirm your password">
+                      <div className="relative w-full">
+                        <span className="pointer-events-none absolute inset-y-0 left-0 z-10 grid w-12 place-items-center text-muted"><LockKeyhole className="size-5" /></span>
+                        <input autoComplete="new-password" className="!pl-12 !pr-12" minLength={8} onChange={(event) => { setConfirmPassword(event.target.value); if (error.startsWith("The passwords do not match")) setError(""); }} required type={showConfirmPassword ? "text" : "password"} value={confirmPassword} />
+                        <button aria-label={showConfirmPassword ? "Hide password confirmation" : "Show password confirmation"} className="absolute inset-y-0 right-1 z-10 my-auto grid size-10 place-items-center rounded-lg text-muted hover:bg-slate-100" onClick={() => setShowConfirmPassword((visible) => !visible)} type="button">{showConfirmPassword ? <EyeOff className="size-5" /> : <Eye className="size-5" />}</button>
+                      </div>
+                      {confirmPassword && password === confirmPassword ? <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700"><CheckCircle2 className="size-3.5" />Passwords match</span> : null}
+                    </Field>
+                  </>
+                ) : null}
+
+                {isTeacherSteppedSignup && teacherSignupStep === 5 ? (
+                  <Field label="6-digit verification code">
+                    <input autoComplete="one-time-code" className="text-center text-2xl font-black tracking-[.45em]" inputMode="numeric" maxLength={6} onChange={(event) => setOtp(event.target.value.replace(/\D/g, ""))} pattern="\d{6}" placeholder="000000" required value={otp} />
+                  </Field>
+                ) : null}
+
                 {isLearnerSteppedSignup && learnerSignupStep === 1 ? (
                   <>
                     <Field label="What should we call you?">
@@ -517,7 +703,7 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
                     </div>
                   </>
                 ) : null}
-                {isSignup && step === "details" && isTeacher ? (
+                {isSignup && step === "details" && isTeacher && !isTeacherSteppedSignup ? (
                   <>
                     <Field label="Teacher name"><input autoComplete="name" onChange={(event) => setDisplayName(event.target.value)} placeholder="Your full name" required value={displayName} /></Field>
                     <Field label="School"><input autoComplete="organization" onChange={(event) => setSchool(event.target.value)} placeholder="School or learning centre" required value={school} /></Field>
@@ -534,7 +720,7 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
                   </Field>
                 ) : null}
 
-                {(isTeacher && (mode === "login" || step === "details")) || (isSignup && step === "details" && !isLearnerSteppedSignup) ? (
+                {(isTeacher && (mode === "login" || (step === "details" && !isTeacherSteppedSignup))) || (isSignup && step === "details" && !isSteppedSignup) ? (
                   <Field label={isTeacher ? "Ghana phone number" : isGuardianPhone ? "Parent or guardian phone" : "Your Ghana phone number"}>
                     <div className="relative w-full">
                       <span className="pointer-events-none absolute inset-y-0 left-0 z-10 grid w-12 place-items-center text-muted"><Phone className="size-5" /></span>
@@ -561,7 +747,7 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
                   </Field>
                 ) : null}
 
-                {mode === "login" || (isSignup && step === "details" && !isLearnerSteppedSignup) || (isReset && step === "details") ? (
+                {mode === "login" || (isSignup && step === "details" && !isSteppedSignup) || (isReset && step === "details") ? (
                   <Field label={isReset ? "New password" : "Password"}>
                     <div className="relative w-full">
                       <span className="pointer-events-none absolute inset-y-0 left-0 z-10 grid w-12 place-items-center text-muted"><LockKeyhole className="size-5" /></span>
@@ -571,7 +757,7 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
                     {mode !== "login" ? <span className="text-xs font-medium text-muted">Use at least 8 characters.</span> : null}
                   </Field>
                 ) : null}
-                {(isSignup && step === "details" && !isLearnerSteppedSignup) || (isReset && step === "details") ? (
+                {(isSignup && step === "details" && !isSteppedSignup) || (isReset && step === "details") ? (
                   <Field label="Confirm password">
                     <div className="relative w-full">
                       <span className="pointer-events-none absolute inset-y-0 left-0 z-10 grid w-12 place-items-center text-muted"><LockKeyhole className="size-5" /></span>
@@ -616,15 +802,15 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
                   </div>
                 ) : null}
                 <button className="group inline-flex min-h-13 items-center justify-center gap-2 rounded-xl bg-primary px-5 font-black text-white shadow-[0_10px_25px_rgba(37,99,235,.24)] transition hover:-translate-y-0.5 hover:bg-primary-dark disabled:translate-y-0 disabled:opacity-60" disabled={busy || Boolean(success)} type="submit">
-                  {success ? <CheckCircle2 className="size-5" /> : busy ? <Loader2 className="size-5 animate-spin" /> : step === "verify" || (isLearnerSteppedSignup && learnerSignupStep === 5) ? <ShieldCheck className="size-5" /> : <ArrowRight className="size-5 transition group-hover:translate-x-0.5" />}
+                  {success ? <CheckCircle2 className="size-5" /> : busy ? <Loader2 className="size-5 animate-spin" /> : step === "verify" || (isSteppedSignup && signupStep === 5) ? <ShieldCheck className="size-5" /> : <ArrowRight className="size-5 transition group-hover:translate-x-0.5" />}
                   {success
-                    ? "Taking you to sign in..."
+                    ? "Finishing your setup..."
                     : busy
                       ? learnerSignupStep === 1 && isLearnerSteppedSignup ? "Checking username..." : "Please wait"
-                      : isLearnerSteppedSignup
-                        ? learnerSignupStep === 4
+                      : isSteppedSignup
+                        ? signupStep === 4
                           ? "Send my code"
-                          : learnerSignupStep === 5
+                          : signupStep === 5
                             ? "Verify and create my account"
                             : "Continue"
                         : mode === "login"
@@ -633,8 +819,8 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
                             ? "Send verification code"
                             : isSignup ? "Verify and create account" : "Verify and reset password"}
                 </button>
-                {isLearnerSteppedSignup && learnerSignupStep > 1 ? (
-                  <button className="text-sm font-bold text-primary" onClick={previousLearnerSignupStep} type="button">← Back</button>
+                {isSteppedSignup && signupStep > 1 ? (
+                  <button className="text-sm font-bold text-primary" onClick={isTeacher ? previousTeacherSignupStep : previousLearnerSignupStep} type="button">← Back</button>
                 ) : step === "verify" ? <button className="text-sm font-bold text-primary" onClick={() => { setStep("details"); setOtp(""); setError(""); setSuggestedActions([]); setPhoneHint(""); }} type="button">{isReset && !isTeacher ? "Change username" : "Go back"}</button> : null}
               </form>
               <div className="mt-4 border-t border-slate-200 pt-4 text-center text-sm text-text-secondary">
