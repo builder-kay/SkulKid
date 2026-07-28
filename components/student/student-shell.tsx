@@ -84,10 +84,17 @@ export function StudentShell({ activeItem, children, mobileAside }: StudentShell
     return () => document.removeEventListener("keydown", handleKey);
   }, [moreOpen]);
 
+  function closeSignOut() {
+    setSignOutOpen(false);
+    window.setTimeout(() => {
+      if (window.matchMedia("(max-width: 1023px)").matches) moreButtonRef.current?.focus();
+    }, 0);
+  }
+
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[18.5rem_1fr]">
       <StudentCelebrationHost avatar={profile.avatar} learnerName={profile.displayName} />
-      <SignOutConfirmation audience="student" open={signOutOpen} onClose={() => setSignOutOpen(false)} />
+      <SignOutConfirmation audience="student" open={signOutOpen} onClose={closeSignOut} />
       <header className="sticky top-0 z-30 border-b border-white/80 bg-white/90 px-4 py-3 shadow-[0_8px_28px_rgba(15,23,42,0.08)] backdrop-blur lg:hidden">
         <div className="flex min-h-12 items-center justify-between gap-3">
           <Link
@@ -145,21 +152,6 @@ export function StudentShell({ activeItem, children, mobileAside }: StudentShell
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-3">
           {rewardsNavOpen ? (mobileAside ?? <GamificationArena idPrefix="mobile-" />) : null}
-        </div>
-        <div className="shrink-0 border-t border-slate-200/90 bg-slate-50 px-3 pb-[calc(0.85rem+env(safe-area-inset-bottom))] pt-3">
-          <button
-            className="group flex w-full min-h-12 items-center gap-3 rounded-2xl border border-red-100 bg-gradient-to-br from-red-50 to-orange-50/70 px-3 text-left text-sm font-bold text-red-700 shadow-sm transition hover:border-red-200 hover:from-red-100 hover:to-orange-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/35 active:scale-[0.98]"
-            onClick={() => setSignOutOpen(true)}
-            type="button"
-          >
-            <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-white text-red-600 ring-1 ring-red-100 transition group-hover:bg-red-600 group-hover:text-white group-hover:ring-red-600">
-              <LogOut aria-hidden="true" className="size-4" strokeWidth={2.5} />
-            </span>
-            <span className="min-w-0">
-              <span className="block leading-tight">Sign out</span>
-              <span className="block text-[11px] font-semibold text-red-600/70">End this session</span>
-            </span>
-          </button>
         </div>
       </aside>
 
@@ -228,13 +220,31 @@ export function StudentShell({ activeItem, children, mobileAside }: StudentShell
       </div>
 
       <div aria-hidden={!moreOpen} className={cn("fixed inset-0 z-40 bg-slate-950/45 backdrop-blur-[2px] transition lg:hidden", moreOpen ? "opacity-100" : "pointer-events-none opacity-0")} onClick={() => setMoreOpen(false)} />
-      <div aria-hidden={!moreOpen} aria-labelledby="student-more-title" aria-modal="true" className={cn("fixed inset-x-3 bottom-[calc(5.7rem+env(safe-area-inset-bottom))] z-50 rounded-[1.75rem] bg-white p-4 shadow-2xl transition duration-200 lg:hidden", moreOpen ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-5 opacity-0")} ref={morePanelRef} role="dialog">
+      <div aria-hidden={!moreOpen} aria-labelledby="student-more-title" aria-modal="true" className={cn("fixed inset-x-3 bottom-[calc(5.7rem+env(safe-area-inset-bottom))] z-50 max-h-[75dvh] overflow-y-auto rounded-[1.75rem] bg-white p-4 shadow-2xl transition duration-200 lg:hidden", moreOpen ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-5 opacity-0")} ref={morePanelRef} role="dialog">
         <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-wider text-violet-700">Student space</p><h2 className="text-xl font-black" id="student-more-title">More</h2></div><button aria-label="Close More menu" className="grid size-10 place-items-center rounded-xl bg-slate-100" onClick={() => { setMoreOpen(false); moreButtonRef.current?.focus(); }} type="button"><X className="size-5" /></button></div>
         <nav aria-label="More student pages" className="mt-4 grid gap-2">{[
           { id: "pasco" as const, href: "/pasco", label: "PASCO", text: "Review and practise past quizzes", icon: BookMarked },
           { id: "profile" as const, href: "/profile", label: "My Avatar", text: "Update your learner character", icon: UserRound },
           { id: "achievements" as const, href: "/achievements", label: "Rewards & Achievements", text: "See your progress collection", icon: Award }
         ].map((item) => { const Icon = item.icon; const active = activeItem === item.id; return <Link aria-current={active ? "page" : undefined} className={cn("flex min-h-16 items-center gap-3 rounded-2xl border p-3", active ? "border-violet-400 bg-violet-50 text-violet-950" : "border-slate-200 bg-slate-50 text-slate-800")} href={item.href} key={item.id} onClick={() => setMoreOpen(false)}><span className={cn("grid size-10 shrink-0 place-items-center rounded-xl", active ? "bg-violet-600 text-white" : "bg-white text-violet-700")}><Icon className="size-5" /></span><span><b className="block">{item.label}</b><span className="text-xs text-slate-500">{item.text}</span></span></Link>; })}</nav>
+        <div className="mt-3 border-t border-slate-200 pt-3">
+          <button
+            className="group flex min-h-16 w-full items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-3 text-left text-rose-800 transition hover:border-rose-300 hover:bg-rose-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 active:scale-[0.98]"
+            onClick={() => {
+              setMoreOpen(false);
+              setSignOutOpen(true);
+            }}
+            type="button"
+          >
+            <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-white text-rose-700 shadow-sm ring-1 ring-rose-200 transition group-hover:bg-rose-700 group-hover:text-white">
+              <LogOut aria-hidden="true" className="size-5" strokeWidth={2.5} />
+            </span>
+            <span>
+              <b className="block">Sign out</b>
+              <span className="text-xs font-medium text-rose-700">Finish using SkulKid on this device</span>
+            </span>
+          </button>
+        </div>
       </div>
 
       <nav
