@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Children, useEffect, useMemo, useRef, useState } from "react";
+import { Children, useEffect, useRef, useState } from "react";
 import {
   ArrowRight,
   BookOpen,
@@ -10,9 +10,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ClipboardList,
-  Clock3,
   Loader2,
-  MessageSquareHeart,
   RefreshCw,
   School,
   Sparkles,
@@ -54,12 +52,6 @@ export function DashboardClassActivity() {
   useEffect(() => {
     void loadActivity();
   }, []);
-
-  const snapshot = useMemo(() => ({
-    openQuizzes: activity.quizzes.filter((quiz) => quiz.state === "open").length,
-    upcomingQuizzes: activity.quizzes.filter((quiz) => quiz.state === "upcoming").length,
-    newTips: activity.classes.reduce((total, classroom) => total + classroom.unreadAdviceCount, 0)
-  }), [activity]);
 
   if (loading) return <ActivitySkeleton />;
 
@@ -135,41 +127,6 @@ export function DashboardClassActivity() {
           All my classes
           <ArrowRight aria-hidden="true" className="size-4" />
         </Link>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <ActivityStat icon={School} label="Classes" value={activity.classes.length} />
-        <ActivityStat icon={ClipboardList} label="Quizzes ready" value={snapshot.openQuizzes} attention={snapshot.openQuizzes > 0} />
-        <ActivityStat icon={Clock3} label="Coming soon" value={snapshot.upcomingQuizzes} />
-        <ActivityStat icon={MessageSquareHeart} label="New teacher tips" value={snapshot.newTips} attention={snapshot.newTips > 0} />
-      </div>
-
-      <div aria-label="Your class shortcuts" className="flex snap-x gap-3 overflow-x-auto pb-1">
-        {activity.classes.map((classroom) => (
-          <Link
-            className="group min-w-[15rem] snap-start rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-sky-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
-            href={`/classes/${classroom.id}`}
-            key={classroom.id}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-sky-100 text-sky-800">
-                <School aria-hidden="true" className="size-5" />
-              </span>
-              <ArrowRight aria-hidden="true" className="size-4 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-sky-700" />
-            </div>
-            <h3 className="mt-3 truncate font-black text-text-primary">{classroom.name}</h3>
-            <p className="mt-0.5 text-xs font-bold text-text-secondary">
-              Primary {classroom.gradeLevel} · {classroom.teacherName}
-            </p>
-            <div className="mt-3 flex flex-wrap gap-1.5 text-[0.7rem] font-black">
-              <span className="rounded-full bg-indigo-50 px-2 py-1 text-indigo-700">{classroom.courseCount} subjects</span>
-              <span className="rounded-full bg-amber-50 px-2 py-1 text-amber-800">{classroom.openQuizCount} quizzes</span>
-              {classroom.unreadAdviceCount > 0 ? (
-                <span className="rounded-full bg-rose-50 px-2 py-1 text-rose-700">{classroom.unreadAdviceCount} new tips</span>
-              ) : null}
-            </div>
-          </Link>
-        ))}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -417,30 +374,6 @@ function ActivityCarousel({ label, children }: { label: string; children: React.
   );
 }
 
-function ActivityStat({
-  icon: Icon,
-  label,
-  value,
-  attention = false
-}: {
-  icon: React.ElementType;
-  label: string;
-  value: number;
-  attention?: boolean;
-}) {
-  return (
-    <div className={`rounded-2xl border p-3 sm:p-4 ${attention ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-white"}`}>
-      <div className="flex items-center justify-between gap-2">
-        <span className={`grid size-8 place-items-center rounded-lg ${attention ? "bg-amber-400 text-amber-950" : "bg-sky-100 text-sky-800"}`}>
-          <Icon aria-hidden="true" className="size-4" />
-        </span>
-        <strong className="text-2xl font-black text-text-primary">{value}</strong>
-      </div>
-      <p className="mt-2 text-xs font-black leading-tight text-text-secondary">{label}</p>
-    </div>
-  );
-}
-
 function ActivityEmpty({
   icon: Icon,
   title,
@@ -467,9 +400,6 @@ function ActivitySkeleton() {
   return (
     <section aria-busy="true" aria-label="Loading class activity" className="space-y-4">
       <div className="h-16 animate-pulse rounded-2xl bg-slate-200/70" />
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {[0, 1, 2, 3].map((item) => <div className="h-24 animate-pulse rounded-2xl bg-white" key={item} />)}
-      </div>
       <div className="grid gap-4 lg:grid-cols-2">
         {[0, 1].map((item) => (
           <div className="grid min-h-64 place-items-center rounded-[1.75rem] border border-slate-200 bg-white" key={item}>
