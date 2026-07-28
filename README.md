@@ -45,7 +45,7 @@ ARKESEL_SENDER_ID="SkulKid"
 
 ## Authentication
 
-Student accounts use Supabase Auth with a phone number and password. Clifze sends and verifies the six-digit code used to confirm signup and password resets. If Clifze fails, Arkesel automatically sends and verifies the code instead; signup also displays Arkesel's returned USSD shortcode.
+Student accounts use Supabase Auth with a phone number and password. When Arkesel is configured, it sends the six-digit code used to confirm signup and password resets so the verification screen can also display its returned USSD shortcode. Clifze remains the automatic fallback if Arkesel cannot send the code.
 
 1. Create a Supabase project and copy `.env.example` to `.env.local`.
 2. Add the Supabase URL, publishable key and service-role key.

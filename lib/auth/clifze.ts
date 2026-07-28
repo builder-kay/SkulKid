@@ -40,17 +40,21 @@ function arkeselConfigured() {
 }
 
 export async function sendOtp(recipient: string, reason: OtpSmsReason, actionUrl: string) {
-  try {
-    await request("/otp/send", { recipient, message: otpSmsMessage(reason, actionUrl), expiry: "10" });
-    return { provider: "clifze" as const, shortcode: undefined };
-  } catch (primaryError) {
-    if (!arkeselConfigured()) throw primaryError;
+  if (arkeselConfigured()) {
     try {
       return await sendArkeselOtp(recipient, reason, actionUrl);
-    } catch (backupError) {
-      throw new AggregateError([primaryError, backupError], "Neither SMS provider could send the verification code.");
+    } catch (primaryError) {
+      try {
+        await request("/otp/send", { recipient, message: otpSmsMessage(reason, actionUrl), expiry: "10" });
+        return { provider: "clifze" as const, shortcode: undefined };
+      } catch (backupError) {
+        throw new AggregateError([primaryError, backupError], "Neither SMS provider could send the verification code.");
+      }
     }
   }
+
+  await request("/otp/send", { recipient, message: otpSmsMessage(reason, actionUrl), expiry: "10" });
+  return { provider: "clifze" as const, shortcode: undefined };
 }
 
 export async function verifyOtp(recipient: string, otpCode: string) {
