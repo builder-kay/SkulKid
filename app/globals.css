@@ -235,6 +235,139 @@ input {
   transform-origin: center;
 }
 
+/* Layered avatar motion — enabled only for prominent learner avatars. */
+@keyframes avatar-motion-breathe {
+  0%,
+  100% {
+    transform: translateY(0) scaleY(1);
+  }
+  50% {
+    transform: translateY(-1.6px) scaleY(1.006);
+  }
+}
+
+@keyframes avatar-motion-head {
+  0%,
+  100% {
+    transform: rotate(-0.7deg) translateY(0);
+  }
+  50% {
+    transform: rotate(0.9deg) translateY(-0.8px);
+  }
+}
+
+@keyframes avatar-motion-shadow {
+  0%,
+  100% {
+    opacity: 0.13;
+    transform: scaleX(1);
+  }
+  50% {
+    opacity: 0.09;
+    transform: scaleX(0.95);
+  }
+}
+
+@keyframes avatar-motion-wave-upper {
+  0%,
+  8% {
+    transform: rotate(0deg);
+  }
+  20%,
+  82% {
+    transform: rotate(-45deg);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+@keyframes avatar-motion-wave-forearm {
+  0%,
+  10% {
+    transform: rotate(0deg);
+  }
+  22% {
+    transform: rotate(-78deg);
+  }
+  34% {
+    transform: rotate(-96deg);
+  }
+  46% {
+    transform: rotate(-62deg);
+  }
+  58% {
+    transform: rotate(-96deg);
+  }
+  70% {
+    transform: rotate(-62deg);
+  }
+  82% {
+    transform: rotate(-78deg);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+.avatar-motion-idle .avatar-motion-body {
+  animation: avatar-motion-breathe 3.8s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+
+.avatar-motion-idle .avatar-motion-head {
+  animation: avatar-motion-head 5.2s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+
+.avatar-motion-idle .avatar-motion-shadow {
+  animation: avatar-motion-shadow 3.8s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.avatar-motion-eye {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 70ms ease-in;
+}
+
+.avatar-motion-eye.is-blinking {
+  transform: scaleY(0.08);
+}
+
+.avatar-motion-wave-upper,
+.avatar-motion-wave-forearm {
+  transform-box: view-box;
+}
+
+.avatar-motion-articulated-arm {
+  opacity: 0;
+}
+
+.avatar-motion-resting-wave-arm {
+  opacity: 1;
+  transition: opacity 90ms linear;
+}
+
+[data-avatar-gesture="wave"] .avatar-motion-articulated-arm {
+  opacity: 1;
+}
+
+[data-avatar-gesture="wave"] .avatar-motion-resting-wave-arm {
+  opacity: 0;
+}
+
+[data-avatar-gesture="wave"] .avatar-motion-wave-upper {
+  animation: avatar-motion-wave-upper 2.2s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+[data-avatar-gesture="wave"] .avatar-motion-wave-forearm {
+  animation: avatar-motion-wave-forearm 2.2s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -249,5 +382,17 @@ input {
   .avatar-game-idle .avatar-game-head,
   .avatar-game-idle .avatar-game-shadow {
     animation: none !important;
+  }
+
+  .avatar-motion-idle .avatar-motion-body,
+  .avatar-motion-idle .avatar-motion-head,
+  .avatar-motion-idle .avatar-motion-shadow,
+  [data-avatar-gesture="wave"] .avatar-motion-wave-upper,
+  [data-avatar-gesture="wave"] .avatar-motion-wave-forearm {
+    animation: none !important;
+  }
+
+  .avatar-motion-eye {
+    transition: none !important;
   }
 }

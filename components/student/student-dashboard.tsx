@@ -48,7 +48,7 @@ export function StudentDashboard() {
               className="group grid aspect-square size-20 shrink-0 place-items-center overflow-hidden rounded-3xl border-4 border-white text-2xl font-black text-primary shadow-[0_8px_24px_rgba(37,99,235,0.2)] transition hover:-translate-y-0.5 hover:shadow-[0_12px_30px_rgba(37,99,235,0.28)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-violet-300 sm:size-24"
               href="/profile"
             >
-              <CharacterAvatar avatar={profile.avatar} className="size-full rounded-[1.25rem] transition group-hover:scale-[1.03]" label={`${profile.displayName}'s avatar`} />
+              <CharacterAvatar avatar={profile.avatar} className="size-full rounded-[1.25rem] transition group-hover:scale-[1.03]" label={`${profile.displayName}'s avatar`} motion="expressive" />
             </Link>
           </div>
         </header>

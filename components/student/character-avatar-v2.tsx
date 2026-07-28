@@ -1,14 +1,19 @@
+"use client";
+
 import { useId } from "react";
 import type { AvatarConfig } from "@/lib/student/student-profile";
 import { avatarShopAssets, type AvatarAsset, type AvatarAssetCategory } from "@/lib/student/avatar-shop";
 import { cn } from "@/lib/utils";
 import { AvatarBrandMark } from "@/components/student/avatar-brand-mark";
+import { useAvatarMotion, type AvatarMotionMode } from "@/components/student/use-avatar-motion";
 
 type Props = {
   avatar: AvatarConfig;
   className?: string;
   label?: string;
   animated?: boolean;
+  motion?: AvatarMotionMode;
+  interactive?: boolean;
 };
 
 /**
@@ -20,9 +25,15 @@ export function CharacterAvatar({
   avatar,
   className = "size-24",
   label = "Custom student avatar",
-  animated = true,
+  animated,
+  motion,
+  interactive = false,
 }: Props) {
   const uid = useId().replace(/:/g, "");
+  const motionMode: AvatarMotionMode = animated === false
+    ? "static"
+    : motion ?? (animated === true ? "idle" : "static");
+  const avatarMotion = useAvatarMotion(motionMode, avatar.expression ?? "classic");
   const asset = (category: AvatarAssetCategory) =>
     avatarShopAssets.find((item) => item.id === avatar.equippedPremium[category]);
   const shirt = asset("shirt");
@@ -56,13 +67,36 @@ export function CharacterAvatar({
        Q${100 + torsoHalf + 8} 120 ${100 + torsoHalf - 3} 173
        Q100 180 ${100 - torsoHalf + 3} 173
        Q${100 - torsoHalf - 8} 120 ${100 - torsoHalf + 5} 111 Z`;
+  const waveShoulderX = 100 + torsoHalf - 5;
+  const waveShoulderY = 121;
+  const waveElbowX = 143;
+  const waveElbowY = 146;
 
   return (
     <svg
-      aria-label={label}
-      className={cn("overflow-hidden rounded-2xl", animated && "avatar-game-idle", className)}
+      aria-label={interactive ? `${label}. Tap or press Enter to wave.` : label}
+      className={cn(
+        "overflow-hidden rounded-2xl",
+        motionMode !== "static" && "avatar-motion-idle",
+        motionMode === "expressive" && "avatar-motion-expressive",
+        interactive && "cursor-pointer outline-none focus-visible:ring-4 focus-visible:ring-violet-300",
+        className
+      )}
+      data-avatar-gesture={avatarMotion.gesture}
+      data-avatar-expression={avatarMotion.expression}
+      data-avatar-blinking={avatarMotion.blinking ? "true" : "false"}
+      data-avatar-motion={motionMode}
+      onClick={interactive ? avatarMotion.triggerWave : undefined}
+      onKeyDown={interactive ? (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          avatarMotion.triggerWave();
+        }
+      } : undefined}
       preserveAspectRatio="xMidYMid meet"
-      role="img"
+      ref={avatarMotion.elementRef}
+      role={interactive ? "button" : "img"}
+      tabIndex={interactive ? 0 : undefined}
       viewBox="0 0 200 240"
     >
       <defs>
@@ -86,10 +120,10 @@ export function CharacterAvatar({
         </filter>
       </defs>
 
-      <ellipse cx="100" cy={skateboard ? 226 : 222} fill="#312e81" opacity=".13" rx={skateboard ? 71 : 48} ry="7" />
+      <ellipse className="avatar-motion-shadow" cx="100" cy={skateboard ? 226 : 222} fill="#312e81" opacity=".13" rx={skateboard ? 71 : 48} ry="7" />
       {skateboard ? <Skateboard color={skateboard.colour} outline={outline} /> : null}
 
-      <g filter={`url(#${uid}-shadow)`}>
+      <g className="avatar-motion-body" filter={`url(#${uid}-shadow)`}>
         {bag ? <Bag color={bag.colour} outline={outline} /> : null}
 
         {/* Legs are tapered continuous shapes instead of stacked capsules. */}
@@ -115,16 +149,26 @@ export function CharacterAvatar({
         <path d="M104 217q15-7 29 0 5 4 2 10h-29Z" fill={shoeColor} stroke={outline} strokeOpacity=".6" strokeWidth="2" />
         <path d="M68 220h24m16 0h24" stroke="#fff" strokeLinecap="round" strokeOpacity=".55" strokeWidth="2" />
 
-        {/* Curved arms, sleeves and torso form a single consistent silhouette. */}
+        {/* The waving arm is articulated at the shoulder and elbow. */}
         <path d={`M${100 - torsoHalf + 5} 115 Q58 111 51 131 l-9 40 q-3 10 7 13 q10 1 13-9 l11-30 Z`} fill={`url(#${uid}-skin)`} stroke={outline} strokeLinejoin="round" strokeOpacity=".55" strokeWidth="2.2" />
-        <path d={`M${100 + torsoHalf - 5} 115 Q142 111 149 131 l9 40 q3 10-7 13 q-10 1-13-9 l-11-30 Z`} fill={`url(#${uid}-skin)`} stroke={outline} strokeLinejoin="round" strokeOpacity=".55" strokeWidth="2.2" />
+        <path className="avatar-motion-resting-wave-arm" d={`M${100 + torsoHalf - 5} 115 Q142 111 149 131 l9 40 q3 10-7 13 q-10 1-13-9 l-11-30 Z`} fill={`url(#${uid}-skin)`} stroke={outline} strokeLinejoin="round" strokeOpacity=".55" strokeWidth="2.2" />
+        <WaveArm
+          elbowX={waveElbowX}
+          elbowY={waveElbowY}
+          outline={outline}
+          shirtFill={`url(#${uid}-shirt)`}
+          shoulderX={waveShoulderX}
+          shoulderY={waveShoulderY}
+          skinFill={`url(#${uid}-skin)`}
+          watch={watch}
+        />
         <path d={torsoPath} fill={`url(#${uid}-shirt)`} stroke={outline} strokeLinejoin="round" strokeOpacity=".58" strokeWidth="2.2" />
         <path d={`M${100 - torsoHalf + 6} 113 Q59 111 52 130 l-4 15 20 6 8-25 Z`} fill={`url(#${uid}-shirt)`} stroke={outline} strokeLinejoin="round" strokeOpacity=".5" strokeWidth="2" />
-        <path d={`M${100 + torsoHalf - 6} 113 Q141 111 148 130 l4 15-20 6-8-25 Z`} fill={`url(#${uid}-shirt)`} stroke={outline} strokeLinejoin="round" strokeOpacity=".5" strokeWidth="2" />
+        <path className="avatar-motion-resting-wave-arm" d={`M${100 + torsoHalf - 6} 113 Q141 111 148 130 l4 15-20 6-8-25 Z`} fill={`url(#${uid}-shirt)`} stroke={outline} strokeLinejoin="round" strokeOpacity=".5" strokeWidth="2" />
         <path d="M83 116q17 10 34 0" fill="none" stroke="#fff" strokeLinecap="round" strokeOpacity=".26" strokeWidth="2" />
 
         <ShirtSymbol brand={shirt?.brand} style={avatar.shirtStyle} />
-        {watch ? <Watch color={watch.colour} outline={outline} /> : null}
+        {watch ? <g className="avatar-motion-resting-wave-arm"><Watch color={watch.colour} outline={outline} /></g> : null}
 
         <rect
           fill={`url(#${uid}-skin)`}
@@ -138,24 +182,57 @@ export function CharacterAvatar({
           y="96"
         />
 
-        {/* Hair behind the face where required. */}
-        <BackHair color={avatar.hairColor} style={avatar.hairStyle} />
-        <Ears fill={`url(#${uid}-skin)`} outline={outline} />
-        <FaceShape fill={`url(#${uid}-skin)`} gender={avatar.gender} outline={outline} style={avatar.headStyle} />
-        <FrontHair color={avatar.hairColor} style={avatar.hairStyle} />
-        {cap ? <Cap color={cap.colour} outline={outline} /> : null}
-        <Features
-          eyebrowStyle={avatar.eyebrowStyle ?? "soft"}
-          eyeColor={avatar.eyeColor}
-          expression={avatar.expression ?? "classic"}
-          gender={avatar.gender}
-          noseStyle={avatar.noseStyle ?? "button"}
-          outline={outline}
-        />
-        {female ? <GirlDetails outline={outline} /> : null}
-        {glasses ? <Glasses color={glasses.colour} /> : null}
+        <g className="avatar-motion-head">
+          {/* Hair, equipment and facial features share the same head motion. */}
+          <BackHair color={avatar.hairColor} style={avatar.hairStyle} />
+          <Ears fill={`url(#${uid}-skin)`} outline={outline} />
+          <FaceShape fill={`url(#${uid}-skin)`} gender={avatar.gender} outline={outline} style={avatar.headStyle} />
+          <FrontHair color={avatar.hairColor} style={avatar.hairStyle} />
+          {cap ? <Cap color={cap.colour} outline={outline} /> : null}
+          <Features
+            blinking={avatarMotion.blinking}
+            eyebrowStyle={avatar.eyebrowStyle ?? "soft"}
+            eyeColor={avatar.eyeColor}
+            expression={avatarMotion.expression}
+            gender={avatar.gender}
+            noseStyle={avatar.noseStyle ?? "button"}
+            outline={outline}
+          />
+          {female ? <GirlDetails outline={outline} /> : null}
+          {glasses ? <Glasses color={glasses.colour} /> : null}
+        </g>
       </g>
     </svg>
+  );
+}
+
+function WaveArm({ elbowX, elbowY, outline, shirtFill, shoulderX, shoulderY, skinFill, watch }: {
+  elbowX: number;
+  elbowY: number;
+  outline: string;
+  shirtFill: string;
+  shoulderX: number;
+  shoulderY: number;
+  skinFill: string;
+  watch?: AvatarAsset;
+}) {
+  return (
+    <g
+      className="avatar-motion-articulated-arm avatar-motion-wave-upper"
+      style={{ transformOrigin: `${shoulderX}px ${shoulderY}px` }}
+    >
+      <path d={`M${shoulderX} ${shoulderY} Q136 126 ${elbowX} ${elbowY}`} fill="none" stroke={outline} strokeLinecap="round" strokeOpacity=".55" strokeWidth="21" />
+      <path d={`M${shoulderX} ${shoulderY} Q136 126 ${elbowX} ${elbowY}`} fill="none" stroke={shirtFill} strokeLinecap="round" strokeWidth="17" />
+      <g
+        className="avatar-motion-wave-forearm"
+        style={{ transformOrigin: `${elbowX}px ${elbowY}px` }}
+      >
+        <path d={`M${elbowX} ${elbowY} Q149 160 151 177`} fill="none" stroke={outline} strokeLinecap="round" strokeOpacity=".55" strokeWidth="17" />
+        <path d={`M${elbowX} ${elbowY} Q149 160 151 177`} fill="none" stroke={skinFill} strokeLinecap="round" strokeWidth="13" />
+        <circle cx="151" cy="179" fill={skinFill} r="8" stroke={outline} strokeOpacity=".48" strokeWidth="2" />
+        {watch ? <Watch color={watch.colour} outline={outline} /> : null}
+      </g>
+    </g>
   );
 }
 
@@ -189,7 +266,8 @@ function Ears({ fill, outline }: { fill: string; outline: string }) {
   );
 }
 
-function Features({ eyebrowStyle, eyeColor, expression, gender, noseStyle, outline }: {
+function Features({ blinking, eyebrowStyle, eyeColor, expression, gender, noseStyle, outline }: {
+  blinking: boolean;
   eyebrowStyle: NonNullable<AvatarConfig["eyebrowStyle"]>;
   eyeColor: string;
   expression: AvatarConfig["expression"];
@@ -206,10 +284,14 @@ function Features({ eyebrowStyle, eyeColor, expression, gender, noseStyle, outli
   const eyeRx = gender === "female" ? 13 : 12;
   const browLift = gender === "female" ? browArch - 1 : browArch;
   return (
-    <g strokeLinecap="round" strokeLinejoin="round">
-      <path d={`M66 52q12 ${browLift} 24 0M110 52q12 ${browLift} 24 0`} fill="none" stroke={outline} strokeWidth={gender === "female" ? Math.min(3, browWidth) : browWidth} />
-      {wink ? <path d="M66 72q12 7 24 0" fill="none" stroke={outline} strokeWidth="2.5" /> : <Eye cx={78} cy={70} color={eyeColor} outline={outline} rx={eyeRx} ry={eyeRy} />}
-      <Eye cx={122} cy={70} color={eyeColor} outline={outline} rx={eyeRx} ry={eyeRy} />
+    <g className="avatar-motion-face" strokeLinecap="round" strokeLinejoin="round">
+      <path className="avatar-motion-brows" d={`M66 52q12 ${browLift} 24 0M110 52q12 ${browLift} 24 0`} fill="none" stroke={outline} strokeWidth={gender === "female" ? Math.min(3, browWidth) : browWidth} />
+      <g className={cn("avatar-motion-eye", blinking && "is-blinking")}>
+        {wink ? <path d="M66 72q12 7 24 0" fill="none" stroke={outline} strokeWidth="2.5" /> : <Eye cx={78} cy={70} color={eyeColor} outline={outline} rx={eyeRx} ry={eyeRy} />}
+      </g>
+      <g className={cn("avatar-motion-eye", blinking && "is-blinking")}>
+        <Eye cx={122} cy={70} color={eyeColor} outline={outline} rx={eyeRx} ry={eyeRy} />
+      </g>
       {gender === "female" && !sleepy ? (
         <path
           d="m66 66-6-3m9 0-3-6m7 5-1-6m62 10 6-3m-9 0 3-6m-7 5 1-6"
@@ -219,7 +301,7 @@ function Features({ eyebrowStyle, eyeColor, expression, gender, noseStyle, outli
         />
       ) : null}
       <Nose outline={outline} style={noseStyle} />
-      <Mouth expression={expression} gender={gender} outline={outline} />
+      <g className="avatar-motion-mouth"><Mouth expression={expression} gender={gender} outline={outline} /></g>
       <ellipse cx="66" cy="94" fill="#fb7185" opacity={gender === "female" ? ".2" : ".12"} rx={gender === "female" ? "11" : "10"} ry={gender === "female" ? "5" : "4"} />
       <ellipse cx="134" cy="94" fill="#fb7185" opacity={gender === "female" ? ".2" : ".12"} rx={gender === "female" ? "11" : "10"} ry={gender === "female" ? "5" : "4"} />
     </g>
