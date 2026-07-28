@@ -14,6 +14,9 @@ import { findSupabaseUserByPhone, phoneIdentityEmail } from "@/lib/auth/supabase
 import { isUsernameConflictError } from "@/lib/auth/username";
 import { assertTeacherPhoneNotBanned } from "@/lib/moderation/teacher-phone-ban";
 
+export const runtime = "nodejs";
+export const maxDuration = 30;
+
 const studentSchema = z.object({
   role: z.literal("student").default("student"),
   phone: z.string().min(9).max(20),

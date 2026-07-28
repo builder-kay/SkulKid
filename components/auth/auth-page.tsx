@@ -15,11 +15,41 @@ type Audience = "student" | "teacher";
 type AuthAction = "login" | "password-reset" | "signup";
 type PhoneOwner = "self" | "guardian";
 type UsernameAvailability = "idle" | "checking" | "available" | "taken";
+type AuthApiResult = {
+  ok?: boolean;
+  error?: string;
+  message?: string;
+  requiresSignIn?: boolean;
+  role?: AppRole;
+  actions?: AuthAction[];
+  phoneHint?: string;
+  username?: string;
+  available?: boolean;
+  code?: string;
+};
 
 class AuthFlowError extends Error {
   constructor(message: string, readonly actions: AuthAction[] = [], readonly code = "") {
     super(message);
   }
+}
+
+function unreadableResponseMessage(response: Response, responseText: string) {
+  const status = response.status ? ` (HTTP ${response.status})` : "";
+  const plainText = responseText.trim();
+  const isSafePlainText =
+    plainText.length > 0 &&
+    plainText.length <= 240 &&
+    !/[<>]/.test(plainText);
+
+  if (isSafePlainText) return `${plainText}${status}`;
+  if ([502, 503, 504].includes(response.status)) {
+    return `The signup service is temporarily unavailable${status}. Please wait a moment and try again.`;
+  }
+  if (response.status === 404) {
+    return `The signup service is missing from this deployment${status}. Please contact support.`;
+  }
+  return `The server returned an ${plainText ? "unreadable" : "empty"} response${status}. Please try again.`;
 }
 
 export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode; nextPath?: string; audience?: Audience }) {
@@ -117,18 +147,26 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
 
   async function post(url: string, body: unknown) {
     const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    const result = await response.json() as {
-      ok?: boolean;
-      error?: string;
-      message?: string;
-      requiresSignIn?: boolean;
-      role?: AppRole;
-      actions?: AuthAction[];
-      phoneHint?: string;
-      username?: string;
-      available?: boolean;
-      code?: string;
-    };
+    const responseText = await response.text();
+    let result: AuthApiResult | null = null;
+    if (responseText.trim()) {
+      try {
+        const parsed = JSON.parse(responseText) as unknown;
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          result = parsed as AuthApiResult;
+        }
+      } catch {
+        // The fallback below turns platform HTML/text responses into a useful error.
+      }
+    }
+
+    if (!result) {
+      throw new AuthFlowError(
+        unreadableResponseMessage(response, responseText),
+        [],
+        "INVALID_SERVER_RESPONSE"
+      );
+    }
     if (!response.ok) throw new AuthFlowError(result.error || "Something went wrong.", result.actions, result.code);
     return result;
   }

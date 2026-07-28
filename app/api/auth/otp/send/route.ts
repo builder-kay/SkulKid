@@ -11,6 +11,9 @@ import { findSupabaseUserByPhone } from "@/lib/auth/supabase-phone-user";
 import { platformActionUrl } from "@/lib/auth/sms-links";
 import { assertTeacherPhoneNotBanned } from "@/lib/moderation/teacher-phone-ban";
 
+export const runtime = "nodejs";
+export const maxDuration = 30;
+
 const signupSchema = z.object({
   purpose: z.literal("signup"),
   phone: z.string().min(9).max(20),
