@@ -13,6 +13,9 @@ export type AdminLessonRecord = {
   unit: string;
   chapter: string;
   topic: string;
+  contentStandard?: string;
+  indicator?: string;
+  lessonNumber?: number;
   title: string;
   description: string;
   estimatedMinutes: number;

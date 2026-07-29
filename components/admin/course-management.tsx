@@ -158,7 +158,7 @@ export function CourseManagement({ initialCreate = false }: { initialCreate?: bo
           <div>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-violet-200">Course workspace</p>
             <h2 className="mt-2 text-3xl font-black" id="course-management-heading">Build courses for classes or Public Learning</h2>
-            <p className="mt-2 max-w-2xl text-violet-100">Choose an audience once, then organise its modules and lessons. Public versions stay private until submitted.</p>
+            <p className="mt-2 max-w-2xl text-violet-100">Choose an audience once, then organise strands, sub-strands, topics and lessons. Public versions stay private until submitted.</p>
           </div>
           <button className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-white px-5 font-black text-slate-950 shadow-lg hover:bg-violet-50" onClick={() => setForm({ ...emptyForm, gradeLevels: [...emptyForm.gradeLevels], classIds: [] })} type="button"><Plus className="size-5" />Create course</button>
         </div>
@@ -222,8 +222,8 @@ function CourseWorkspace({ course, lessons, saving, access, settings, onEdit, on
       await saveUnit(course.id, { title: unitTitle, description: unitDescription });
       setUnitTitle(""); setUnitDescription(""); setUnitOpen(false);
       await onRefresh();
-      setMessage("Module added.");
-    } catch (cause) { setMessage(cause instanceof Error ? cause.message : "Could not add the module."); }
+      setMessage("Strand added.");
+    } catch (cause) { setMessage(cause instanceof Error ? cause.message : "Could not add the strand."); }
   }
 
   return <div className="grid gap-6">
@@ -235,11 +235,11 @@ function CourseWorkspace({ course, lessons, saving, access, settings, onEdit, on
       <div className="flex shrink-0 gap-2"><button className="grid size-11 place-items-center rounded-xl border border-slate-300 hover:bg-slate-50" aria-label="Edit course" onClick={onEdit} type="button"><Pencil className="size-4" /></button>{access?.classIds.length ? <button className={`inline-flex min-h-11 items-center gap-2 rounded-xl px-4 text-sm font-black ${course.status === "published" ? "bg-amber-100 text-amber-950" : "bg-violet-700 text-white"}`} disabled={saving} onClick={onStatus} type="button">{course.status === "published" ? <EyeOff className="size-4" /> : <Eye className="size-4" />}{course.status === "published" ? "Pause classes" : "Ready for classes"}</button> : null}</div>
     </div>
     {isPublic ? <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 sm:p-5"><div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-xs font-black uppercase tracking-wider text-emerald-800">Public Learning publication</p><h4 className="mt-1 text-lg font-black">{publication?.currentVersion ? `Version ${publication.currentVersion} is live` : "Not yet published publicly"}</h4><p className="mt-1 text-sm text-emerald-950/75">{latestStatus === "pending_review" ? `Version ${publication?.latest?.version} is with an administrator. The last approved version stays live.` : latestStatus === "changes_requested" ? publication?.latest?.reviewNote || "An administrator asked for changes." : settings.requireLessonApproval ? "Submit a frozen course version for administrator approval." : "Publishing makes a frozen version available immediately."}</p></div><div className="flex shrink-0 flex-wrap gap-2">{publication?.currentRevisionId ? <button className="min-h-11 rounded-xl border border-amber-300 bg-white px-4 text-sm font-black text-amber-950 disabled:opacity-50" disabled={saving} onClick={() => onPublication("unpublish")} type="button">Unpublish</button> : null}<button className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-emerald-700 px-4 text-sm font-black text-white disabled:opacity-50" disabled={saving || !settings.allowTeacherPublishing || latestStatus === "pending_review" || !publishedCount} onClick={() => onPublication("submit")} type="button">{latestStatus === "pending_review" ? <Loader2 className="size-4" /> : latestStatus === "changes_requested" ? <CheckCircle2 className="size-4" /> : <Send className="size-4" />}{latestStatus === "pending_review" ? "In review" : latestStatus === "changes_requested" ? "Resubmit changes" : publication?.currentRevisionId ? "Submit updated version" : "Submit to Public Learning"}</button></div></div>{access?.classIds.length && (latestStatus === "pending_review" || latestStatus === "changes_requested") ? <p className="mt-3 rounded-xl bg-sky-50 p-3 text-sm font-bold text-sky-900">Your assigned classes can use the latest ready lessons now. Public learners still see version {publication?.currentVersion ?? "—"}.</p> : null}{!settings.allowTeacherPublishing ? <p className="mt-3 rounded-xl bg-white p-3 text-sm font-bold text-amber-900">An administrator has paused Public Learning submissions. You can keep editing and saving this course.</p> : null}{!publishedCount ? <p className="mt-3 text-sm font-bold text-emerald-950">Publish at least one complete lesson before submitting.</p> : null}</section> : null}
-    <div className="grid grid-cols-3 gap-2 text-center"><Stat value={course.units.length} label="Modules" /><Stat value={courseLessons.filter((lesson) => Boolean(lesson.unitId)).length} label="Linked lessons" /><Stat value={publishedCount} label="Live lessons" /></div>
+    <div className="grid grid-cols-3 gap-2 text-center"><Stat value={course.units.length} label="Strands" /><Stat value={courseLessons.filter((lesson) => Boolean(lesson.unitId)).length} label="Linked lessons" /><Stat value={publishedCount} label="Live lessons" /></div>
     <div>
-      <div className="flex items-center justify-between gap-3"><div><h4 className="text-lg font-black">Modules</h4><p className="text-sm text-muted">Subject → Module → Lesson. Link lessons to a module and arrange their order inside it.</p></div><button className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-violet-100 px-3 text-sm font-black text-violet-900" onClick={() => setUnitOpen((open) => !open)} type="button"><Plus className="size-4" />Add module</button></div>
-      {unitOpen ? <InlineForm title="New module" value={unitTitle} description={unitDescription} onValue={setUnitTitle} onDescription={setUnitDescription} onCancel={() => setUnitOpen(false)} onSave={() => void addUnit()} /> : null}
-      <div className="mt-4 grid gap-3">{course.units.map((unit) => <UnitPanel course={course} unit={unit} lessons={lessons} key={unit.id} onRefresh={onRefresh} setMessage={setMessage} />)}{!course.units.length ? <div className="rounded-2xl border border-dashed border-slate-300 p-7 text-center"><Layers3 className="mx-auto size-8 text-violet-500" /><p className="mt-2 font-black">No modules yet</p><p className="text-sm text-muted">Add a module, then place lessons inside it.</p></div> : null}</div>
+      <div className="flex items-center justify-between gap-3"><div><h4 className="text-lg font-black">Strands</h4><p className="text-sm text-muted">Subject → Strand → Sub-strand → Topic → Lesson.</p></div><button className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-violet-100 px-3 text-sm font-black text-violet-900" onClick={() => setUnitOpen((open) => !open)} type="button"><Plus className="size-4" />Add strand</button></div>
+      {unitOpen ? <InlineForm title="New strand" value={unitTitle} description={unitDescription} onValue={setUnitTitle} onDescription={setUnitDescription} onCancel={() => setUnitOpen(false)} onSave={() => void addUnit()} /> : null}
+      <div className="mt-4 grid gap-3">{course.units.map((unit) => <UnitPanel course={course} unit={unit} lessons={lessons} key={unit.id} onRefresh={onRefresh} setMessage={setMessage} />)}{!course.units.length ? <div className="rounded-2xl border border-dashed border-slate-300 p-7 text-center"><Layers3 className="mx-auto size-8 text-violet-500" /><p className="mt-2 font-black">No strands yet</p><p className="text-sm text-muted">Add a strand, then create its sub-strands and lessons.</p></div> : null}</div>
     </div>
   </div>;
 }
@@ -268,8 +268,8 @@ function UnitPanel({ course, unit, lessons, onRefresh, setMessage }: { course: M
 
   async function addTopic() {
     if (!title.trim()) return;
-    try { await saveTopic(unit.id, { title, description }); setTitle(""); setDescription(""); setAddingTopic(false); await onRefresh(); setMessage("Topic added."); }
-    catch (cause) { setMessage(cause instanceof Error ? cause.message : "Could not add the topic."); }
+    try { await saveTopic(unit.id, { title, description }); setTitle(""); setDescription(""); setAddingTopic(false); await onRefresh(); setMessage("Sub-strand added."); }
+    catch (cause) { setMessage(cause instanceof Error ? cause.message : "Could not add the sub-strand."); }
   }
 
   async function attach() {
@@ -297,7 +297,7 @@ function UnitPanel({ course, unit, lessons, onRefresh, setMessage }: { course: M
     try {
       await writeModuleLessonOrder(course.id, unit.id, ids);
       await onRefresh();
-      setMessage("Lesson order updated in this module.");
+      setMessage("Lesson order updated in this strand.");
     } catch (cause) {
       setMessage(cause instanceof Error ? cause.message : "Could not reorder lessons.");
     } finally {
@@ -310,7 +310,7 @@ function UnitPanel({ course, unit, lessons, onRefresh, setMessage }: { course: M
     try {
       await detachLessonFromModule(lessonId, course.id);
       await onRefresh();
-      setMessage("Lesson unlinked from this module.");
+      setMessage("Lesson unlinked from this strand.");
     } catch (cause) {
       setMessage(cause instanceof Error ? cause.message : "Could not unlink the lesson.");
     } finally {
@@ -322,14 +322,14 @@ function UnitPanel({ course, unit, lessons, onRefresh, setMessage }: { course: M
     <article className="overflow-hidden rounded-2xl border border-slate-200">
       <button className="flex w-full items-center gap-3 bg-slate-50 p-4 text-left" onClick={() => setOpen((value) => !value)} type="button">
         <span className="grid size-9 place-items-center rounded-xl bg-white text-violet-700 shadow-sm"><Layers3 className="size-4" /></span>
-        <span className="flex-1"><b className="block">{unit.title}</b><span className="text-xs text-muted">{moduleLessons.length} lesson{moduleLessons.length === 1 ? "" : "s"} · Module {course.units.findIndex((item) => item.id === unit.id) + 1}</span></span>
+        <span className="flex-1"><b className="block">{unit.title}</b><span className="text-xs text-muted">{moduleLessons.length} lesson{moduleLessons.length === 1 ? "" : "s"} · Strand {course.units.findIndex((item) => item.id === unit.id) + 1}</span></span>
         <ChevronDown className={`size-4 transition ${open ? "rotate-180" : ""}`} />
       </button>
       {open ? (
         <div className="grid gap-3 p-3">
           <div className="rounded-xl border border-slate-200 bg-white p-3">
             <div className="flex items-center justify-between gap-2">
-              <b className="text-sm">Lessons in this module</b>
+              <b className="text-sm">Lessons in this strand</b>
               <span className="text-xs font-bold text-muted">Drag-free reorder with arrows</span>
             </div>
             {moduleLessons.length ? (
@@ -358,11 +358,11 @@ function UnitPanel({ course, unit, lessons, onRefresh, setMessage }: { course: M
                   <option value="">Choose a lesson to link…</option>
                   {attachable.map((lesson) => (
                     <option key={lesson.id} value={lesson.id}>
-                      {lesson.title} ({lesson.status}{lesson.unitId ? ` · currently in another module` : ""})
+                      {lesson.title} ({lesson.status}{lesson.unitId ? ` · currently in another strand` : ""})
                     </option>
                   ))}
                 </select>
-                <button className="rounded-lg bg-violet-700 px-3 text-sm font-black text-white disabled:opacity-50" disabled={busy || !attachId} onClick={() => void attach()} type="button">Link to module</button>
+                <button className="rounded-lg bg-violet-700 px-3 text-sm font-black text-white disabled:opacity-50" disabled={busy || !attachId} onClick={() => void attach()} type="button">Link to strand</button>
               </div>
             ) : (
               <p className="mt-3 text-xs font-bold text-muted">Create lessons in the Lessons studio, then link them here.</p>
@@ -370,9 +370,9 @@ function UnitPanel({ course, unit, lessons, onRefresh, setMessage }: { course: M
           </div>
 
           <div className="flex justify-end">
-            <button className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-slate-100 px-3 text-xs font-black" onClick={() => setAddingTopic(true)} type="button"><Plus className="size-3.5" />Add topic (optional)</button>
+            <button className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-slate-100 px-3 text-xs font-black" onClick={() => setAddingTopic(true)} type="button"><Plus className="size-3.5" />Add sub-strand</button>
           </div>
-          {addingTopic ? <InlineForm title="New topic" value={title} description={description} onValue={setTitle} onDescription={setDescription} onCancel={() => setAddingTopic(false)} onSave={() => void addTopic()} /> : null}
+          {addingTopic ? <InlineForm title="New sub-strand" value={title} description={description} onValue={setTitle} onDescription={setDescription} onCancel={() => setAddingTopic(false)} onSave={() => void addTopic()} /> : null}
           {unit.topics.map((topic) => <TopicRow course={course} unitId={unit.id} topic={topic} lessons={lessons} key={topic.id} setMessage={setMessage} />)}
         </div>
       ) : null}
@@ -386,10 +386,10 @@ function TopicRow({ course, unitId, topic, lessons, setMessage }: { course: Mana
   const [lessonId, setLessonId] = useState("");
   async function attach() {
     if (!lessonId) return;
-    try { await attachLessonToTopic(lessonId, course.id, unitId, topic.id); setLessonId(""); setMessage("Lesson attached to topic."); }
+    try { await attachLessonToTopic(lessonId, course.id, unitId, topic.id); setLessonId(""); setMessage("Lesson attached to sub-strand."); }
     catch (cause) { setMessage(cause instanceof Error ? cause.message : "Could not attach the lesson."); }
   }
-  return <div className="rounded-xl border border-slate-200 p-3"><div className="flex items-center gap-2"><Tags className="size-4 text-emerald-700" /><b className="flex-1">{topic.title}</b><span className="text-xs font-bold text-muted">{attached.length} lessons</span></div>{attached.length ? <ul className="mt-2 grid gap-1">{attached.map((lesson) => <li className="rounded-lg bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-900" key={lesson.id}>{lesson.title} · {lesson.status}</li>)}</ul> : null}{available.length ? <div className="mt-3 flex gap-2"><select className="min-h-10 min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2 text-sm" value={lessonId} onChange={(event) => setLessonId(event.target.value)}><option value="">Choose a lesson to attach</option>{available.map((lesson) => <option key={lesson.id} value={lesson.id}>{lesson.title} ({lesson.status})</option>)}</select><button className="rounded-lg bg-violet-700 px-3 text-sm font-black text-white disabled:opacity-50" disabled={!lessonId} onClick={() => void attach()} type="button">Attach</button></div> : null}</div>;
+  return <div className="rounded-xl border border-slate-200 p-3"><div className="flex items-center gap-2"><Tags className="size-4 text-emerald-700" /><div className="flex-1"><span className="block text-[10px] font-black uppercase tracking-wider text-emerald-700">Sub-strand</span><b>{topic.title}</b></div><span className="text-xs font-bold text-muted">{attached.length} lessons</span></div>{attached.length ? <ul className="mt-2 grid gap-1">{attached.map((lesson) => <li className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-900" key={lesson.id}><b>{lesson.topic || "Untitled topic"}</b><span className="mt-0.5 block">{lesson.title} · {lesson.status}</span></li>)}</ul> : null}{available.length ? <div className="mt-3 flex gap-2"><select className="min-h-10 min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2 text-sm" value={lessonId} onChange={(event) => setLessonId(event.target.value)}><option value="">Choose a lesson to attach</option>{available.map((lesson) => <option key={lesson.id} value={lesson.id}>{lesson.topic}: {lesson.title} ({lesson.status})</option>)}</select><button className="rounded-lg bg-violet-700 px-3 text-sm font-black text-white disabled:opacity-50" disabled={!lessonId} onClick={() => void attach()} type="button">Attach</button></div> : null}</div>;
 }
 
 function PublicCourseForm({ classes, form, saving, setForm, onClose, onSave }: {
@@ -415,7 +415,7 @@ function PublicCourseForm({ classes, form, saving, setForm, onClose, onSave }: {
           <FormField label="Description"><textarea rows={4} value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} /></FormField>
           <fieldset>
             <legend className="text-sm font-black text-slate-700">Who is this course for?</legend>
-            <p className="mt-1 text-xs text-slate-500">Every module and lesson inherits this choice.</p>
+            <p className="mt-1 text-xs text-slate-500">Every strand, sub-strand, topic and lesson inherits this choice.</p>
             <div className="mt-3 grid gap-3 sm:grid-cols-3">
               {([
                 ["class_only", "My classes", "Only the classes you choose"],

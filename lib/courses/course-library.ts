@@ -62,8 +62,9 @@ export async function saveUnit(courseId: string, input: { id?: string; title: st
 }
 
 export async function saveTopic(unitId: string, input: { id?: string; title: string; description: string }) {
-  await mutateCatalog({ action: "save_topic", unitId, ...input });
+  const { id } = await mutateCatalog<{ id: string }>({ action: "save_topic", unitId, ...input });
   notify();
+  return id;
 }
 
 export async function moveCourse(id: string, direction: -1 | 1, courses: ManagedCourse[]) {

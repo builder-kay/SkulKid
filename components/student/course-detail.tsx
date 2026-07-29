@@ -284,9 +284,9 @@ export function CourseDetail({ subjectSlug, classId }: CourseDetailProps) {
               const isNext = nextLesson?.id === lesson.id;
               const lessonUnit = subject.units.find((candidate) => candidate.id === lesson.unitId);
               const lessonTopic = lessonUnit?.topics.find((candidate) => candidate.id === lesson.topicId);
-              const moduleLessonNumber = lessonUnit
+              const moduleLessonNumber = lesson.lessonNumber ?? (lessonUnit
                 ? course.lessons.filter((candidate) => candidate.unitId === lesson.unitId).findIndex((candidate) => candidate.id === lesson.id) + 1
-                : index + 1;
+                : index + 1);
               const isLast = index === course.lessons.length - 1;
 
               return (
@@ -338,7 +338,7 @@ export function CourseDetail({ subjectSlug, classId }: CourseDetailProps) {
                       </span>
                       {lessonUnit ? (
                         <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700">
-                          {lessonUnit.title} · Lesson {moduleLessonNumber}
+                          Strand: {lesson.strand || lessonUnit.title} · Lesson {moduleLessonNumber}
                         </span>
                       ) : subject.units.length > 1 && lessonTopic ? (
                         <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700">
@@ -363,7 +363,14 @@ export function CourseDetail({ subjectSlug, classId }: CourseDetailProps) {
                       <div className="min-w-0">
                         <p className="text-xs font-black uppercase tracking-wider text-muted">Mission {index + 1}</p>
                         <h3 className="mt-1 text-xl font-black text-text-primary sm:text-2xl">{lesson.title}</h3>
+                        <p className="mt-2 text-xs font-bold text-emerald-700">
+                          {[lesson.strand, lesson.subStrand, lesson.topic].filter(Boolean).join(" → ")}
+                        </p>
                         <p className="mt-2 max-w-2xl leading-7 text-text-secondary">{lesson.description}</p>
+                        {lesson.contentStandard || lesson.indicator ? <dl className="mt-3 grid gap-2 rounded-xl bg-slate-50 p-3 text-xs">
+                          {lesson.contentStandard ? <div><dt className="font-black uppercase tracking-wider text-slate-500">Content standard</dt><dd className="mt-1 leading-5 text-slate-700">{lesson.contentStandard}</dd></div> : null}
+                          {lesson.indicator ? <div><dt className="font-black uppercase tracking-wider text-slate-500">Indicator</dt><dd className="mt-1 leading-5 text-slate-700">{lesson.indicator}</dd></div> : null}
+                        </dl> : null}
                       </div>
 
                       {locked ? (

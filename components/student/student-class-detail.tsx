@@ -134,7 +134,7 @@ function ClassSubjectCard({ classId, course }: { classId: string; course: Detail
           {empty ? (
             <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
               <p className="flex items-center gap-2 text-sm font-black text-amber-950"><Sparkles className="size-4 text-amber-600" />Coming together</p>
-              <p className="mt-1 text-xs leading-5 text-amber-900">Your teacher is preparing the first module and lesson.</p>
+              <p className="mt-1 text-xs leading-5 text-amber-900">Your teacher is preparing the first strand and lesson.</p>
             </div>
           ) : (
             <div className="mt-4 rounded-2xl bg-sky-50 p-4">
@@ -144,7 +144,7 @@ function ClassSubjectCard({ classId, course }: { classId: string; course: Detail
           )}
 
           <div className="mt-4 grid grid-cols-2 divide-x divide-slate-200 rounded-2xl border border-slate-200 py-3 text-center">
-            <ClassSubjectStat icon={Layers3} label="Modules" value={course.moduleCount} />
+            <ClassSubjectStat icon={Layers3} label="Strands" value={course.moduleCount} />
             <ClassSubjectStat icon={BookOpen} label="Lessons" value={course.lessonCount} />
           </div>
 

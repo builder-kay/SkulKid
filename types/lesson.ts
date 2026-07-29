@@ -112,6 +112,12 @@ export type Lesson = {
   subjectId: string;
   unitId: string;
   topicId: string;
+  strand?: string;
+  subStrand?: string;
+  topic?: string;
+  contentStandard?: string;
+  indicator?: string;
+  lessonNumber?: number;
   title: string;
   slug: string;
   description: string;

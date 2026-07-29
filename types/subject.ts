@@ -9,11 +9,11 @@ export type Subject = {
   color: string;
   coverUrl?: string | null;
   gradeLevels?: number[];
-  /** Product term: Modules (DB table remains Unit). */
+  /** Ghana curriculum term: Strands (DB table remains Unit). */
   units: Unit[];
 };
 
-/** Module within a subject (DB table: Unit). Contains lesson groups (topics) and lessons. */
+/** Strand within a subject (DB table: Unit). Contains sub-strands and lessons. */
 export type Unit = {
   id: string;
   subjectId: string;
@@ -24,7 +24,7 @@ export type Unit = {
   topics: Topic[];
 };
 
-/** Optional lesson group inside a module (DB table: Topic). */
+/** Sub-strand inside a strand (DB table: Topic). */
 export type Topic = {
   id: string;
   unitId: string;
