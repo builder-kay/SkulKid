@@ -11,6 +11,7 @@ import {
   XCircle
 } from "lucide-react";
 import { SkulKidCard } from "@/components/shared/skulkid-card";
+import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { AccessibleLineChart } from "@/components/admin/admin-charts";
 
 type DiagnosticEvent = {
@@ -111,18 +112,11 @@ export default function OtpDiagnosticsPage() {
 
   return (
     <main className="mx-auto grid w-full max-w-[96rem] gap-6">
-      <header className="rounded-[2rem] bg-gradient-to-br from-slate-950 via-slate-900 to-cyan-950 p-6 text-white shadow-[var(--shadow-card)] sm:p-8">
-        <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-xs font-black uppercase tracking-wider text-cyan-300">OTP observability</p>
-            <h1 className="mt-2 text-3xl font-black sm:text-4xl">Provider diagnostics</h1>
-            <p className="mt-3 max-w-3xl text-slate-300">Confirm which SMS providers were called, whether they accepted each request, and how long they took. Phone numbers are masked and OTP values are never recorded.</p>
-          </div>
-          <button className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-white px-5 font-black text-slate-950 disabled:opacity-60" disabled={loading} onClick={() => void load()} type="button">
+      <AdminPageHeader actions={
+          <button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white px-5 font-black text-slate-950 disabled:opacity-60" disabled={loading} onClick={() => void load()} type="button">
             <RefreshCw className={`size-5 ${loading ? "animate-spin" : ""}`} />Refresh
           </button>
-        </div>
-      </header>
+        } description="Confirm which SMS providers were called, whether they accepted each request, and how long they took. Phone numbers are masked and OTP values are never recorded." eyebrow="OTP observability" icon={RadioTower} title="Provider diagnostics" tone="dark" />
 
       {error ? <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-bold text-rose-900" role="alert">{error}</div> : null}
 

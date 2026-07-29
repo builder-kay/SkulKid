@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ChevronLeft, ChevronRight, Download, MoreHorizontal, Plus, RefreshCw, Search, Shield, UserRound, Users, X } from "lucide-react";
 import { SkulKidCard } from "@/components/shared/skulkid-card";
+import { AdminPageHeader } from "@/components/admin/admin-page-header";
 
 type Role = "student" | "teacher" | "admin";
 type User = { id: string; phone: string | null; email: string | null; displayName: string; role: Role; status: "active" | "suspended"; createdAt: string; lastSignInAt: string | null; grade: number | null; school: string };
@@ -86,15 +87,12 @@ function AdminUsersContent() {
   const counts = result?.counts ?? { all: 0, student: 0, teacher: 0, admin: 0, suspended: 0 };
   return (
     <main className="mx-auto grid w-full max-w-[96rem] gap-6">
-      <header className="rounded-[2rem] bg-white p-6 shadow-[var(--shadow-card)] sm:p-8">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div><p className="text-xs font-black uppercase tracking-wider text-emerald-700">Identity and access</p><h1 className="mt-2 text-3xl font-black sm:text-4xl">People</h1><p className="mt-2 max-w-2xl text-slate-600">Find every student, teacher, and administrator. Manage access through guarded, audited actions.</p></div>
-          <button className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 font-black text-white hover:bg-emerald-700" onClick={() => setCreateOpen(true)}><Plus className="size-5" />Add person</button>
-        </div>
+      <section className="rounded-[1.75rem] border border-white/80 bg-white/90 p-5 shadow-[0_18px_50px_rgba(15,23,42,.08)] backdrop-blur sm:p-7">
+        <AdminPageHeader actions={<button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 font-black text-white hover:bg-emerald-700" onClick={() => setCreateOpen(true)}><Plus className="size-5" />Add person</button>} className="border-0 bg-transparent p-0 shadow-none" description="Find every student, teacher, and administrator. Manage access through guarded, audited actions." eyebrow="Identity and access" icon={Users} title="People" />
         <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">{[
           ["All people", counts.all], ["Students", counts.student], ["Teachers", counts.teacher], ["Admins", counts.admin], ["Suspended", counts.suspended]
-        ].map(([label, value]) => <div className="rounded-2xl bg-slate-50 p-4" key={String(label)}><p className="text-2xl font-black">{value}</p><p className="text-xs font-bold text-slate-500">{label}</p></div>)}</div>
-      </header>
+        ].map(([label, value]) => <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4" key={String(label)}><p className="text-2xl font-black">{value}</p><p className="text-xs font-bold text-slate-500">{label}</p></div>)}</div>
+      </section>
 
       {error ? <div role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 p-4 font-bold text-rose-900">{error}</div> : null}
       <SkulKidCard className="overflow-hidden">

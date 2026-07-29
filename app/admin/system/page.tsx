@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   Clock3,
   Database,
+  Gauge,
   GitCommitHorizontal,
   KeyRound,
   RefreshCw,
@@ -17,6 +18,7 @@ import {
   XCircle
 } from "lucide-react";
 import { SkulKidCard } from "@/components/shared/skulkid-card";
+import { AdminPageHeader } from "@/components/admin/admin-page-header";
 
 type SystemData = Record<string, any>;
 
@@ -63,9 +65,7 @@ export default function SystemControlCenterPage() {
   }
 
   return <main className="mx-auto grid w-full max-w-[100rem] gap-6">
-    <header className="rounded-[2rem] bg-gradient-to-br from-slate-950 via-indigo-950 to-cyan-950 p-6 text-white shadow-[var(--shadow-card)] sm:p-8">
-      <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-xs font-black uppercase tracking-wider text-cyan-300">Govern · Protect · Detect · Respond · Recover</p><h1 className="mt-2 text-3xl font-black sm:text-5xl">System control center</h1><p className="mt-3 max-w-3xl text-slate-300">Authentication security, application reliability, alerts, recovery, provider health, privacy, releases, data quality and scoped administration.</p></div><button className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-white px-5 font-black text-slate-950 disabled:opacity-60" disabled={loading} onClick={() => void load()}><RefreshCw className={`size-5 ${loading ? "animate-spin" : ""}`} />Refresh</button></div>
-    </header>
+    <AdminPageHeader actions={<button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white px-5 font-black text-slate-950 disabled:opacity-60" disabled={loading} onClick={() => void load()}><RefreshCw className={`size-5 ${loading ? "animate-spin" : ""}`} />Refresh</button>} description="Authentication security, application reliability, alerts, recovery, provider health, privacy, releases, data quality and scoped administration." eyebrow="Govern · Protect · Detect · Respond · Recover" icon={Gauge} title="System control center" tone="dark" />
     {error ? <div className="rounded-2xl bg-rose-50 p-4 font-bold text-rose-900" role="alert">{error}</div> : null}
     {loading && !data ? <div className="rounded-2xl bg-white p-10 text-center font-bold text-slate-500">Running live system checks…</div> : null}
     {data ? <>

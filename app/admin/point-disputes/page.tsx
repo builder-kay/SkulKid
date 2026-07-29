@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { CheckCircle2, RotateCcw, Scale } from "lucide-react";
 import { SkulKidCard } from "@/components/shared/skulkid-card";
+import { AdminPageHeader } from "@/components/admin/admin-page-header";
 
 type Dispute = {
   id: string;
@@ -55,7 +56,7 @@ export default function PointDisputesPage() {
 
   return (
     <main className="mx-auto grid w-full max-w-[90rem] gap-6">
-      <header className="rounded-[2rem] bg-slate-950 p-6 text-white shadow-xl sm:p-8"><p className="text-xs font-black uppercase tracking-wider text-emerald-300">Student safety</p><h1 className="mt-2 text-3xl font-black sm:text-4xl">Point deduction disputes</h1><p className="mt-3 max-w-2xl text-slate-300">Every report and its original deduction are preserved here. Reversing a deduction safely restores the points.</p></header>
+      <AdminPageHeader description="Every report and its original deduction are preserved here. Reversing a deduction safely restores the points." eyebrow="Student safety" icon={Scale} title="Point deduction disputes" tone="dark" />
       {error ? <p className="rounded-xl border border-rose-200 bg-rose-50 p-4 font-bold text-rose-900">{error}</p> : null}
       {disputes.length === 0 ? <SkulKidCard className="p-8 text-center"><Scale className="mx-auto size-10 text-emerald-600" /><h2 className="mt-3 text-xl font-black">No deduction reports</h2></SkulKidCard> : null}
       {disputes.map((item) => (

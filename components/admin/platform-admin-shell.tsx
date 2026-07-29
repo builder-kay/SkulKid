@@ -12,6 +12,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  MessageSquareWarning,
   RadioTower,
   Search,
   Settings2,
@@ -25,17 +26,26 @@ import { SkulKidLogo } from "@/components/shared/skulkid-logo";
 import { SignOutConfirmation } from "@/components/shared/sign-out-confirmation";
 import { cn } from "@/lib/utils";
 
-const navItems: Array<{ href: string; label: string; shortLabel: string; icon: LucideIcon; match: "exact" | "prefix" }> = [
+type NavItem = { href: string; label: string; shortLabel: string; icon: LucideIcon; match: "exact" | "prefix" };
+
+const navItems: NavItem[] = [
   { href: "/admin", label: "Overview", shortLabel: "Home", icon: LayoutDashboard, match: "exact" },
   { href: "/admin/users", label: "People", shortLabel: "People", icon: Users, match: "prefix" },
   { href: "/admin/courses", label: "Learning & classes", shortLabel: "Learning", icon: GraduationCap, match: "prefix" },
   { href: "/admin/moderation", label: "Content moderation", shortLabel: "Review", icon: BookOpenCheck, match: "prefix" },
+  { href: "/admin/point-disputes", label: "Point disputes", shortLabel: "Disputes", icon: MessageSquareWarning, match: "prefix" },
   { href: "/admin/security", label: "Security & audit", shortLabel: "Security", icon: ShieldCheck, match: "prefix" },
   { href: "/admin/operations", label: "Operations", shortLabel: "Ops", icon: Wrench, match: "prefix" },
   { href: "/admin/system", label: "System control", shortLabel: "System", icon: Gauge, match: "prefix" },
   { href: "/admin/otp-diagnostics", label: "OTP diagnostics", shortLabel: "OTP", icon: RadioTower, match: "prefix" },
   { href: "/admin/activity", label: "Platform activity", shortLabel: "Activity", icon: Activity, match: "prefix" },
   { href: "/admin/settings", label: "System settings", shortLabel: "Settings", icon: Settings2, match: "prefix" }
+];
+
+const navGroups = [
+  { label: "Workspace", items: navItems.slice(0, 5) },
+  { label: "Monitor", items: navItems.slice(5, 10) },
+  { label: "Configure", items: navItems.slice(10) }
 ];
 
 export function PlatformAdminShell({ children }: { children: React.ReactNode }) {
@@ -47,7 +57,7 @@ export function PlatformAdminShell({ children }: { children: React.ReactNode }) 
   const secondaryMobileItems = navItems.slice(4);
 
   return (
-    <div className="min-h-screen bg-slate-50 lg:grid lg:grid-cols-[18.5rem_1fr]">
+    <div className="min-h-screen bg-[linear-gradient(145deg,#f8fafc_0%,#f8fafc_58%,#ecfdf5_135%)] text-slate-950 lg:grid lg:grid-cols-[18rem_minmax(0,1fr)] xl:grid-cols-[19rem_minmax(0,1fr)]">
       <SignOutConfirmation open={signOutOpen} onClose={() => setSignOutOpen(false)} />
 
       <header className="sticky top-0 z-30 border-b border-slate-200 bg-slate-950 px-4 py-3 text-white shadow-lg lg:hidden">
@@ -70,8 +80,8 @@ export function PlatformAdminShell({ children }: { children: React.ReactNode }) 
         </div>
       </header>
 
-      <aside className="sticky top-0 hidden h-screen border-r border-slate-800 bg-slate-950 text-white lg:block">
-        <div className="flex h-full flex-col p-5">
+      <aside className="sticky top-0 hidden h-screen border-r border-slate-800 bg-slate-950 text-white shadow-[12px_0_40px_rgba(15,23,42,.08)] lg:block">
+        <div className="flex h-full min-h-0 flex-col p-5">
           <Link className="flex min-h-14 items-center gap-3 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white" href="/admin">
             <span>
               <span className="inline-flex rounded-xl bg-white px-2 py-1 shadow-lg"><SkulKidLogo className="w-36" priority /></span>
@@ -83,28 +93,36 @@ export function PlatformAdminShell({ children }: { children: React.ReactNode }) 
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-500" />
             <input id="global-admin-search" name="q" className="min-h-11 w-full rounded-xl border border-slate-700 bg-slate-900 pl-10 pr-3 text-sm font-semibold text-white outline-none placeholder:text-slate-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/30" placeholder="Search people…" />
           </form>
-          <nav aria-label="Platform admin navigation" className="mt-5 grid gap-1.5">
-            <p className="px-3 pb-1 text-xs font-black uppercase tracking-wider text-slate-500">Admin Center</p>
-            {navItems.map((item) => {
+          <nav aria-label="Platform admin navigation" className="mt-5 min-h-0 flex-1 overflow-y-auto pr-1 [scrollbar-color:#334155_transparent]">
+            {navGroups.map((group) => <div className="mb-5 last:mb-0" key={group.label}>
+            <p className="px-3 pb-2 text-[10px] font-black uppercase tracking-[.18em] text-slate-500">{group.label}</p>
+            <div className="grid gap-1">
+            {group.items.map((item) => {
               const active = item.match === "exact" ? pathname === item.href : pathname.startsWith(item.href);
               const Icon = item.icon;
               return (
                 <Link
                   aria-current={active ? "page" : undefined}
                   className={cn(
-                    "flex min-h-11 items-center gap-3 rounded-xl px-4 text-sm font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white",
-                    active ? "bg-emerald-600 text-white shadow-lg" : "text-slate-300 hover:bg-slate-900 hover:text-white"
+                    "group flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white",
+                    active ? "bg-emerald-500 text-slate-950 shadow-[0_8px_24px_rgba(16,185,129,.18)]" : "text-slate-300 hover:bg-slate-900 hover:text-white"
                   )}
                   href={item.href}
                   key={item.href}
                 >
-                  <Icon aria-hidden="true" className="size-5" />
-                  {item.label}
+                  <span className={cn("grid size-8 shrink-0 place-items-center rounded-lg", active ? "bg-slate-950/10" : "bg-slate-900 group-hover:bg-slate-800")}><Icon aria-hidden="true" className="size-[1.1rem]" /></span>
+                  <span className="min-w-0 truncate">{item.label}</span>
                 </Link>
               );
             })}
+            </div>
+            </div>)}
           </nav>
-          <div className="mt-auto grid gap-3 border-t border-slate-800 pt-4">
+          <div className="mt-3 grid shrink-0 gap-3 border-t border-slate-800 pt-4">
+            <div className="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/70 px-3 py-2">
+              <span className="relative flex size-2.5"><span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-40" /><span className="relative inline-flex size-2.5 rounded-full bg-emerald-400" /></span>
+              <span className="text-xs font-bold text-slate-300">Admin workspace active</span>
+            </div>
             <Link className="rounded-xl px-3 py-2 text-sm font-bold text-slate-400 transition hover:bg-slate-900 hover:text-white" href="/teacher">
               Open teacher workspace →
             </Link>
@@ -125,7 +143,25 @@ export function PlatformAdminShell({ children }: { children: React.ReactNode }) 
         </div>
       </aside>
 
-      <div className="min-w-0 px-4 pb-28 pt-5 sm:px-6 sm:pt-8 lg:p-8">{children}</div>
+      <div className="min-w-0">
+        <div className="sticky top-0 z-20 hidden h-16 items-center justify-between border-b border-slate-200/80 bg-white/85 px-8 backdrop-blur-xl lg:flex">
+          <div className="flex items-center gap-2 text-sm">
+            <span className="font-bold text-slate-400">Admin Center</span>
+            <ChevronRight className="size-4 text-slate-300" />
+            <span className="font-black text-slate-800">{currentItem?.label ?? "Overview"}</span>
+          </div>
+          <div className="flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-800">
+            <span className="size-2 rounded-full bg-emerald-500" /> Secure admin session
+          </div>
+        </div>
+        <div className="relative px-4 pb-28 pt-5 sm:px-6 sm:pt-8 lg:px-8 lg:pb-10 lg:pt-7 xl:px-10">
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-72 overflow-hidden">
+            <div className="absolute -right-24 -top-28 size-80 rounded-full bg-emerald-200/30 blur-3xl" />
+            <div className="absolute left-1/3 -top-40 size-72 rounded-full bg-cyan-100/30 blur-3xl" />
+          </div>
+          <div className="relative z-10">{children}</div>
+        </div>
+      </div>
 
       {mobileMenuOpen ? (
         <div className="fixed inset-0 z-50 bg-slate-950/55 p-3 backdrop-blur-sm lg:hidden" onMouseDown={(event) => {

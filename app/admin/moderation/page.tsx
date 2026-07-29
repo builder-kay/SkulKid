@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, CheckCircle2, Clock3, Eye, Flag, Loader2, ShieldAlert, ShieldCheck, X } from "lucide-react";
 import { SkulKidCard } from "@/components/shared/skulkid-card";
+import { AdminPageHeader } from "@/components/admin/admin-page-header";
 
 type PublicItem = {
   id: string; courseId: string; version: number; title: string; description: string;
@@ -87,10 +88,7 @@ export default function AdminModerationPage() {
 
   return (
     <main className="mx-auto grid w-full max-w-[96rem] gap-6">
-      <header className="relative overflow-hidden rounded-[2rem] bg-slate-950 p-6 text-white shadow-xl sm:p-8">
-        <div className="absolute -right-16 -top-20 size-64 rounded-full bg-emerald-500/20 blur-3xl" />
-        <div className="relative"><p className="text-xs font-black uppercase tracking-[.18em] text-emerald-300">Safety and publishing</p><h1 className="mt-2 text-3xl font-black sm:text-4xl">Moderation centre</h1><p className="mt-3 max-w-3xl text-slate-300">Review exact frozen versions, correct AI mistakes, resolve appeals and protect learners with audited decisions.</p></div>
-      </header>
+      <AdminPageHeader description="Review exact frozen versions, correct AI mistakes, resolve appeals and protect learners with audited decisions." eyebrow="Safety and publishing" icon={ShieldCheck} title="Moderation centre" tone="dark" />
       <nav className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-2 sm:grid-cols-3" aria-label="Moderation queues">
         {tabs.map((item) => <button className={`min-h-12 rounded-xl px-4 text-sm font-black ${tab === item.id ? "bg-emerald-600 text-white" : "text-slate-700 hover:bg-slate-100"}`} key={item.id} onClick={() => setTab(item.id)}>{item.label} <span className="ml-2 rounded-full bg-black/10 px-2 py-0.5">{item.count}</span></button>)}
       </nav>

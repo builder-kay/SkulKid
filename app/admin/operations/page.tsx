@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { AlertTriangle, CheckCircle2, CircleDashed, ExternalLink, Plus, Server, ShieldAlert, Wrench, XCircle } from "lucide-react";
 import { SkulKidCard } from "@/components/shared/skulkid-card";
+import { AdminPageHeader } from "@/components/admin/admin-page-header";
 
 type Operations = {
   checkedAt: string;
@@ -21,7 +22,7 @@ export default function AdminOperationsPage() {
   async function load() { try { const response = await fetch("/api/admin/operations", { cache: "no-store" }); const result = await response.json(); if (!response.ok) throw new Error(result.error); setData(result); } catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to load operations."); } }
   useEffect(() => { void load(); }, []);
   return <main className="mx-auto grid w-full max-w-[96rem] gap-6">
-    <header className="rounded-[2rem] bg-gradient-to-br from-slate-950 to-slate-800 p-6 text-white shadow-[var(--shadow-card)] sm:p-8"><div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-xs font-black uppercase tracking-wider text-cyan-300">System administration</p><h1 className="mt-2 text-3xl font-black sm:text-4xl">Operations</h1><p className="mt-2 max-w-2xl text-slate-300">Health, incidents, provider readiness, recovery, maintenance, inventory, and operational responsibility.</p></div><button className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-white px-5 font-black text-slate-950" onClick={() => setShowIncident(true)}><Plus className="size-5" />Declare incident</button></div></header>
+    <AdminPageHeader actions={<button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white px-5 font-black text-slate-950" onClick={() => setShowIncident(true)}><Plus className="size-5" />Declare incident</button>} description="Health, incidents, provider readiness, recovery, maintenance, inventory, and operational responsibility." eyebrow="System administration" icon={Wrench} title="Operations" tone="dark" />
     {error ? <div role="alert" className="rounded-2xl bg-rose-50 p-4 font-bold text-rose-900">{error}</div> : null}
     {notice ? <div role="status" className="rounded-2xl bg-emerald-50 p-4 font-bold text-emerald-900">{notice}</div> : null}
     <section><div className="flex items-end justify-between"><div><p className="text-xs font-black uppercase tracking-wider text-emerald-700">Live diagnostics</p><h2 className="mt-1 text-2xl font-black">Service health</h2></div><p className="text-xs text-slate-500">{data ? `Checked ${new Date(data.checkedAt).toLocaleString()}` : "Checking…"}</p></div><div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">{data?.health.map((item) => <Health item={item} key={item.name} />)}</div></section>

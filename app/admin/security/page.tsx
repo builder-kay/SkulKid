@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { KeyRound, LockKeyhole, RefreshCw, Search, ShieldCheck, UserX } from "lucide-react";
 import { SkulKidCard } from "@/components/shared/skulkid-card";
+import { AdminPageHeader } from "@/components/admin/admin-page-header";
 
 type AuditEvent = { id: string; actorId: string | null; action: string; targetType: string; targetId: string | null; result: string; reason: string | null; createdAt: string };
 
@@ -25,7 +26,7 @@ export default function AdminSecurityPage() {
   }, [query]);
 
   return <main className="mx-auto grid w-full max-w-[96rem] gap-6">
-    <header className="rounded-[2rem] bg-slate-950 p-6 text-white shadow-[var(--shadow-card)] sm:p-8"><div className="flex items-start gap-4"><span className="grid size-12 place-items-center rounded-2xl bg-emerald-500/20 text-emerald-300"><ShieldCheck className="size-6" /></span><div><p className="text-xs font-black uppercase tracking-wider text-emerald-300">Security administration</p><h1 className="mt-1 text-3xl font-black sm:text-4xl">Security & audit</h1><p className="mt-2 max-w-2xl text-slate-300">Review privileged changes, enforce least privilege, and investigate account actions.</p></div></div></header>
+    <AdminPageHeader description="Review privileged changes, enforce least privilege, and investigate account actions." eyebrow="Security administration" icon={ShieldCheck} title="Security & audit" tone="dark" />
     <section className="grid gap-4 md:grid-cols-3">
       <SecurityCard icon={LockKeyhole} title="Guarded role changes" text="Self-demotion and removal of the final administrator are blocked by the server." />
       <SecurityCard icon={UserX} title="Account containment" text="Suspension and privacy actions require a recorded administrative reason." />

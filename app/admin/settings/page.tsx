@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { ArrowDown, ArrowUp, Save, Settings2 } from "lucide-react";
 import { SkulKidCard } from "@/components/shared/skulkid-card";
+import { AdminPageHeader } from "@/components/admin/admin-page-header";
 
 type SystemSettings = {
   maintenanceMode: boolean;
@@ -79,16 +80,7 @@ export default function AdminSystemSettingsPage() {
 
   return (
     <main className="mx-auto grid w-full max-w-3xl gap-6">
-      <header className="rounded-[2rem] border border-white bg-white p-6 shadow-[var(--shadow-card)] sm:p-8">
-        <div className="flex items-start gap-3">
-          <span className="grid size-11 place-items-center rounded-2xl bg-emerald-50 text-emerald-800"><Settings2 className="size-5" /></span>
-          <div>
-            <p className="text-xs font-black uppercase tracking-wider text-emerald-700">System settings</p>
-            <h1 className="mt-1 text-3xl font-black">Platform configuration</h1>
-            <p className="mt-2 text-slate-600">Control operational defaults that affect teachers, learners and publishing.</p>
-          </div>
-        </div>
-      </header>
+      <AdminPageHeader description="Control operational defaults that affect teachers, learners and publishing." eyebrow="System settings" icon={Settings2} title="Platform configuration" />
 
       <form className="grid gap-4" onSubmit={submit}>
         <SkulKidCard className="grid gap-4 p-5 sm:p-6">

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Archive, BookOpenCheck, Globe2, Search, Users, XCircle } from "lucide-react";
 import { SkulKidCard } from "@/components/shared/skulkid-card";
+import { AdminPageHeader } from "@/components/admin/admin-page-header";
 
 type AdminCourse = {
   id: string;
@@ -77,11 +78,7 @@ export default function AdminCoursesPage() {
 
   return (
     <main className="mx-auto grid w-full max-w-[90rem] gap-6">
-      <header className="rounded-[2rem] border border-white bg-white p-6 shadow-[var(--shadow-card)] sm:p-8">
-        <p className="text-xs font-black uppercase tracking-wider text-emerald-700">Learning oversight</p>
-        <h1 className="mt-2 text-3xl font-black sm:text-4xl">Public Learning and class courses</h1>
-        <p className="mt-3 max-w-2xl text-slate-600">See who created each course, where learners can access it, and which approved version is live.</p>
-      </header>
+      <AdminPageHeader description="See who created each course, where learners can access it, and which approved version is live." eyebrow="Learning oversight" icon={BookOpenCheck} title="Public Learning and class courses" />
 
       <SkulKidCard className="grid gap-4 p-4 sm:grid-cols-[auto_1fr] sm:p-5">
         <div className="flex rounded-xl bg-slate-100 p-1">
