@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, BookOpen, CheckCircle2, ChevronDown, ChevronRight, Eye, EyeOff, ImageIcon, Layers3, Loader2, Palette, Pencil, Plus, Save, Send, Tags, X } from "lucide-react";
 import { SkulKidCard } from "@/components/shared/skulkid-card";
@@ -47,10 +48,10 @@ type AccessItem = {
   publication: PublicationState | null;
 };
 
-export function CourseManagement({ initialCreate = false }: { initialCreate?: boolean }) {
+export function CourseManagement({ initialCreate = false, initialSelectedCourseId }: { initialCreate?: boolean; initialSelectedCourseId?: string }) {
   const { courses, loading, error, refresh } = useCourses();
   const [form, setForm] = useState<CourseInput | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(initialSelectedCourseId ?? null);
   const [lessons, setLessons] = useState<AdminLessonRecord[]>([]);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
@@ -158,10 +159,10 @@ export function CourseManagement({ initialCreate = false }: { initialCreate?: bo
         <div className="flex flex-col gap-4 bg-gradient-to-r from-slate-950 via-violet-950 to-violet-800 p-6 text-white sm:flex-row sm:items-end sm:justify-between sm:p-8">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-violet-200">Course workspace</p>
-            <h2 className="mt-2 text-3xl font-black" id="course-management-heading">Build courses for classes or Public Learning</h2>
+            <h2 className="mt-2 text-3xl font-black" id="course-management-heading">Browse every subject and lesson</h2>
             <p className="mt-2 max-w-2xl text-violet-100">Choose an audience once, then organise strands, sub-strands, topics and lessons. Public versions stay private until submitted.</p>
           </div>
-          <button className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-white px-5 font-black text-slate-950 shadow-lg hover:bg-violet-50" onClick={() => setForm({ ...emptyForm, gradeLevels: [...emptyForm.gradeLevels], classIds: [] })} type="button"><Plus className="size-5" />Create course</button>
+          <button className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-white px-5 font-black text-slate-950 shadow-lg hover:bg-violet-50" onClick={() => setForm({ ...emptyForm, gradeLevels: [...emptyForm.gradeLevels], classIds: [] })} type="button"><Plus className="size-5" />Create subject</button>
         </div>
         {message ? <p className="m-4 rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm font-bold text-blue-900" role="status">{message}</p> : null}
         {error ? <p className="m-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm font-bold text-rose-800">{error}</p> : null}
@@ -178,7 +179,7 @@ export function CourseManagement({ initialCreate = false }: { initialCreate?: bo
                     </button>
                   </div>
                 ))}
-                {!manageableCourses.length ? <p className="p-5 text-center text-sm font-bold text-muted">Create the first course to begin.</p> : null}
+                {!manageableCourses.length ? <p className="p-5 text-center text-sm font-bold text-muted">Create the first subject to begin.</p> : null}
               </div>
             </div>
             <div className="min-w-0 p-4 sm:p-6">
@@ -239,7 +240,7 @@ function CourseWorkspace({ course, lessons, saving, access, settings, onEdit, on
         <span className="grid size-14 shrink-0 place-items-center rounded-2xl text-white shadow-md" style={{ backgroundColor: course.color }}><BookOpen className="size-7" /></span>
         <div><div className="flex flex-wrap items-center gap-2"><h3 className="text-2xl font-black">{course.name}</h3><span className={`rounded-full px-2.5 py-1 text-xs font-black ${course.status === "published" ? "bg-emerald-100 text-emerald-900" : "bg-amber-100 text-amber-900"}`}>{course.status}</span></div><p className="mt-1 max-w-2xl text-sm leading-6 text-text-secondary">{course.description}</p><p className="mt-2 text-xs font-bold text-muted">Basic {course.gradeLevels?.join(", Basic ") || "levels not set"} · /courses/{course.slug}</p></div>
       </div>
-      <div className="flex shrink-0 gap-2"><button className="grid size-11 place-items-center rounded-xl border border-slate-300 hover:bg-slate-50" aria-label="Edit course" onClick={onEdit} type="button"><Pencil className="size-4" /></button>{access?.classIds.length ? <button className={`inline-flex min-h-11 items-center gap-2 rounded-xl px-4 text-sm font-black ${course.status === "published" ? "bg-amber-100 text-amber-950" : "bg-violet-700 text-white"}`} disabled={saving} onClick={onStatus} type="button">{course.status === "published" ? <EyeOff className="size-4" /> : <Eye className="size-4" />}{course.status === "published" ? "Pause classes" : "Ready for classes"}</button> : null}</div>
+      <div className="flex shrink-0 flex-wrap gap-2"><Link className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-violet-700 px-4 text-sm font-black text-white" href={`/teacher/lessons/new?${course.ownerClassId ? `classId=${encodeURIComponent(course.ownerClassId)}&` : ""}courseId=${encodeURIComponent(course.id)}`}><Plus className="size-4" />Create lesson</Link><button className="grid size-11 place-items-center rounded-xl border border-slate-300 hover:bg-slate-50" aria-label="Edit subject" onClick={onEdit} type="button"><Pencil className="size-4" /></button>{access?.classIds.length ? <button className={`inline-flex min-h-11 items-center gap-2 rounded-xl px-4 text-sm font-black ${course.status === "published" ? "bg-amber-100 text-amber-950" : "bg-violet-700 text-white"}`} disabled={saving} onClick={onStatus} type="button">{course.status === "published" ? <EyeOff className="size-4" /> : <Eye className="size-4" />}{course.status === "published" ? "Pause classes" : "Ready for classes"}</button> : null}</div>
     </div>
     {isPublic ? <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 sm:p-5"><div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-xs font-black uppercase tracking-wider text-emerald-800">Public Learning publication</p><h4 className="mt-1 text-lg font-black">{publication?.currentVersion ? `Version ${publication.currentVersion} is live` : "Not yet published publicly"}</h4><p className="mt-1 text-sm text-emerald-950/75">{latestStatus === "pending_review" ? `Version ${publication?.latest?.version} is with an administrator. The last approved version stays live.` : latestStatus === "changes_requested" ? publication?.latest?.reviewNote || "An administrator asked for changes." : settings.requireLessonApproval ? "Submit a frozen course version for administrator approval." : "Publishing makes a frozen version available immediately."}</p></div><div className="flex shrink-0 flex-wrap gap-2">{publication?.currentRevisionId ? <button className="min-h-11 rounded-xl border border-amber-300 bg-white px-4 text-sm font-black text-amber-950 disabled:opacity-50" disabled={saving} onClick={() => onPublication("unpublish")} type="button">Unpublish</button> : null}<button className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-emerald-700 px-4 text-sm font-black text-white disabled:opacity-50" disabled={saving || !settings.allowTeacherPublishing || latestStatus === "pending_review" || !publishedCount} onClick={() => onPublication("submit")} type="button">{latestStatus === "pending_review" ? <Loader2 className="size-4" /> : latestStatus === "changes_requested" ? <CheckCircle2 className="size-4" /> : <Send className="size-4" />}{latestStatus === "pending_review" ? "In review" : latestStatus === "changes_requested" ? "Resubmit changes" : publication?.currentRevisionId ? "Submit updated version" : "Submit to Public Learning"}</button></div></div>{access?.classIds.length && (latestStatus === "pending_review" || latestStatus === "changes_requested") ? <p className="mt-3 rounded-xl bg-sky-50 p-3 text-sm font-bold text-sky-900">Your assigned classes can use the latest ready lessons now. Public learners still see version {publication?.currentVersion ?? "—"}.</p> : null}{!settings.allowTeacherPublishing ? <p className="mt-3 rounded-xl bg-white p-3 text-sm font-bold text-amber-900">An administrator has paused Public Learning submissions. You can keep editing and saving this course.</p> : null}{!publishedCount ? <p className="mt-3 text-sm font-bold text-emerald-950">Publish at least one complete lesson before submitting.</p> : null}</section> : null}
     <div className="grid grid-cols-3 gap-2 text-center"><Stat value={course.units.length} label="Strands" /><Stat value={courseLessons.filter((lesson) => Boolean(lesson.unitId)).length} label="Linked lessons" /><Stat value={publishedCount} label="Live lessons" /></div>
@@ -348,7 +349,7 @@ function UnitPanel({ course, unit, lessons, canMoveUp, canMoveDown, onMove, onRe
                   <li className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2" key={lesson.id}>
                     <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-white text-xs font-black text-violet-800 shadow-sm">{String(index + 1).padStart(2, "0")}</span>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-black">{lesson.title}</p>
+                      <Link className="block truncate text-sm font-black hover:text-violet-700 hover:underline" href={`/teacher/lessons/new?edit=${encodeURIComponent(lesson.id)}`}>{lesson.title}</Link>
                       <p className="text-[11px] font-bold text-muted">{lesson.status} · Basic {lesson.grade}</p>
                     </div>
                     <div className="flex shrink-0 gap-1">

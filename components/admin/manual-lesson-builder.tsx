@@ -499,7 +499,7 @@ export function ManualLessonBuilder({ initialAiConfigured = false, initialAiMode
 
     setSavedLessonId(id);
     await deleteAdminSetting("manual-lesson-draft");
-    router.push(`/teacher/lessons?courseId=${encodeURIComponent(courseId)}`);
+    router.push(`/teacher/curriculum?courseId=${encodeURIComponent(courseId)}`);
   }
 
   async function saveLocally() { await writeAdminSetting("manual-lesson-draft", form); setMessage("Draft saved to Supabase."); }
