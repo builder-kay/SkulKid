@@ -308,5 +308,14 @@ function AudienceCard({ icon: Icon, eyebrow, title, copy, points, href, action, 
 }
 
 function LearningSignal({ value, label }: { value: string; label: string }) {
-  return <div className="group flex items-center gap-3 rounded-2xl bg-slate-50 px-4 py-3 transition hover:bg-blue-50"><span className="grid size-11 place-items-center rounded-xl bg-blue-600 text-sm font-black text-white shadow-md shadow-blue-200 transition group-hover:rotate-6 group-hover:scale-105">{value}</span><span className="text-sm font-black text-slate-700">{label}</span></div>;
+  return (
+    <div className="group flex min-h-20 items-center gap-3 rounded-2xl bg-slate-50 px-3 py-3 transition hover:bg-blue-50 sm:px-4">
+      <span className="grid h-11 min-w-[5.5rem] shrink-0 place-items-center whitespace-nowrap rounded-xl bg-blue-600 px-3 text-center text-xs font-black text-white shadow-md shadow-blue-200 transition group-hover:rotate-3 group-hover:scale-105 sm:text-sm">
+        {value}
+      </span>
+      <span className="min-w-0 text-sm font-black leading-snug text-slate-700">
+        {label}
+      </span>
+    </div>
+  );
 }
