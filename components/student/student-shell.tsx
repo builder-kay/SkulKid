@@ -93,7 +93,7 @@ export function StudentShell({ activeItem, children, mobileAside }: StudentShell
 
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[18.5rem_1fr]">
-      <StudentCelebrationHost avatar={profile.avatar} learnerName={profile.displayName} />
+      <StudentCelebrationHost avatar={profile.avatar} learnerName={profile.username} />
       <SignOutConfirmation audience="student" open={signOutOpen} onClose={closeSignOut} />
       <header className="sticky top-0 z-30 border-b border-white/80 bg-white/90 px-4 py-3 shadow-[0_8px_28px_rgba(15,23,42,0.08)] backdrop-blur lg:hidden">
         <div className="flex min-h-12 items-center justify-between gap-3">
@@ -170,14 +170,14 @@ export function StudentShell({ activeItem, children, mobileAside }: StudentShell
           <div className="hidden rounded-3xl border border-slate-200 bg-slate-50 p-4 lg:block">
             <div className="flex items-center gap-3">
               <Link
-                aria-label={`Open ${profile.displayName}'s avatar page`}
+                aria-label={`Open ${profile.username}'s avatar page`}
                 className="grid size-11 place-items-center overflow-hidden rounded-2xl bg-white text-lg font-black text-primary shadow-sm transition hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
                 href="/profile"
               >
-                <CharacterAvatar avatar={profile.avatar} className="size-11 rounded-2xl" label={`${profile.displayName}'s avatar`} />
+                <CharacterAvatar avatar={profile.avatar} className="size-11 rounded-2xl" label={`${profile.username}'s avatar`} />
               </Link>
               <div>
-                <p className="font-bold text-text-primary">{profile.displayName}</p>
+                <p className="font-bold text-text-primary">@{profile.username}</p>
                 <p className="text-sm text-muted">{studentLevel.title}</p>
               </div>
             </div>

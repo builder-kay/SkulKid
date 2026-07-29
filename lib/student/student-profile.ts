@@ -9,8 +9,8 @@ export type AvatarExpression = "classic" | "happy" | "smirk" | "surprised" | "wi
 export type AvatarConfig = { gender: "male" | "female"; bodyStyle: "slim" | "classic" | "strong"; headStyle: "block" | "round" | "oval" | "wide"; expression: AvatarExpression; eyebrowStyle?: "soft" | "straight" | "arched" | "bold"; noseStyle?: "button" | "soft" | "wide" | "defined"; skinColor: string; hairStyle: "short" | "afro" | "braids" | "locs" | "mohawk" | "long" | "ponytail" | "bald"; hairColor: string; eyeColor: string; shirtStyle: "skulkid" | "math" | "science" | "reader" | "plain"; shirtColor: string; pantsStyle: "trousers" | "shorts" | "skirt"; pantsColor: string; shoeColor: string; equippedPremium: Partial<Record<"shirt" | "bottoms" | "shoes" | "glasses" | "watch" | "skateboard" | "bag" | "cap", string>> };
 export const defaultAvatar: AvatarConfig = { gender: "male", bodyStyle: "classic", headStyle: "block", expression: "classic", eyebrowStyle: "soft", noseStyle: "button", skinColor: "#8D5524", hairStyle: "afro", hairColor: "#21140F", eyeColor: "#3B2414", shirtStyle: "skulkid", shirtColor: "#2563EB", pantsStyle: "trousers", pantsColor: "#172554", shoeColor: "#FFFFFF", equippedPremium: {} };
 export type FavouriteSubject = "Mathematics" | "English" | "Science" | "Computing" | "Creative Arts" | "RME" | "OWOP" | "French";
-export type StudentProfileData = { displayName: string; gender: "male" | "female"; age: number; grade: string; school: string; bio: string; favouriteSubject: FavouriteSubject; dailyGoalXp: number; avatarUrl: string | null; avatar: AvatarConfig; joinedAt: string };
-const initialProfile: StudentProfileData = { displayName: sampleStudentProfile.displayName, gender: "male", age: sampleStudentProfile.age, grade: "Basic 4", school: "", bio: "Ready to learn something amazing every day!", favouriteSubject: "Mathematics", dailyGoalXp: sampleStudentProfile.dailyGoalXp, avatarUrl: null, avatar: defaultAvatar, joinedAt: "2026-07-21T00:00:00.000Z" };
+export type StudentProfileData = { username: string; displayName: string; gender: "male" | "female"; age: number; grade: string; school: string; bio: string; favouriteSubject: FavouriteSubject; dailyGoalXp: number; avatarUrl: string | null; avatar: AvatarConfig; joinedAt: string };
+const initialProfile: StudentProfileData = { username: sampleStudentProfile.displayName, displayName: sampleStudentProfile.displayName, gender: "male", age: sampleStudentProfile.age, grade: "Basic 4", school: "", bio: "Ready to learn something amazing every day!", favouriteSubject: "Mathematics", dailyGoalXp: sampleStudentProfile.dailyGoalXp, avatarUrl: null, avatar: defaultAvatar, joinedAt: "2026-07-21T00:00:00.000Z" };
 let cachedProfile: StudentProfileData | null = null;
 let profileRequest: Promise<StudentProfileData> | null = null;
 
@@ -57,7 +57,12 @@ export async function readStudentProfile(): Promise<StudentProfileData> {
       gender: metadata.gender === "female" ? "female" : metadata.gender === "male" ? "male" : undefined,
       age: typeof metadata.age === "number" ? metadata.age : undefined,
       grade: typeof metadata.grade === "number" ? `Basic ${metadata.grade}` : undefined,
-      ...(data?.profile as Partial<StudentProfileData> | undefined)
+      ...(data?.profile as Partial<StudentProfileData> | undefined),
+      username: typeof metadata.username === "string"
+        ? metadata.username
+        : typeof user.email === "string" && user.email.startsWith("u-")
+          ? user.email.slice(2).split("@")[0]
+          : undefined
     });
     return cachedProfile;
   })().finally(() => { profileRequest = null; });
