@@ -9,8 +9,8 @@ import { StudentShell } from "@/components/student/student-shell";
 import type { StudentNavItem } from "@/components/student/student-shell";
 import { StudentPageNav } from "@/components/student/student-page-nav";
 import { SkulKidCard } from "@/components/shared/skulkid-card";
-import { subjects } from "@/data/subjects";
 import { useStudentClassCourse } from "@/lib/classes/student-class-course";
+import { usePublishedCourses } from "@/lib/courses/published-courses";
 import { usePublishedLesson } from "@/lib/lessons/published-lessons";
 import { useStudentGame, type QuizAnswerResult } from "@/lib/gamification/student-game";
 import type { LessonBlock } from "@/types/lesson";
@@ -34,14 +34,15 @@ export function PublishedLessonPlayer({
     return () => document.removeEventListener("keydown", closeOnEscape);
   }, [quizOpen]);
   const publicLesson = usePublishedLesson(lessonId, !classId);
+  const publicCourses = usePublishedCourses(!classId);
   const classCourse = useStudentClassCourse(classId, courseSlug);
   const lesson = classId
     ? classCourse.data?.lessons.find((candidate) => candidate.id === lessonId) ?? null
     : publicLesson.lesson;
   const subject = classId
     ? classCourse.data?.course
-    : subjects.find((candidate) => candidate.id === lesson?.subjectId);
-  const loading = classId ? classCourse.loading : publicLesson.loading;
+    : publicCourses.courses.find((candidate) => candidate.id === lesson?.subjectId);
+  const loading = classId ? classCourse.loading : publicLesson.loading || publicCourses.loading;
   const classHref = classId ? `/classes/${encodeURIComponent(classId)}` : "/courses";
   const courseHref = subject
     ? classId
