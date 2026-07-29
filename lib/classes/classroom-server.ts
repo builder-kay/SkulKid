@@ -770,31 +770,80 @@ export async function getTeacherMessagingData(teacherId: string) {
     className: item.name,
     students: await listClassRoster(teacherId, item.id)
   })));
-  const { data: messages, error } = await admin
-    .from("ClassMessage")
-    .select("id,classId,studentId,body,createdAt,readAt")
-    .eq("teacherId", teacherId)
-    .order("createdAt", { ascending: false })
-    .limit(100);
+  const [{ data: messages, error }, { data: notifications, error: notificationError }] = await Promise.all([
+    admin.from("ClassMessage")
+      .select("id,classId,studentId,body,createdAt,readAt")
+      .eq("teacherId", teacherId)
+      .order("createdAt", { ascending: false })
+      .limit(300),
+    admin.from("TeacherNotification")
+      .select("id,classId,title,body,createdAt")
+      .eq("teacherId", teacherId)
+      .order("createdAt", { ascending: false })
+      .limit(200)
+  ]);
   if (error) throw new Error(error.message);
+  if (notificationError) throw new Error(notificationError.message);
+  const notificationIds = (notifications ?? []).map((notification) => notification.id as string);
+  const { data: notificationRecipients, error: recipientError } = notificationIds.length
+    ? await admin.from("TeacherNotificationRecipient")
+        .select("notificationId,studentId")
+        .in("notificationId", notificationIds)
+    : { data: [], error: null };
+  if (recipientError) throw new Error(recipientError.message);
   const studentById = new Map(rosters.flatMap((group) => group.students.map((student) => [student.studentId, student])));
   const classById = new Map(classes.map((item) => [item.id, item.name]));
+  const firstClassByStudent = new Map(
+    rosters.flatMap((group) => group.students.map((student) => [
+      student.studentId,
+      { id: group.classId, name: group.className }
+    ]))
+  );
+  const notificationById = new Map((notifications ?? []).map((notification) => [notification.id as string, notification]));
+  const incoming = (messages ?? []).map((message) => ({
+    id: message.id as string,
+    classId: message.classId as string,
+    className: classById.get(message.classId as string) ?? "Class",
+    studentId: message.studentId as string,
+    studentName: studentById.get(message.studentId as string)?.displayName ?? "Student",
+    title: null,
+    body: message.body as string,
+    direction: "incoming" as const,
+    createdAt: message.createdAt as string,
+    readAt: (message.readAt as string | null) ?? null
+  }));
+  const outgoing = (notificationRecipients ?? []).flatMap((recipient) => {
+    const notification = notificationById.get(recipient.notificationId as string);
+    if (!notification) return [];
+    const fallbackClass = firstClassByStudent.get(recipient.studentId as string);
+    const notificationClassId = notification.classId as string | null;
+    return [{
+      id: `${notification.id as string}:${recipient.studentId as string}`,
+      classId: notificationClassId ?? fallbackClass?.id ?? "",
+      className: notificationClassId ? classById.get(notificationClassId) ?? "Class" : fallbackClass?.name ?? "Learner",
+      studentId: recipient.studentId as string,
+      studentName: studentById.get(recipient.studentId as string)?.displayName ?? "Student",
+      title: notification.title as string,
+      body: notification.body as string,
+      direction: "outgoing" as const,
+      createdAt: notification.createdAt as string,
+      readAt: notification.createdAt as string
+    }];
+  });
+  const unreadIds = incoming.filter((message) => !message.readAt).map((message) => message.id);
+  if (unreadIds.length) {
+    const { error: readError } = await admin.from("ClassMessage")
+      .update({ readAt: new Date().toISOString() })
+      .in("id", unreadIds);
+    if (readError) throw new Error(readError.message);
+  }
   return {
     classes: rosters.map((group) => ({
       id: group.classId,
       name: group.className,
       students: group.students.map((student) => ({ id: student.studentId, name: student.displayName }))
     })),
-    messages: (messages ?? []).map((message) => ({
-      id: message.id as string,
-      classId: message.classId as string,
-      className: classById.get(message.classId as string) ?? "Class",
-      studentId: message.studentId as string,
-      studentName: studentById.get(message.studentId as string)?.displayName ?? "Student",
-      body: message.body as string,
-      createdAt: message.createdAt as string,
-      readAt: (message.readAt as string | null) ?? null
-    }))
+    messages: [...incoming, ...outgoing].sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt))
   };
 }
 
