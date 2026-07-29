@@ -1,6 +1,8 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
+import type { AdminLessonRecord } from "@/lib/admin/lesson-library";
 import type { ClassQuizQuestion } from "@/lib/classes/types";
+import { publishedLessonsFromRecords } from "@/lib/lessons/published-lesson-records";
 import { quizHasEnded } from "@/lib/quizzes/pasco-rules";
 
 export type PascoAttempt = {
@@ -15,21 +17,41 @@ export type PascoAttempt = {
 
 export async function listStudentPasco(studentId: string) {
   const admin = createAdminClient();
-  const { data: memberships, error: membershipError } = await admin
-    .from("ClassMembership")
-    .select("classId")
-    .eq("studentId", studentId)
-    .eq("status", "active");
+  const [{ data: memberships, error: membershipError }, { data: gameState, error: gameStateError }] = await Promise.all([
+    admin.from("ClassMembership")
+      .select("classId")
+      .eq("studentId", studentId)
+      .eq("status", "active"),
+    admin.from("StudentGameState")
+      .select("state")
+      .eq("userId", studentId)
+      .maybeSingle()
+  ]);
   if (membershipError) throw new Error(membershipError.message);
+  if (gameStateError) throw new Error(gameStateError.message);
   const classIds = (memberships ?? []).map((row) => row.classId as string);
-  if (!classIds.length) return { quizzes: [], classes: [] };
+  const savedState = (gameState?.state ?? {}) as {
+    quizRecords?: Record<string, {
+      bestScore?: number;
+      stars?: number;
+      passed?: boolean;
+      attemptCount?: number;
+      lastAttemptAt?: string;
+    }>;
+  };
+  const strandQuizRecords = savedState.quizRecords ?? {};
+  const lessonIds = Object.keys(strandQuizRecords);
 
   const [{ data: classes, error: classError }, { data: quizRows, error: quizError }] = await Promise.all([
-    admin.from("TeacherClass").select("id,name,gradeLevel").in("id", classIds).eq("status", "active"),
-    admin.from("ClassQuiz")
-      .select("id,classId,title,description,questions,deadline,offPlatformReward,baseXpReward,passingScore,status,updatedAt")
-      .in("classId", classIds)
-      .in("status", ["published", "closed"])
+    classIds.length
+      ? admin.from("TeacherClass").select("id,name,gradeLevel").in("id", classIds).eq("status", "active")
+      : Promise.resolve({ data: [], error: null }),
+    classIds.length
+      ? admin.from("ClassQuiz")
+          .select("id,classId,title,description,questions,deadline,offPlatformReward,baseXpReward,passingScore,status,updatedAt")
+          .in("classId", classIds)
+          .in("status", ["published", "closed"])
+      : Promise.resolve({ data: [], error: null })
   ]);
   if (classError) throw new Error(classError.message);
   if (quizError) throw new Error(quizError.message);
@@ -49,7 +71,7 @@ export async function listStudentPasco(studentId: string) {
   if (attemptError) throw new Error(attemptError.message);
   const classById = new Map((classes ?? []).map((row) => [row.id as string, row]));
 
-  const quizzes = ended.map((row) => {
+  const classQuizzes = ended.map((row) => {
     const quizAttempts = (attempts ?? []).filter((attempt) => attempt.quizId === row.id);
     const best = quizAttempts.length
       ? quizAttempts.reduce((current, attempt) => Number(attempt.scorePercentage) > Number(current.scorePercentage) ? attempt : current)
@@ -71,17 +93,81 @@ export async function listStudentPasco(studentId: string) {
       attempted: quizAttempts.length > 0,
       attemptCount: quizAttempts.length,
       bestScore: best ? Number(best.scorePercentage) : null,
-      passed: best ? Boolean(best.passed) : false
+      passed: best ? Boolean(best.passed) : false,
+      sourceType: "class" as const,
+      strand: "",
+      subStrand: "",
+      href: `/pasco/${row.id as string}`
     };
-  }).sort((a, b) => new Date(b.endedAt).getTime() - new Date(a.endedAt).getTime());
+  });
+
+  const { data: lessonRows, error: lessonError } = lessonIds.length
+    ? await admin.from("AdminLessonRecord")
+        .select("record,classId,courseId,unitId,topicId")
+        .in("id", lessonIds)
+        .eq("status", "published")
+    : { data: [], error: null };
+  if (lessonError) throw new Error(lessonError.message);
+  const lessons = publishedLessonsFromRecords((lessonRows ?? []).map((row) => ({
+    ...(row.record as AdminLessonRecord),
+    classId: (row.classId as string | null) ?? null,
+    courseId: (row.courseId as string | null) ?? null,
+    unitId: (row.unitId as string | null) ?? null,
+    topicId: (row.topicId as string | null) ?? null
+  })));
+  const subjectIds = [...new Set(lessons.map((lesson) => lesson.subjectId))];
+  const { data: subjects, error: subjectError } = subjectIds.length
+    ? await admin.from("Subject").select("id,name,slug").in("id", subjectIds)
+    : { data: [], error: null };
+  if (subjectError) throw new Error(subjectError.message);
+  const subjectById = new Map((subjects ?? []).map((subject) => [String(subject.id), subject]));
+  const strandQuizzes = lessons.map((lesson) => {
+    const record = strandQuizRecords[lesson.id] ?? {};
+    const subject = subjectById.get(lesson.subjectId);
+    const sourceId = `strand:${lesson.subjectId}`;
+    const lessonRow = (lessonRows ?? []).find((row) => (row.record as AdminLessonRecord).id === lesson.id);
+    const classId = lessonRow?.classId as string | null;
+    const gradeLevel = Number((lessonRow?.record as AdminLessonRecord | undefined)?.grade ?? 0);
+    const href = classId
+      ? `/preview/lessons/${encodeURIComponent(lesson.id)}?classId=${encodeURIComponent(classId)}&course=${encodeURIComponent(String(subject?.slug ?? lesson.subjectId))}`
+      : `/preview/lessons/${encodeURIComponent(lesson.id)}`;
+    return {
+      id: `lesson-${lesson.id}`,
+      classId: sourceId,
+      className: String(subject?.name ?? "Subject"),
+      gradeLevel,
+      title: `${lesson.title} quiz`,
+      description: lesson.description,
+      questionCount: lesson.blocks.filter((block) => ["multiple_choice", "true_false", "fill_blank"].includes(block.type)).length,
+      endedAt: record.lastAttemptAt ?? lesson.updatedAt,
+      endedByTeacher: false,
+      baseXpReward: lesson.xpReward,
+      passingScore: lesson.passingScore ?? 70,
+      offPlatformReward: "",
+      attempted: true,
+      attemptCount: Math.max(1, Number(record.attemptCount ?? 1)),
+      bestScore: Number(record.bestScore ?? 0),
+      passed: Boolean(record.passed),
+      sourceType: "strand" as const,
+      strand: lesson.strand ?? "",
+      subStrand: lesson.subStrand ?? "",
+      href
+    };
+  });
+  const quizzes = [...classQuizzes, ...strandQuizzes]
+    .sort((a, b) => new Date(b.endedAt).getTime() - new Date(a.endedAt).getTime());
+  const strandSources = [...new Map(strandQuizzes.map((quiz) => [
+    quiz.classId,
+    { id: quiz.classId, name: quiz.className, gradeLevel: quiz.gradeLevel }
+  ])).values()];
 
   return {
     quizzes,
-    classes: (classes ?? []).map((row) => ({
+    classes: [...(classes ?? []).map((row) => ({
       id: row.id as string,
       name: row.name as string,
       gradeLevel: Number(row.gradeLevel)
-    })).sort((a, b) => a.name.localeCompare(b.name))
+    })), ...strandSources].sort((a, b) => a.name.localeCompare(b.name))
   };
 }
 

@@ -10,7 +10,15 @@ export const gameChangedEvent = "skulkid:student-game-changed";
 export const DAILY_LEARNING_XP_GOAL = 30;
 
 export type QuizAnswerResult = { blockId: string; correct: boolean; attempts: number };
-type QuizRecord = { bestScore: number; stars: number; passed: boolean; rewardedQuestionIds: string[]; perfectBonusClaimed: boolean };
+type QuizRecord = {
+  bestScore: number;
+  stars: number;
+  passed: boolean;
+  rewardedQuestionIds: string[];
+  perfectBonusClaimed: boolean;
+  attemptCount?: number;
+  lastAttemptAt?: string;
+};
 export type GameHistoryEvent = { id: string; type: "joined" | "lesson" | "quiz" | "gift" | "streak" | "achievement"; title: string; detail: string; xp: number; stars: number; rank: number; createdAt: string };
 export type GameState = { xp: number; avatarPoints: number; unlockedAvatarAssetIds: string[]; stars: number; streak: number; completedLessonIds: string[]; completedVideoPromptIds: string[]; claimedDailyReward: string | null; surpriseCount: number; lastReward: { title: string; detail: string; xp: number; stars: number } | null; dailyLearningDate: string | null; dailyLearningXp: number; lastStreakDate: string | null; quizRecords: Record<string, QuizRecord>; history: GameHistoryEvent[] };
 export type Achievement = { id: string; name: string; description: string; icon: string; earned: boolean };
@@ -172,7 +180,15 @@ export function useStudentGame() {
     const perfectXp = score === 100 && !previous.perfectBonusClaimed ? 20 : 0;
     const totalXp = questionXp + firstPassXp + improvementXp + perfectXp;
     const starIncrease = Math.max(0, earnedStars - previous.stars);
-    const record = { bestScore: Math.max(previous.bestScore, score), stars: Math.max(previous.stars, earnedStars), passed: previous.passed || passed, rewardedQuestionIds: [...new Set([...previous.rewardedQuestionIds, ...newCorrect.map((answer) => answer.blockId)])], perfectBonusClaimed: previous.perfectBonusClaimed || score === 100 };
+    const record = {
+      bestScore: Math.max(previous.bestScore, score),
+      stars: Math.max(previous.stars, earnedStars),
+      passed: previous.passed || passed,
+      rewardedQuestionIds: [...new Set([...previous.rewardedQuestionIds, ...newCorrect.map((answer) => answer.blockId)])],
+      perfectBonusClaimed: previous.perfectBonusClaimed || score === 100,
+      attemptCount: (previous.attemptCount ?? 0) + 1,
+      lastAttemptAt: new Date().toISOString()
+    };
     let next = addLearningXp({ ...current, stars: current.stars + starIncrease, quizRecords: { ...current.quizRecords, [lessonId]: record }, lastReward: { title: passed ? "Quiz passed!" : "Keep practising", detail: passed ? `${score}% earned ${earnedStars} star${earnedStars === 1 ? "" : "s"}.` : `${score}%—reach ${passingScore}% to pass.`, xp: totalXp, stars: starIncrease } }, totalXp);
     next = withHistory(next, { type: "quiz", title: passed ? "Quiz passed" : "Quiz attempted", detail: `${score}% score · ${earnedStars} star${earnedStars === 1 ? "" : "s"}.`, xp: totalXp, stars: starIncrease });
     save(next);

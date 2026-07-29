@@ -287,7 +287,10 @@ function ActivityCarousel({ label, children }: { label: string; children: React.
     const slide = track?.children.item(next) as HTMLElement | null;
     if (!viewport || !slide) return;
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    viewport.scrollTo({ left: slide.offsetLeft, behavior: reducedMotion ? "auto" : "smooth" });
+    viewport.scrollTo({
+      left: slidePositionInViewport(viewport, slide),
+      behavior: reducedMotion ? "auto" : "smooth"
+    });
     setCurrent(next);
   }
 
@@ -299,7 +302,7 @@ function ActivityCarousel({ label, children }: { label: string; children: React.
     let closest = 0;
     let distance = Number.POSITIVE_INFINITY;
     for (const [index, slide] of slideElements.entries()) {
-      const nextDistance = Math.abs(slide.offsetLeft - viewport.scrollLeft);
+      const nextDistance = Math.abs(slidePositionInViewport(viewport, slide) - viewport.scrollLeft);
       if (nextDistance < distance) {
         distance = nextDistance;
         closest = index;
@@ -371,6 +374,15 @@ function ActivityCarousel({ label, children }: { label: string; children: React.
         </div>
       ) : null}
     </div>
+  );
+}
+
+function slidePositionInViewport(viewport: HTMLElement, slide: HTMLElement) {
+  const viewportLeft = viewport.getBoundingClientRect().left;
+  const slideLeft = slide.getBoundingClientRect().left;
+  return Math.max(
+    0,
+    Math.min(viewport.scrollWidth - viewport.clientWidth, viewport.scrollLeft + slideLeft - viewportLeft)
   );
 }
 
