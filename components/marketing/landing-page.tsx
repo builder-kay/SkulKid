@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, BookOpen, BookOpenCheck, Check, Gamepad2, GraduationCap, KeyRound, ShieldCheck, Sparkles, Star, Trophy, UserRound, UsersRound, Zap } from "lucide-react";
+import { ArrowRight, BookOpen, BookOpenCheck, Check, Gamepad2, GraduationCap, ShieldCheck, Sparkles, Star, Trophy, UserRound, UsersRound, Zap } from "lucide-react";
 import { CharacterAvatar } from "@/components/student/character-avatar";
 import { SkulKidLogo } from "@/components/shared/skulkid-logo";
 import type { AvatarConfig } from "@/lib/student/student-profile";
@@ -142,14 +142,6 @@ export function LandingPage() {
             />
           </div>
 
-          <div className="mt-6 grid gap-4 rounded-[1.75rem] border border-amber-200 bg-amber-50 p-5 sm:grid-cols-[auto_1fr_auto] sm:items-center sm:p-6">
-            <span className="grid size-12 place-items-center rounded-2xl bg-amber-400 text-slate-950"><KeyRound className="size-6" /></span>
-            <div>
-              <h3 className="text-lg font-black">Forgot a learner username?</h3>
-              <p className="mt-1 leading-6 text-slate-700">Confirm the learner’s details and the correct username will be sent to the registered phone by SMS. It will not be shown on the website.</p>
-            </div>
-            <Link className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 text-sm font-black text-white" href="/forgot-username">Recover username <ArrowRight className="size-4" /></Link>
-          </div>
         </div>
       </section>
 
