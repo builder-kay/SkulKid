@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, BookOpen, BookOpenCheck, Check, FlaskConical, Gamepad2, GraduationCap, KeyRound, ShieldCheck, Sparkles, Star, Trophy, UserRound, UsersRound, Zap } from "lucide-react";
+import { ArrowRight, BookOpen, BookOpenCheck, Check, Gamepad2, GraduationCap, KeyRound, ShieldCheck, Sparkles, Star, Trophy, UserRound, UsersRound, Zap } from "lucide-react";
 import { CharacterAvatar } from "@/components/student/character-avatar";
 import { SkulKidLogo } from "@/components/shared/skulkid-logo";
 import type { AvatarConfig } from "@/lib/student/student-profile";
@@ -70,6 +70,21 @@ export function LandingPage() {
         </div>
       </section>
 
+      <section className="relative overflow-hidden bg-white py-16 sm:py-24" id="subjects">
+        <div className="pointer-events-none absolute left-1/2 top-0 h-px w-3/4 -translate-x-1/2 bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
+        <div className="mx-auto max-w-7xl px-5 sm:px-8">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div><p className="text-sm font-black uppercase tracking-[0.18em] text-blue-700">Teacher-led adventures</p><h2 className="mt-2 text-4xl font-black tracking-[-.04em] sm:text-5xl">A growing world of subjects.</h2><p className="mt-3 max-w-2xl leading-7 text-slate-600">Teachers can create Ghana primary school subjects or introduce learning paths of their own, then invite students to explore every strand, topic and lesson together.</p></div>
+            <Link className="inline-flex min-h-11 items-center gap-2 self-start font-black text-blue-700" href="/signup/teacher">Create a subject <ArrowRight className="size-4" /></Link>
+          </div>
+          <div className="mt-10 grid gap-4 md:grid-cols-3">
+            <SubjectCard icon={GraduationCap} label="Create any subject" eyebrow="Ghana curriculum or your own" colour="#2563EB" className="md:translate-y-5" />
+            <SubjectCard icon={Sparkles} label="Shape the adventure" eyebrow="Strands • Topics • Lessons" colour="#7C3AED" />
+            <SubjectCard icon={UsersRound} label="Explore together" eyebrow="Teach • Challenge • Celebrate" colour="#16A34A" className="md:translate-y-8" />
+          </div>
+        </div>
+      </section>
+
       <section className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-24" id="how-it-works">
         <div className="grid gap-10 lg:grid-cols-[.72fr_1.28fr] lg:items-end">
           <div>
@@ -134,21 +149,6 @@ export function LandingPage() {
               <p className="mt-1 leading-6 text-slate-700">Confirm the learner’s details and the correct username will be sent to the registered phone by SMS. It will not be shown on the website.</p>
             </div>
             <Link className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 text-sm font-black text-white" href="/forgot-username">Recover username <ArrowRight className="size-4" /></Link>
-          </div>
-        </div>
-      </section>
-
-      <section className="relative overflow-hidden bg-white py-16 sm:py-24" id="subjects">
-        <div className="pointer-events-none absolute left-1/2 top-0 h-px w-3/4 -translate-x-1/2 bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
-        <div className="mx-auto max-w-7xl px-5 sm:px-8">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <div><p className="text-sm font-black uppercase tracking-[0.18em] text-blue-700">Choose an adventure</p><h2 className="mt-2 text-4xl font-black tracking-[-.04em] sm:text-5xl">A growing world of subjects.</h2><p className="mt-3 max-w-2xl leading-7 text-slate-600">Teachers can keep creating and publishing new learning paths. Here are a few places the adventure can begin.</p></div>
-            <Link className="inline-flex min-h-11 items-center gap-2 self-start font-black text-blue-700" href="/signup">Start for free <ArrowRight className="size-4" /></Link>
-          </div>
-          <div className="mt-10 grid gap-4 md:grid-cols-3">
-            <SubjectCard icon={Zap} label="Mathematics" eyebrow="Think • Solve • Win" colour="#2563EB" className="md:translate-y-5" />
-            <SubjectCard icon={BookOpen} label="English" eyebrow="Read • Write • Imagine" colour="#7C3AED" />
-            <SubjectCard icon={FlaskConical} label="Science" eyebrow="Wonder • Test • Discover" colour="#16A34A" className="md:translate-y-8" />
           </div>
         </div>
       </section>
@@ -260,7 +260,7 @@ function Feature({ number, icon: Icon, title, copy, tone }: { number: string; ic
 }
 
 function SubjectCard({ icon: Icon, label, eyebrow, colour, className = "" }: { icon: React.ElementType; label: string; eyebrow: string; colour: string; className?: string }) {
-  return <Link className={`group relative min-h-72 overflow-hidden rounded-[2rem] p-6 text-white shadow-[0_20px_55px_rgba(15,23,42,.15)] transition hover:-translate-y-2 ${className}`} href="/signup" style={{ backgroundColor: colour }}><div className="absolute -right-14 -top-16 size-52 rounded-full bg-white/15" /><div className="absolute -bottom-20 -left-16 size-56 rounded-full bg-slate-950/10" /><span className="relative grid size-14 place-items-center rounded-2xl bg-white/15 ring-1 ring-white/25"><Icon className="size-7" /></span><div className="absolute inset-x-6 bottom-6"><p className="text-xs font-black uppercase tracking-[.16em] text-white/70">{eyebrow}</p><div className="mt-2 flex items-end justify-between gap-3"><h3 className="text-3xl font-black">{label}</h3><span className="grid size-11 place-items-center rounded-full bg-white text-slate-950 transition group-hover:translate-x-1"><ArrowRight className="size-5" /></span></div></div></Link>;
+  return <Link className={`group relative min-h-72 overflow-hidden rounded-[2rem] p-6 text-white shadow-[0_20px_55px_rgba(15,23,42,.15)] transition hover:-translate-y-2 ${className}`} href="/signup/teacher" style={{ backgroundColor: colour }}><div className="absolute -right-14 -top-16 size-52 rounded-full bg-white/15" /><div className="absolute -bottom-20 -left-16 size-56 rounded-full bg-slate-950/10" /><span className="relative grid size-14 place-items-center rounded-2xl bg-white/15 ring-1 ring-white/25"><Icon className="size-7" /></span><div className="absolute inset-x-6 bottom-6"><p className="text-xs font-black uppercase tracking-[.16em] text-white/70">{eyebrow}</p><div className="mt-2 flex items-end justify-between gap-3"><h3 className="text-3xl font-black">{label}</h3><span className="grid size-11 place-items-center rounded-full bg-white text-slate-950 transition group-hover:translate-x-1"><ArrowRight className="size-5" /></span></div></div></Link>;
 }
 
 function Reward({ value, label, icon: Icon }: { value: string; label: string; icon: React.ElementType }) {
