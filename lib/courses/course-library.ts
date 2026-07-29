@@ -67,13 +67,23 @@ export async function saveTopic(unitId: string, input: { id?: string; title: str
   return id;
 }
 
-export async function moveCourse(id: string, direction: -1 | 1, courses: ManagedCourse[]) {
-  const ordered = [...courses].sort((a, b) => a.order - b.order);
-  const index = ordered.findIndex((course) => course.id === id);
+export async function moveStrand(courseId: string, id: string, direction: -1 | 1, strands: ManagedCourse["units"]) {
+  const ordered = [...strands].sort((a, b) => a.order - b.order);
+  const index = ordered.findIndex((strand) => strand.id === id);
   const target = index + direction;
   if (index < 0 || target < 0 || target >= ordered.length) return;
   [ordered[index], ordered[target]] = [ordered[target], ordered[index]];
-  await mutateCatalog({ action: "reorder_courses", courseIds: ordered.map((course) => course.id) });
+  await mutateCatalog({ action: "reorder_strands", courseId, strandIds: ordered.map((strand) => strand.id) });
+  notify();
+}
+
+export async function moveSubStrand(strandId: string, id: string, direction: -1 | 1, subStrands: ManagedCourse["units"][number]["topics"]) {
+  const ordered = [...subStrands].sort((a, b) => a.order - b.order);
+  const index = ordered.findIndex((subStrand) => subStrand.id === id);
+  const target = index + direction;
+  if (index < 0 || target < 0 || target >= ordered.length) return;
+  [ordered[index], ordered[target]] = [ordered[target], ordered[index]];
+  await mutateCatalog({ action: "reorder_sub_strands", strandId, subStrandIds: ordered.map((subStrand) => subStrand.id) });
   notify();
 }
 

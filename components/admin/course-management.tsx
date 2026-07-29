@@ -8,7 +8,8 @@ import {
   attachLessonToModule,
   attachLessonToTopic,
   detachLessonFromModule,
-  moveCourse,
+  moveStrand,
+  moveSubStrand,
   saveCourse,
   saveTopic,
   saveUnit,
@@ -168,17 +169,13 @@ export function CourseManagement({ initialCreate = false }: { initialCreate?: bo
           <div className="grid lg:grid-cols-[20rem_1fr]">
             <div className="border-b border-slate-200 bg-slate-50 p-4 lg:border-b-0 lg:border-r">
               <div className="grid gap-2">
-                {manageableCourses.map((course, index) => (
+                {manageableCourses.map((course) => (
                   <div className={`rounded-2xl border p-3 ${selected?.id === course.id ? "border-violet-400 bg-white shadow-sm" : "border-transparent hover:bg-white"}`} key={course.id}>
                     <button className="flex w-full items-center gap-3 text-left" onClick={() => setSelectedId(course.id)} type="button">
                       <span className="grid size-10 shrink-0 place-items-center rounded-xl text-white shadow-sm" style={{ backgroundColor: course.color }}><BookOpen className="size-5" /></span>
                       <span className="min-w-0 flex-1"><b className="block truncate">{course.name}</b><span className="text-xs font-bold text-slate-500">{audienceLabel(access.subjects.find((item) => item.courseId === course.id))}</span></span>
                       <ChevronRight className="size-4 text-muted" />
                     </button>
-                    <div className="mt-2 flex justify-end gap-1">
-                      <MiniButton label="Move up" disabled={index === 0} onClick={() => void moveCourse(course.id, -1, manageableCourses)}><ArrowUp /></MiniButton>
-                      <MiniButton label="Move down" disabled={index === manageableCourses.length - 1} onClick={() => void moveCourse(course.id, 1, manageableCourses)}><ArrowDown /></MiniButton>
-                    </div>
                   </div>
                 ))}
                 {!manageableCourses.length ? <p className="p-5 text-center text-sm font-bold text-muted">Create the first course to begin.</p> : null}
@@ -226,6 +223,16 @@ function CourseWorkspace({ course, lessons, saving, access, settings, onEdit, on
     } catch (cause) { setMessage(cause instanceof Error ? cause.message : "Could not add the strand."); }
   }
 
+  async function reorderStrand(strandId: string, direction: -1 | 1) {
+    try {
+      await moveStrand(course.id, strandId, direction, course.units);
+      await onRefresh();
+      setMessage("Strand order updated.");
+    } catch (cause) {
+      setMessage(cause instanceof Error ? cause.message : "Could not reorder the strand.");
+    }
+  }
+
   return <div className="grid gap-6">
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div className="flex min-w-0 gap-4">
@@ -239,12 +246,12 @@ function CourseWorkspace({ course, lessons, saving, access, settings, onEdit, on
     <div>
       <div className="flex items-center justify-between gap-3"><div><h4 className="text-lg font-black">Strands</h4><p className="text-sm text-muted">Subject → Strand → Sub-strand → Topic → Lesson.</p></div><button className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-violet-100 px-3 text-sm font-black text-violet-900" onClick={() => setUnitOpen((open) => !open)} type="button"><Plus className="size-4" />Add strand</button></div>
       {unitOpen ? <InlineForm title="New strand" value={unitTitle} description={unitDescription} onValue={setUnitTitle} onDescription={setUnitDescription} onCancel={() => setUnitOpen(false)} onSave={() => void addUnit()} /> : null}
-      <div className="mt-4 grid gap-3">{course.units.map((unit) => <UnitPanel course={course} unit={unit} lessons={lessons} key={unit.id} onRefresh={onRefresh} setMessage={setMessage} />)}{!course.units.length ? <div className="rounded-2xl border border-dashed border-slate-300 p-7 text-center"><Layers3 className="mx-auto size-8 text-violet-500" /><p className="mt-2 font-black">No strands yet</p><p className="text-sm text-muted">Add a strand, then create its sub-strands and lessons.</p></div> : null}</div>
+      <div className="mt-4 grid gap-3">{course.units.map((unit, index) => <UnitPanel canMoveDown={index < course.units.length - 1} canMoveUp={index > 0} course={course} unit={unit} lessons={lessons} key={unit.id} onMove={(direction) => void reorderStrand(unit.id, direction)} onRefresh={onRefresh} setMessage={setMessage} />)}{!course.units.length ? <div className="rounded-2xl border border-dashed border-slate-300 p-7 text-center"><Layers3 className="mx-auto size-8 text-violet-500" /><p className="mt-2 font-black">No strands yet</p><p className="text-sm text-muted">Add a strand, then create its sub-strands and lessons.</p></div> : null}</div>
     </div>
   </div>;
 }
 
-function UnitPanel({ course, unit, lessons, onRefresh, setMessage }: { course: ManagedCourse; unit: ManagedCourse["units"][number]; lessons: AdminLessonRecord[]; onRefresh: () => Promise<void>; setMessage: (value: string) => void }) {
+function UnitPanel({ course, unit, lessons, canMoveUp, canMoveDown, onMove, onRefresh, setMessage }: { course: ManagedCourse; unit: ManagedCourse["units"][number]; lessons: AdminLessonRecord[]; canMoveUp: boolean; canMoveDown: boolean; onMove: (direction: -1 | 1) => void; onRefresh: () => Promise<void>; setMessage: (value: string) => void }) {
   const [open, setOpen] = useState(true);
   const [addingTopic, setAddingTopic] = useState(false);
   const [title, setTitle] = useState("");
@@ -320,11 +327,14 @@ function UnitPanel({ course, unit, lessons, onRefresh, setMessage }: { course: M
 
   return (
     <article className="overflow-hidden rounded-2xl border border-slate-200">
-      <button className="flex w-full items-center gap-3 bg-slate-50 p-4 text-left" onClick={() => setOpen((value) => !value)} type="button">
+      <div className="flex items-center gap-2 bg-slate-50 p-3">
+      <button className="flex min-w-0 flex-1 items-center gap-3 p-1 text-left" onClick={() => setOpen((value) => !value)} type="button">
         <span className="grid size-9 place-items-center rounded-xl bg-white text-violet-700 shadow-sm"><Layers3 className="size-4" /></span>
         <span className="flex-1"><b className="block">{unit.title}</b><span className="text-xs text-muted">{moduleLessons.length} lesson{moduleLessons.length === 1 ? "" : "s"} · Strand {course.units.findIndex((item) => item.id === unit.id) + 1}</span></span>
         <ChevronDown className={`size-4 transition ${open ? "rotate-180" : ""}`} />
       </button>
+      <div className="flex shrink-0 gap-1"><MiniButton label={`Move ${unit.title} earlier`} disabled={!canMoveUp} onClick={() => onMove(-1)}><ArrowUp /></MiniButton><MiniButton label={`Move ${unit.title} later`} disabled={!canMoveDown} onClick={() => onMove(1)}><ArrowDown /></MiniButton></div>
+      </div>
       {open ? (
         <div className="grid gap-3 p-3">
           <div className="rounded-xl border border-slate-200 bg-white p-3">
@@ -373,14 +383,14 @@ function UnitPanel({ course, unit, lessons, onRefresh, setMessage }: { course: M
             <button className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-slate-100 px-3 text-xs font-black" onClick={() => setAddingTopic(true)} type="button"><Plus className="size-3.5" />Add sub-strand</button>
           </div>
           {addingTopic ? <InlineForm title="New sub-strand" value={title} description={description} onValue={setTitle} onDescription={setDescription} onCancel={() => setAddingTopic(false)} onSave={() => void addTopic()} /> : null}
-          {unit.topics.map((topic) => <TopicRow course={course} unitId={unit.id} topic={topic} lessons={lessons} key={topic.id} setMessage={setMessage} />)}
+          {unit.topics.map((topic, index) => <TopicRow canMoveDown={index < unit.topics.length - 1} canMoveUp={index > 0} course={course} unitId={unit.id} topic={topic} lessons={lessons} key={topic.id} onRefresh={onRefresh} setMessage={setMessage} />)}
         </div>
       ) : null}
     </article>
   );
 }
 
-function TopicRow({ course, unitId, topic, lessons, setMessage }: { course: ManagedCourse; unitId: string; topic: ManagedCourse["units"][number]["topics"][number]; lessons: AdminLessonRecord[]; setMessage: (value: string) => void }) {
+function TopicRow({ course, unitId, topic, lessons, canMoveUp, canMoveDown, onRefresh, setMessage }: { course: ManagedCourse; unitId: string; topic: ManagedCourse["units"][number]["topics"][number]; lessons: AdminLessonRecord[]; canMoveUp: boolean; canMoveDown: boolean; onRefresh: () => Promise<void>; setMessage: (value: string) => void }) {
   const attached = lessons.filter((lesson) => lesson.topicId === topic.id);
   const available = lessons.filter((lesson) => lesson.topicId !== topic.id);
   const [lessonId, setLessonId] = useState("");
@@ -389,7 +399,18 @@ function TopicRow({ course, unitId, topic, lessons, setMessage }: { course: Mana
     try { await attachLessonToTopic(lessonId, course.id, unitId, topic.id); setLessonId(""); setMessage("Lesson attached to sub-strand."); }
     catch (cause) { setMessage(cause instanceof Error ? cause.message : "Could not attach the lesson."); }
   }
-  return <div className="rounded-xl border border-slate-200 p-3"><div className="flex items-center gap-2"><Tags className="size-4 text-emerald-700" /><div className="flex-1"><span className="block text-[10px] font-black uppercase tracking-wider text-emerald-700">Sub-strand</span><b>{topic.title}</b></div><span className="text-xs font-bold text-muted">{attached.length} lessons</span></div>{attached.length ? <ul className="mt-2 grid gap-1">{attached.map((lesson) => <li className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-900" key={lesson.id}><b>{lesson.topic || "Untitled topic"}</b><span className="mt-0.5 block">{lesson.title} · {lesson.status}</span></li>)}</ul> : null}{available.length ? <div className="mt-3 flex gap-2"><select className="min-h-10 min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2 text-sm" value={lessonId} onChange={(event) => setLessonId(event.target.value)}><option value="">Choose a lesson to attach</option>{available.map((lesson) => <option key={lesson.id} value={lesson.id}>{lesson.topic}: {lesson.title} ({lesson.status})</option>)}</select><button className="rounded-lg bg-violet-700 px-3 text-sm font-black text-white disabled:opacity-50" disabled={!lessonId} onClick={() => void attach()} type="button">Attach</button></div> : null}</div>;
+  async function reorder(direction: -1 | 1) {
+    try {
+      const strand = course.units.find((item) => item.id === unitId);
+      if (!strand) return;
+      await moveSubStrand(unitId, topic.id, direction, strand.topics);
+      await onRefresh();
+      setMessage("Sub-strand order updated.");
+    } catch (cause) {
+      setMessage(cause instanceof Error ? cause.message : "Could not reorder the sub-strand.");
+    }
+  }
+  return <div className="rounded-xl border border-slate-200 p-3"><div className="flex items-center gap-2"><Tags className="size-4 text-emerald-700" /><div className="flex-1"><span className="block text-[10px] font-black uppercase tracking-wider text-emerald-700">Sub-strand</span><b>{topic.title}</b></div><span className="text-xs font-bold text-muted">{attached.length} lessons</span><div className="flex gap-1"><MiniButton label={`Move ${topic.title} earlier`} disabled={!canMoveUp} onClick={() => void reorder(-1)}><ArrowUp /></MiniButton><MiniButton label={`Move ${topic.title} later`} disabled={!canMoveDown} onClick={() => void reorder(1)}><ArrowDown /></MiniButton></div></div>{attached.length ? <ul className="mt-2 grid gap-1">{attached.map((lesson) => <li className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-900" key={lesson.id}><b>{lesson.topic || "Untitled topic"}</b><span className="mt-0.5 block">{lesson.title} · {lesson.status}</span></li>)}</ul> : null}{available.length ? <div className="mt-3 flex gap-2"><select className="min-h-10 min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2 text-sm" value={lessonId} onChange={(event) => setLessonId(event.target.value)}><option value="">Choose a lesson to attach</option>{available.map((lesson) => <option key={lesson.id} value={lesson.id}>{lesson.topic}: {lesson.title} ({lesson.status})</option>)}</select><button className="rounded-lg bg-violet-700 px-3 text-sm font-black text-white disabled:opacity-50" disabled={!lessonId} onClick={() => void attach()} type="button">Attach</button></div> : null}</div>;
 }
 
 function PublicCourseForm({ classes, form, saving, setForm, onClose, onSave }: {

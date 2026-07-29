@@ -32,9 +32,15 @@ const topicSchema = z.object({
   title: z.string().trim().min(2).max(120),
   description: z.string().trim().max(500)
 });
-const orderSchema = z.object({
-  action: z.literal("reorder_courses"),
-  courseIds: z.array(z.string().min(1)).min(1).max(200)
+const strandOrderSchema = z.object({
+  action: z.literal("reorder_strands"),
+  courseId: z.string().min(1),
+  strandIds: z.array(z.string().min(1)).min(1).max(200)
+});
+const subStrandOrderSchema = z.object({
+  action: z.literal("reorder_sub_strands"),
+  strandId: z.string().min(1),
+  subStrandIds: z.array(z.string().min(1)).min(1).max(200)
 });
 const statusSchema = z.object({
   action: z.literal("set_status"),
@@ -50,7 +56,7 @@ const lessonPlacementSchema = z.object({
   unitTitle: z.string().trim().max(120).optional(),
   lessonIds: z.array(z.string().min(1)).max(200).optional()
 });
-const mutationSchema = z.union([courseSchema, unitSchema, topicSchema, orderSchema, statusSchema, lessonPlacementSchema]);
+const mutationSchema = z.union([courseSchema, unitSchema, topicSchema, strandOrderSchema, subStrandOrderSchema, statusSchema, lessonPlacementSchema]);
 
 function safeSlug(value: string) {
   return value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "course";
@@ -274,10 +280,30 @@ export async function POST(request: Request) {
       return NextResponse.json({ id });
     }
 
-    if (input.action === "reorder_courses") {
-      const { data: owned } = await admin.from("Subject").select("id").eq("createdBy", teacher.id).in("id", input.courseIds);
-      if ((owned ?? []).length !== input.courseIds.length) throw new Error("You can only reorder courses you created.");
-      const results = await Promise.all(input.courseIds.map((id, order) => admin.from("Subject").update({ order }).eq("id", id)));
+    if (input.action === "reorder_strands") {
+      await assertOwnedCourse(input.courseId, teacher.id);
+      const uniqueIds = [...new Set(input.strandIds)];
+      if (uniqueIds.length !== input.strandIds.length) throw new Error("Each strand may appear only once.");
+      const { data: strands, error } = await admin.from("Unit").select("id").eq("subjectId", input.courseId).in("id", uniqueIds);
+      if (error) throw new Error(error.message);
+      if ((strands ?? []).length !== uniqueIds.length) throw new Error("Every strand must belong to this subject.");
+      const results = await Promise.all(uniqueIds.map((id, order) => admin.from("Unit").update({ order, updatedAt: new Date().toISOString() }).eq("id", id)));
+      const failure = results.find((result) => result.error)?.error;
+      if (failure) throw new Error(failure.message);
+      return NextResponse.json({ ok: true });
+    }
+
+    if (input.action === "reorder_sub_strands") {
+      const { data: strand, error: strandError } = await admin.from("Unit").select("subjectId").eq("id", input.strandId).maybeSingle();
+      if (strandError) throw new Error(strandError.message);
+      if (!strand) throw new Error("Strand not found.");
+      await assertOwnedCourse(String(strand.subjectId), teacher.id);
+      const uniqueIds = [...new Set(input.subStrandIds)];
+      if (uniqueIds.length !== input.subStrandIds.length) throw new Error("Each sub-strand may appear only once.");
+      const { data: subStrands, error } = await admin.from("Topic").select("id").eq("unitId", input.strandId).in("id", uniqueIds);
+      if (error) throw new Error(error.message);
+      if ((subStrands ?? []).length !== uniqueIds.length) throw new Error("Every sub-strand must belong to this strand.");
+      const results = await Promise.all(uniqueIds.map((id, order) => admin.from("Topic").update({ order, updatedAt: new Date().toISOString() }).eq("id", id)));
       const failure = results.find((result) => result.error)?.error;
       if (failure) throw new Error(failure.message);
       return NextResponse.json({ ok: true });
