@@ -524,6 +524,54 @@ input {
   animation: student-celebration-card-enter 420ms cubic-bezier(0.2, 1.25, 0.45, 1) both;
 }
 
+@keyframes landing-float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotate(-3deg);
+  }
+
+  50% {
+    transform: translate3d(0, -12px, 0) rotate(4deg);
+  }
+}
+
+@keyframes landing-orbit {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes landing-badge {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+.landing-float {
+  animation: landing-float 4.2s ease-in-out infinite;
+  will-change: transform;
+}
+
+.landing-float-slow {
+  animation: landing-float 6.4s ease-in-out infinite reverse;
+  will-change: transform;
+}
+
+.landing-orbit {
+  animation: landing-orbit 24s linear infinite;
+  will-change: transform;
+}
+
+.landing-badge {
+  animation: landing-badge 3.8s ease-in-out infinite;
+  will-change: transform;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

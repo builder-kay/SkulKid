@@ -70,9 +70,12 @@ export function LandingPage() {
         </div>
       </section>
 
-      <section className="relative overflow-hidden bg-white py-16 sm:py-24" id="subjects">
+      <section className="relative overflow-hidden bg-gradient-to-b from-white via-blue-50/70 to-violet-50/50 py-16 sm:py-24" id="subjects">
+        <span aria-hidden="true" className="landing-float-slow absolute left-[4%] top-20 grid size-12 rotate-6 place-items-center rounded-2xl bg-amber-300 text-xl font-black text-amber-950 shadow-lg">A+</span>
+        <span aria-hidden="true" className="landing-float absolute right-[5%] top-14 size-8 rotate-12 rounded-lg bg-cyan-400 shadow-lg" />
+        <span aria-hidden="true" className="landing-orbit absolute -bottom-12 -right-12 size-52 rounded-full border-[28px] border-violet-200/50" />
         <div className="pointer-events-none absolute left-1/2 top-0 h-px w-3/4 -translate-x-1/2 bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
-        <div className="mx-auto max-w-7xl px-5 sm:px-8">
+        <div className="relative mx-auto max-w-7xl px-5 sm:px-8">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div><p className="text-sm font-black uppercase tracking-[0.18em] text-blue-700">Teacher-led adventures</p><h2 className="mt-2 text-4xl font-black tracking-[-.04em] sm:text-5xl">A growing world of subjects.</h2><p className="mt-3 max-w-2xl leading-7 text-slate-600">Teachers can create Ghana primary school subjects or introduce learning paths of their own, then invite students to explore every strand, topic and lesson together.</p></div>
             <Link className="inline-flex min-h-11 items-center gap-2 self-start font-black text-blue-700" href="/signup/teacher">Create a subject <ArrowRight className="size-4" /></Link>
@@ -82,10 +85,14 @@ export function LandingPage() {
             <SubjectCard icon={Sparkles} label="Shape the adventure" eyebrow="Strands • Topics • Lessons" colour="#7C3AED" />
             <SubjectCard icon={UsersRound} label="Explore together" eyebrow="Teach • Challenge • Celebrate" colour="#16A34A" className="md:translate-y-8" />
           </div>
+          <div className="mt-14 flex flex-wrap items-center justify-center gap-2 text-xs font-black text-slate-600 sm:mt-16">
+            {["Standard Ghana subjects", "Teacher-created subjects", "Class-only learning", "Platform adventures"].map((item, index) => <span className="landing-badge rounded-full border border-white bg-white/85 px-4 py-2 shadow-sm backdrop-blur" key={item} style={{ animationDelay: `${index * 180}ms` }}>{item}</span>)}
+          </div>
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-24" id="how-it-works">
+      <section className="relative mx-auto max-w-7xl overflow-hidden px-5 py-16 sm:px-8 sm:py-24" id="how-it-works">
+        <div aria-hidden="true" className="absolute left-1/2 top-1/2 -z-10 h-72 w-[90%] -translate-x-1/2 -translate-y-1/2 rounded-[50%] border-2 border-dashed border-blue-200/70" />
         <div className="grid gap-10 lg:grid-cols-[.72fr_1.28fr] lg:items-end">
           <div>
             <p className="text-sm font-black uppercase tracking-[0.18em] text-violet-700">A smarter learning loop</p>
@@ -93,15 +100,22 @@ export function LandingPage() {
           </div>
           <p className="max-w-2xl text-lg leading-8 text-slate-600">SkulKid turns everyday learning into clear missions children can finish, celebrate and feel proud of.</p>
         </div>
-        <div className="mt-10 grid gap-4 md:grid-cols-3">
+        <div className="relative mt-10 grid gap-4 md:grid-cols-3">
           <Feature number="01" icon={BookOpen} title="Learn in short missions" copy="Friendly explanations, examples and videos made for primary learners." tone="blue" />
           <Feature number="02" icon={Zap} title="Play and earn XP" copy="Quizzes, streaks and instant progress turn effort into momentum." tone="violet" />
           <Feature number="03" icon={Trophy} title="Build your world" copy="Unlock avatar styles, achievements and new reasons to keep going." tone="amber" />
+        </div>
+        <div className="mt-8 grid gap-3 rounded-[1.5rem] border border-blue-100 bg-white/80 p-4 shadow-sm backdrop-blur sm:grid-cols-3 sm:p-5">
+          <LearningSignal value="5–15 min" label="Bite-sized missions" />
+          <LearningSignal value="Instant" label="Quiz feedback" />
+          <LearningSignal value="Visible" label="Progress and rewards" />
         </div>
       </section>
 
       <section className="relative overflow-hidden border-y border-blue-100 bg-white py-16 sm:py-24" id="for-everyone">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_10%_20%,rgba(219,234,254,.65),transparent_24%),radial-gradient(circle_at_90%_80%,rgba(237,233,254,.7),transparent_26%)]" />
+        <span aria-hidden="true" className="landing-float absolute left-[7%] top-24 text-4xl">✦</span>
+        <span aria-hidden="true" className="landing-float-slow absolute bottom-24 right-[6%] text-5xl text-violet-300">✺</span>
         <div className="relative mx-auto max-w-7xl px-5 sm:px-8">
           <div className="mx-auto max-w-3xl text-center">
             <p className="text-sm font-black uppercase tracking-[0.18em] text-blue-700">One learning community</p>
@@ -149,6 +163,8 @@ export function LandingPage() {
         <div className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-violet-700 via-blue-700 to-cyan-600 p-6 text-white shadow-[0_30px_80px_rgba(37,99,235,.22)] sm:p-10 lg:p-14">
           <div className="absolute -right-12 -top-20 size-72 rounded-full bg-amber-300/20 blur-3xl" />
           <div className="absolute -bottom-24 left-1/3 size-64 rounded-full bg-fuchsia-400/20 blur-3xl" />
+          <Star aria-hidden="true" className="landing-float absolute left-[5%] top-8 size-7 fill-amber-300 text-amber-300" />
+          <Zap aria-hidden="true" className="landing-float-slow absolute bottom-10 right-[7%] size-8 fill-cyan-200 text-cyan-200" />
           <div className="relative grid gap-10 lg:grid-cols-[1fr_auto] lg:items-center">
             <div>
               <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-sm font-black ring-1 ring-white/20"><Star className="size-4 fill-amber-300 text-amber-300" />Every effort counts</div>
@@ -248,15 +264,15 @@ const tones = {
   amber: "bg-amber-400 text-slate-950 shadow-amber-200"
 };
 function Feature({ number, icon: Icon, title, copy, tone }: { number: string; icon: React.ElementType; title: string; copy: string; tone: keyof typeof tones }) {
-  return <article className="group relative overflow-hidden rounded-[1.75rem] border border-white bg-white p-6 shadow-[0_18px_50px_rgba(15,23,42,.07)] transition hover:-translate-y-1 hover:shadow-[0_25px_65px_rgba(15,23,42,.12)]"><span className="absolute right-5 top-4 text-5xl font-black text-slate-100">{number}</span><span className={`relative grid size-14 place-items-center rounded-2xl shadow-lg ${tones[tone]}`}><Icon className="size-7" /></span><h3 className="relative mt-6 text-xl font-black">{title}</h3><p className="relative mt-2 leading-7 text-slate-600">{copy}</p></article>;
+  return <article className="group relative overflow-hidden rounded-[1.75rem] border border-white bg-white p-6 shadow-[0_18px_50px_rgba(15,23,42,.07)] transition duration-300 hover:-translate-y-2 hover:rotate-[.35deg] hover:shadow-[0_25px_65px_rgba(15,23,42,.12)]"><span className="absolute -bottom-10 -right-10 size-28 rounded-full bg-blue-50 transition duration-500 group-hover:scale-150" /><span className="absolute right-5 top-4 text-5xl font-black text-slate-100 transition group-hover:text-blue-100">{number}</span><span className={`relative grid size-14 place-items-center rounded-2xl shadow-lg transition duration-300 group-hover:-rotate-6 group-hover:scale-110 ${tones[tone]}`}><Icon className="size-7" /></span><h3 className="relative mt-6 text-xl font-black">{title}</h3><p className="relative mt-2 leading-7 text-slate-600">{copy}</p><p className="relative mt-5 inline-flex items-center gap-1 text-xs font-black uppercase tracking-wider text-blue-700 opacity-0 transition group-hover:opacity-100">Mission unlocked <ArrowRight className="size-3.5" /></p></article>;
 }
 
 function SubjectCard({ icon: Icon, label, eyebrow, colour, className = "" }: { icon: React.ElementType; label: string; eyebrow: string; colour: string; className?: string }) {
-  return <Link className={`group relative min-h-72 overflow-hidden rounded-[2rem] p-6 text-white shadow-[0_20px_55px_rgba(15,23,42,.15)] transition hover:-translate-y-2 ${className}`} href="/signup/teacher" style={{ backgroundColor: colour }}><div className="absolute -right-14 -top-16 size-52 rounded-full bg-white/15" /><div className="absolute -bottom-20 -left-16 size-56 rounded-full bg-slate-950/10" /><span className="relative grid size-14 place-items-center rounded-2xl bg-white/15 ring-1 ring-white/25"><Icon className="size-7" /></span><div className="absolute inset-x-6 bottom-6"><p className="text-xs font-black uppercase tracking-[.16em] text-white/70">{eyebrow}</p><div className="mt-2 flex items-end justify-between gap-3"><h3 className="text-3xl font-black">{label}</h3><span className="grid size-11 place-items-center rounded-full bg-white text-slate-950 transition group-hover:translate-x-1"><ArrowRight className="size-5" /></span></div></div></Link>;
+  return <Link className={`group relative min-h-72 overflow-hidden rounded-[2rem] p-6 text-white shadow-[0_20px_55px_rgba(15,23,42,.15)] transition duration-500 hover:-translate-y-3 hover:rotate-[-.5deg] hover:shadow-[0_30px_70px_rgba(15,23,42,.22)] ${className}`} href="/signup/teacher" style={{ backgroundColor: colour }}><div className="absolute -right-14 -top-16 size-52 rounded-full bg-white/15 transition duration-700 group-hover:scale-125" /><div className="absolute -bottom-20 -left-16 size-56 rounded-full bg-slate-950/10 transition duration-700 group-hover:translate-x-8" /><span className="absolute right-8 top-24 size-3 rotate-45 rounded-sm bg-white/60 transition duration-500 group-hover:rotate-[225deg] group-hover:scale-125" /><span className="relative grid size-14 place-items-center rounded-2xl bg-white/15 ring-1 ring-white/25 transition duration-300 group-hover:-rotate-6 group-hover:scale-110"><Icon className="size-7" /></span><div className="absolute inset-x-6 bottom-6"><p className="text-xs font-black uppercase tracking-[.16em] text-white/70">{eyebrow}</p><div className="mt-2 flex items-end justify-between gap-3"><h3 className="text-3xl font-black">{label}</h3><span className="grid size-11 place-items-center rounded-full bg-white text-slate-950 transition duration-300 group-hover:translate-x-1 group-hover:rotate-[-8deg] group-hover:scale-110"><ArrowRight className="size-5" /></span></div></div></Link>;
 }
 
 function Reward({ value, label, icon: Icon }: { value: string; label: string; icon: React.ElementType }) {
-  return <div className="rounded-2xl bg-white/10 p-4 text-center ring-1 ring-white/15 backdrop-blur"><Icon className="mx-auto size-5 text-amber-300" /><p className="mt-2 text-2xl font-black">{value}</p><p className="mt-1 text-xs font-bold text-blue-100">{label}</p></div>;
+  return <div className="group rounded-2xl bg-white/10 p-4 text-center ring-1 ring-white/15 backdrop-blur transition duration-300 hover:-translate-y-2 hover:bg-white/20"><Icon className="mx-auto size-5 text-amber-300 transition duration-300 group-hover:rotate-12 group-hover:scale-125" /><p className="mt-2 text-2xl font-black">{value}</p><p className="mt-1 text-xs font-bold text-blue-100">{label}</p></div>;
 }
 
 const audienceTones = {
@@ -277,15 +293,20 @@ function AudienceCard({ icon: Icon, eyebrow, title, copy, points, href, action, 
 }) {
   const colours = audienceTones[tone];
   return (
-    <article className="flex flex-col rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_18px_50px_rgba(15,23,42,.07)]">
-      <span className={`grid size-13 place-items-center rounded-2xl shadow-lg ${colours.icon}`}><Icon className="size-6" /></span>
+    <article className="group relative flex flex-col overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_18px_50px_rgba(15,23,42,.07)] transition duration-300 hover:-translate-y-2 hover:border-blue-200 hover:shadow-[0_26px_65px_rgba(15,23,42,.12)]">
+      <span className="absolute -right-8 -top-8 size-24 rounded-full bg-slate-50 transition duration-500 group-hover:scale-150" />
+      <span className={`relative grid size-13 place-items-center rounded-2xl shadow-lg transition duration-300 group-hover:-rotate-6 group-hover:scale-110 ${colours.icon}`}><Icon className="size-6" /></span>
       <p className={`mt-5 text-xs font-black uppercase tracking-[.16em] ${colours.eyebrow}`}>{eyebrow}</p>
       <h3 className="mt-2 text-2xl font-black">{title}</h3>
       <p className="mt-3 leading-7 text-slate-600">{copy}</p>
       <ul className="mt-5 grid gap-3 text-sm font-bold text-slate-700">
         {points.map((point) => <li className="flex items-start gap-2" key={point}><ShieldCheck className={`mt-0.5 size-4 shrink-0 ${colours.eyebrow}`} />{point}</li>)}
       </ul>
-      <Link className={`mt-6 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 text-sm font-black text-white transition ${colours.button}`} href={href}>{action}<ArrowRight className="size-4" /></Link>
+      <Link className={`relative mt-6 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 text-sm font-black text-white transition group-hover:gap-3 ${colours.button}`} href={href}>{action}<ArrowRight className="size-4 transition group-hover:translate-x-1" /></Link>
     </article>
   );
+}
+
+function LearningSignal({ value, label }: { value: string; label: string }) {
+  return <div className="group flex items-center gap-3 rounded-2xl bg-slate-50 px-4 py-3 transition hover:bg-blue-50"><span className="grid size-11 place-items-center rounded-xl bg-blue-600 text-sm font-black text-white shadow-md shadow-blue-200 transition group-hover:rotate-6 group-hover:scale-105">{value}</span><span className="text-sm font-black text-slate-700">{label}</span></div>;
 }
