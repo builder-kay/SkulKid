@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { SkulKidCard } from "@/components/shared/skulkid-card";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
+import { AdminTableScroll, adminTable, adminTableBody, adminTableCell, adminTableHead, adminTableHeadCell, adminTableRow } from "@/components/admin/admin-table";
 
 type SystemData = Record<string, any>;
 
@@ -131,7 +132,7 @@ export default function SystemControlCenterPage() {
       </section>
 
       <Panel title="Alert rules" subtitle="Default thresholds are stored as editable operational policy.">
-        <div className="overflow-x-auto"><table className="min-w-full text-left text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr><th className="p-4">Rule</th><th className="p-4">Threshold</th><th className="p-4">Window</th><th className="p-4">Severity</th><th className="p-4">Incident</th><th className="p-4">State</th></tr></thead><tbody className="divide-y divide-slate-100">{data.rules.map((rule: any) => <tr key={rule.id}><td className="p-4 font-black">{rule.name}</td><td className="p-4">{rule.operator} {rule.threshold}</td><td className="p-4">{rule.windowMinutes} min</td><td className="p-4"><Status value={rule.severity} /></td><td className="p-4">{rule.autoIncident ? "Automatic" : "Manual"}</td><td className="p-4">{rule.enabled ? "Enabled" : "Disabled"}</td></tr>)}</tbody></table></div>
+        <AdminTableScroll><table className={adminTable}><thead className={adminTableHead}><tr><th className={adminTableHeadCell}>Rule</th><th className={adminTableHeadCell}>Threshold</th><th className={adminTableHeadCell}>Window</th><th className={adminTableHeadCell}>Severity</th><th className={adminTableHeadCell}>Incident</th><th className={adminTableHeadCell}>State</th></tr></thead><tbody className={adminTableBody}>{data.rules.map((rule: any) => <tr className={adminTableRow} key={rule.id}><td className={`${adminTableCell} font-black text-slate-900`}>{rule.name}</td><td className={`${adminTableCell} font-mono text-xs font-bold text-slate-700`}>{rule.operator} {rule.threshold}</td><td className={`${adminTableCell} whitespace-nowrap text-slate-600`}>{rule.windowMinutes} min</td><td className={adminTableCell}><Status value={rule.severity} /></td><td className={`${adminTableCell} text-slate-600`}>{rule.autoIncident ? "Automatic" : "Manual"}</td><td className={adminTableCell}><span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-black ring-1 ring-inset ${rule.enabled ? "bg-emerald-50 text-emerald-800 ring-emerald-200" : "bg-slate-100 text-slate-600 ring-slate-200"}`}>{rule.enabled ? "Enabled" : "Disabled"}</span></td></tr>)}</tbody></table></AdminTableScroll>
       </Panel>
     </> : null}
   </main>;

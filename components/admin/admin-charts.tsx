@@ -1,5 +1,7 @@
 "use client";
 
+import { AdminTableScroll, adminTable, adminTableBody, adminTableCell, adminTableHead, adminTableHeadCell, adminTableRow } from "@/components/admin/admin-table";
+
 type Series = { key: string; label: string; color: string; dash?: boolean };
 
 export function AccessibleLineChart({
@@ -46,12 +48,12 @@ export function AccessibleLineChart({
       </svg>
       <details className="mt-2 text-sm text-slate-600">
         <summary className="cursor-pointer font-bold text-emerald-800">View chart data</summary>
-        <div className="mt-2 max-h-48 overflow-auto rounded-xl border border-slate-200">
-          <table className="w-full text-left text-xs">
-            <thead className="sticky top-0 bg-slate-50"><tr><th className="p-2">Date</th>{series.map((item) => <th className="p-2" key={item.key}>{item.label}</th>)}</tr></thead>
-            <tbody>{data.map((point) => <tr className="border-t border-slate-100" key={String(point.date)}><td className="p-2">{String(point.date)}</td>{series.map((item) => <td className="p-2" key={item.key}>{String(point[item.key] ?? 0)}</td>)}</tr>)}</tbody>
+        <AdminTableScroll className="mt-2 max-h-52 rounded-xl border border-slate-200">
+          <table className={`${adminTable} min-w-full text-xs`}>
+            <thead className={adminTableHead}><tr><th className={adminTableHeadCell}>Date</th>{series.map((item) => <th className={`${adminTableHeadCell} text-right`} key={item.key}>{item.label}</th>)}</tr></thead>
+            <tbody className={adminTableBody}>{data.map((point) => <tr className={adminTableRow} key={String(point.date)}><td className={`${adminTableCell} font-bold text-slate-700`}>{String(point.date)}</td>{series.map((item) => <td className={`${adminTableCell} text-right font-mono font-bold text-slate-600`} key={item.key}>{String(point[item.key] ?? 0)}</td>)}</tr>)}</tbody>
           </table>
-        </div>
+        </AdminTableScroll>
       </details>
     </figure>
   );
