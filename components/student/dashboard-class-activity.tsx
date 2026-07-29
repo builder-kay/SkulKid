@@ -203,7 +203,7 @@ function QuizShortcut({ quiz }: { quiz: StudentDashboardActivity["quizzes"][numb
 
   return (
     <Link
-      className="group block min-h-60 rounded-2xl border border-indigo-100 bg-gradient-to-br from-white to-indigo-50/70 p-5 transition hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+      className="group block min-h-52 rounded-2xl border border-indigo-100 bg-gradient-to-br from-white to-indigo-50/70 p-4 transition hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
       href={href}
     >
       <span className="flex items-start justify-between gap-3">
@@ -214,21 +214,21 @@ function QuizShortcut({ quiz }: { quiz: StudentDashboardActivity["quizzes"][numb
           {completed ? "Completed" : upcoming ? "Coming soon" : "Ready now"}
         </span>
       </span>
-      <span className="mt-4 block">
-        <span className="line-clamp-2 text-xl font-black leading-7 text-text-primary">{quiz.title}</span>
+      <span className="mt-3 block">
+        <span className="line-clamp-2 text-lg font-black leading-6 text-text-primary">{quiz.title}</span>
         <span className="mt-1 block truncate text-sm font-bold text-text-secondary">{quiz.className}</span>
       </span>
-      <span className="mt-4 grid grid-cols-2 gap-2 text-center">
-        <span className="rounded-xl bg-white px-3 py-2 ring-1 ring-indigo-100">
-          <strong className="block text-lg font-black text-indigo-800">{quiz.questionCount}</strong>
+      <span className="mt-3 grid grid-cols-2 gap-2 text-center">
+        <span className="rounded-xl bg-white px-3 py-1.5 ring-1 ring-indigo-100">
+          <strong className="block font-black text-indigo-800">{quiz.questionCount}</strong>
           <span className="text-[0.68rem] font-black uppercase text-slate-500">Questions</span>
         </span>
-        <span className="rounded-xl bg-white px-3 py-2 ring-1 ring-indigo-100">
-          <strong className="block text-lg font-black text-indigo-800">{quiz.baseXpReward}</strong>
+        <span className="rounded-xl bg-white px-3 py-1.5 ring-1 ring-indigo-100">
+          <strong className="block font-black text-indigo-800">{quiz.baseXpReward}</strong>
           <span className="text-[0.68rem] font-black uppercase text-slate-500">XP reward</span>
         </span>
       </span>
-      <span className="mt-4 flex items-center justify-between gap-3">
+      <span className="mt-3 flex items-center justify-between gap-3">
         <span className={`text-xs font-black ${upcoming ? "text-sky-700" : completed ? "text-emerald-700" : "text-amber-800"}`}>{timeLabel}</span>
         <span className="inline-flex shrink-0 items-center gap-1 rounded-xl bg-indigo-700 px-3 py-2 text-xs font-black text-white">
           {action}
@@ -246,7 +246,7 @@ function SubjectShortcut({ subject }: { subject: StudentDashboardActivity["subje
 
   return (
     <Link
-      className="group block min-h-60 rounded-2xl border border-emerald-100 bg-gradient-to-br from-white to-emerald-50/70 p-5 transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+      className="group block min-h-52 rounded-2xl border border-emerald-100 bg-gradient-to-br from-white to-emerald-50/70 p-4 transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
       href={href}
     >
       <span className="flex items-start justify-between gap-3">
@@ -257,17 +257,17 @@ function SubjectShortcut({ subject }: { subject: StudentDashboardActivity["subje
           {subject.isClassOnly ? "My class only" : "Class learning"}
         </span>
       </span>
-      <span className="mt-5 block">
-        <span className="line-clamp-2 text-xl font-black leading-7 text-text-primary">{subject.courseName}</span>
-        <span className="mt-2 inline-flex items-center gap-2 text-sm font-bold text-text-secondary">
+      <span className="mt-3 block">
+        <span className="line-clamp-2 text-lg font-black leading-6 text-text-primary">{subject.courseName}</span>
+        <span className="mt-1.5 inline-flex items-center gap-2 text-sm font-bold text-text-secondary">
           <School aria-hidden="true" className="size-4 text-emerald-700" />
           {subject.className}
         </span>
       </span>
-      <span className="mt-5 block rounded-2xl bg-white p-3 text-sm leading-6 text-slate-600 ring-1 ring-emerald-100">
+      <span className="mt-3 block rounded-xl bg-white p-2.5 text-sm leading-5 text-slate-600 ring-1 ring-emerald-100">
         Continue with the lessons your teacher picked for this class.
       </span>
-      <span className="mt-4 inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-black text-white">
+      <span className="mt-3 inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-4 py-2 text-sm font-black text-white">
         Open subject
         <ArrowRight aria-hidden="true" className="size-4 transition group-hover:translate-x-0.5" />
       </span>
