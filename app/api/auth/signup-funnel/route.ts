@@ -6,6 +6,7 @@ const schema = z.object({
   sessionId: z.string().uuid(),
   role: z.enum(["student", "teacher"]),
   step: z.number().int().min(1).max(5).optional(),
+  usernamePrefix: z.string().trim().max(6).regex(/^[a-z0-9_]+$/).optional(),
   event: z.enum(["started", "progressed", "otp_requested", "completed", "abandoned"])
 });
 

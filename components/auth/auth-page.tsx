@@ -166,6 +166,7 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
         sessionId: signupSessionIdRef.current,
         role: audience,
         step: nextStep,
+        usernamePrefix: !isTeacher && username ? username.slice(0, 6) : undefined,
         event: "progressed"
       }),
       keepalive: true
@@ -361,6 +362,7 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
             role: "student",
             phone,
             phoneOwner,
+            username,
             signupSessionId: signupSessionIdRef.current
           });
           setOtpShortcode(delivery.shortcode || "");
@@ -442,7 +444,7 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
         }
         const delivery = await post("/api/auth/otp/send", isTeacher
           ? { purpose: "signup", role: "teacher", phone, signupSessionId: signupSessionIdRef.current }
-          : { purpose: "signup", role: "student", phone, phoneOwner, signupSessionId: signupSessionIdRef.current });
+          : { purpose: "signup", role: "student", phone, phoneOwner, username, signupSessionId: signupSessionIdRef.current });
         setOtpShortcode(delivery.shortcode || "");
         setStep("verify");
         return;

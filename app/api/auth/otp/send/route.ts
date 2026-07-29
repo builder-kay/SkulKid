@@ -21,7 +21,8 @@ const signupSchema = z.object({
   phone: z.string().min(9).max(20),
   role: z.enum(["student", "teacher"]).default("student"),
   phoneOwner: z.enum(["self", "guardian"]).optional(),
-  signupSessionId: z.string().uuid().optional()
+  signupSessionId: z.string().uuid().optional(),
+  username: z.string().trim().min(3).max(20).optional()
 });
 
 const resetSchema = z.object({
@@ -90,6 +91,7 @@ async function handleSignupOtp(input: z.infer<typeof signupSchema>, request: Req
       sessionId: input.signupSessionId,
       role: input.role,
       step: 5,
+      usernamePrefix: input.username?.slice(0, 6),
       event: "otp_requested"
     }).catch((error) => console.error("Signup funnel OTP event failed:", error));
   }

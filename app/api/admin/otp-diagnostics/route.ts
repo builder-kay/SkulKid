@@ -30,12 +30,12 @@ export async function GET(request: Request) {
     ] = await Promise.all([
       query,
       admin.from("SignupFunnelSession")
-        .select("id,role,status,highestStep,otpRequestedAt,completedAt,abandonedAt,startedAt,lastSeenAt")
+        .select("id,role,status,highestStep,usernamePrefix,otpRequestedAt,completedAt,abandonedAt,startedAt,lastSeenAt")
         .gte("startedAt", thirtyDaysAgo)
         .order("startedAt", { ascending: false })
         .limit(5000),
       admin.from("OtpProviderDiagnostic")
-        .select("attemptId,signupSessionId,status")
+        .select("id,attemptId,signupSessionId,provider,purpose,status,maskedPhone,latencyMs,deliveryStatus,error,createdAt")
         .not("signupSessionId", "is", null)
         .gte("createdAt", thirtyDaysAgo)
         .limit(15000)
@@ -82,6 +82,57 @@ export async function GET(request: Request) {
         .filter((event) => failedAttemptIds.has(event.attemptId) && event.signupSessionId)
         .map((event) => event.signupSessionId)
     ).size;
+    const problemReports = sessions
+      .filter((session) => session.status !== "completed")
+      .map((session) => {
+        const providerEvents = funnelDiagnostics
+          .filter((event) => event.signupSessionId === session.id)
+          .sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
+        const accepted = providerEvents.filter((event) => event.status === "accepted");
+        const rejected = providerEvents.filter((event) => event.status === "rejected");
+        const deliveryFailed = providerEvents.some((event) =>
+          /failed|undeliver|expired|rejected/i.test(String(event.deliveryStatus ?? ""))
+        );
+        const stale = isStale(session);
+        let problem = `Signup stopped at step ${session.highestStep} before an OTP was requested.`;
+        let category = "signup_stopped";
+        if (session.otpRequestedAt && providerEvents.length === 0) {
+          problem = "OTP was requested, but no provider diagnostic events were recorded. Check production logging and provider invocation.";
+          category = "logging_gap";
+        } else if (providerEvents.length && rejected.length === providerEvents.length) {
+          problem = "Every SMS provider rejected the OTP request. Review each provider error below.";
+          category = "all_providers_rejected";
+        } else if (deliveryFailed) {
+          problem = "At least one provider accepted the request, but a delivery report indicates handset delivery failed.";
+          category = "delivery_failed";
+        } else if (accepted.length && stale) {
+          problem = "A provider accepted the SMS, but signup did not finish. Handset delivery is unconfirmed or the user did not enter a valid code.";
+          category = "accepted_not_completed";
+        } else if (accepted.length) {
+          problem = "The OTP was accepted by a provider and this signup is still awaiting completion.";
+          category = "awaiting_completion";
+        } else if (session.status === "abandoned") {
+          problem = `The user left signup at step ${session.highestStep} before completing the flow.`;
+          category = "abandoned";
+        }
+        return {
+          sessionId: session.id,
+          role: session.role,
+          status: session.status,
+          usernamePrefix: session.usernamePrefix ? `${session.usernamePrefix}…` : null,
+          highestStep: Number(session.highestStep),
+          category,
+          problem,
+          startedAt: session.startedAt,
+          otpRequestedAt: session.otpRequestedAt,
+          lastSeenAt: session.lastSeenAt,
+          abandonedAt: session.abandonedAt,
+          elapsedSeconds: Math.max(0, Math.round((Date.parse(session.lastSeenAt) - Date.parse(session.startedAt)) / 1000)),
+          providerEvents
+        };
+      })
+      .sort((a, b) => Date.parse(b.lastSeenAt) - Date.parse(a.lastSeenAt))
+      .slice(0, 250);
     const funnel = {
       periodDays: 30,
       started: sessions.length,
@@ -119,7 +170,7 @@ export async function GET(request: Request) {
         };
       })
     };
-    return NextResponse.json({ events, summary, funnel, generatedAt: new Date().toISOString() });
+    return NextResponse.json({ events, summary, funnel, problemReports, generatedAt: new Date().toISOString() });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to load OTP diagnostics.";
     return NextResponse.json({ error: message }, { status: message.includes("required") ? 401 : 500 });

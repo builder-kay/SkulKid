@@ -5,6 +5,7 @@ export async function updateSignupFunnel(input: {
   sessionId: string;
   role: "student" | "teacher";
   step?: number;
+  usernamePrefix?: string;
   event: "started" | "progressed" | "otp_requested" | "completed" | "abandoned";
 }) {
   const admin = createAdminClient();
@@ -21,6 +22,8 @@ export async function updateSignupFunnel(input: {
     highestStep: Math.max(Number(data?.highestStep ?? 1), step),
     lastSeenAt: now
   };
+  const usernamePrefix = input.usernamePrefix?.toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 6);
+  if (usernamePrefix) values.usernamePrefix = usernamePrefix;
   if (input.event === "completed") {
     values.status = "completed";
     values.completedAt = now;

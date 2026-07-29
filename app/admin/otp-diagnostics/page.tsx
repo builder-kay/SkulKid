@@ -52,6 +52,22 @@ type SignupFunnel = {
   trend: Array<{ date: string; started: number; completed: number; abandoned: number }>;
 };
 
+type ProblemReport = {
+  sessionId: string;
+  role: "student" | "teacher";
+  status: "active" | "abandoned";
+  usernamePrefix: string | null;
+  highestStep: number;
+  category: string;
+  problem: string;
+  startedAt: string;
+  otpRequestedAt: string | null;
+  lastSeenAt: string;
+  abandonedAt: string | null;
+  elapsedSeconds: number;
+  providerEvents: DiagnosticEvent[];
+};
+
 export default function OtpDiagnosticsPage() {
   const [events, setEvents] = useState<DiagnosticEvent[]>([]);
   const [summary, setSummary] = useState<ProviderSummary[]>([]);
@@ -62,6 +78,7 @@ export default function OtpDiagnosticsPage() {
   const [error, setError] = useState("");
   const [generatedAt, setGeneratedAt] = useState("");
   const [funnel, setFunnel] = useState<SignupFunnel | null>(null);
+  const [problemReports, setProblemReports] = useState<ProblemReport[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -73,6 +90,7 @@ export default function OtpDiagnosticsPage() {
         events?: DiagnosticEvent[];
         summary?: ProviderSummary[];
         funnel?: SignupFunnel;
+        problemReports?: ProblemReport[];
         generatedAt?: string;
         error?: string;
       };
@@ -80,6 +98,7 @@ export default function OtpDiagnosticsPage() {
       setEvents(result.events ?? []);
       setSummary(result.summary ?? []);
       setFunnel(result.funnel ?? null);
+      setProblemReports(result.problemReports ?? []);
       setGeneratedAt(result.generatedAt ?? "");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not load OTP diagnostics.");
@@ -109,6 +128,15 @@ export default function OtpDiagnosticsPage() {
     }
     return [...grouped.entries()];
   }, [filteredEvents]);
+  const filteredReports = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return problemReports;
+    return problemReports.filter((report) =>
+      `${report.usernamePrefix ?? ""} ${report.role} ${report.status} ${report.category} ${report.problem} ${report.providerEvents.map((event) => `${event.provider} ${event.error ?? ""}`).join(" ")}`
+        .toLowerCase()
+        .includes(needle)
+    );
+  }, [problemReports, query]);
 
   return (
     <main className="mx-auto grid w-full max-w-[96rem] gap-6">
@@ -167,6 +195,24 @@ export default function OtpDiagnosticsPage() {
           </section>
         </>
       ) : null}
+
+      <SkulKidCard className="overflow-hidden">
+        <div className="border-b border-slate-200 bg-gradient-to-r from-rose-50 to-amber-50 p-5 sm:p-6">
+          <p className="text-xs font-black uppercase tracking-wider text-rose-700">Incomplete signup investigation</p>
+          <div className="mt-1 flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 className="text-2xl font-black text-slate-950">Why users did not receive OTPs or finish</h2>
+              <p className="mt-1 text-sm text-slate-600">Detailed, privacy-safe reports for active, stalled and abandoned signups.</p>
+            </div>
+            <span className="rounded-full bg-white px-3 py-1.5 text-sm font-black text-rose-800 shadow-sm">{filteredReports.length} reports</span>
+          </div>
+        </div>
+        <div className="divide-y divide-slate-200">
+          {loading ? <div className="p-8 text-center font-bold text-slate-500">Building signup reports…</div> : null}
+          {!loading && filteredReports.length === 0 ? <div className="p-8 text-center text-slate-500">No incomplete signup report matches this view.</div> : null}
+          {!loading && filteredReports.map((report) => <ProblemReportCard key={report.sessionId} report={report} />)}
+        </div>
+      </SkulKidCard>
 
       <section className="grid gap-3 md:grid-cols-3">
         {summary.map((item) => (
@@ -283,11 +329,74 @@ function ProviderEvent({ event }: { event: DiagnosticEvent }) {
         <strong className="capitalize text-slate-950">{event.provider}</strong>
         <span className={`ml-auto rounded-full px-2 py-1 text-[10px] font-black uppercase ${accepted ? "bg-emerald-200 text-emerald-900" : "bg-rose-200 text-rose-900"}`}>{event.status}</span>
       </div>
-      <div className="mt-3 flex items-center gap-1.5 text-xs font-bold text-slate-600"><Clock3 className="size-3.5" />{event.latencyMs}ms</div>
+      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-bold text-slate-600">
+        <span className="inline-flex items-center gap-1.5"><Clock3 className="size-3.5" />{event.latencyMs}ms</span>
+        <time>{new Date(event.createdAt).toLocaleString()}</time>
+      </div>
       {event.deliveryStatus ? <p className="mt-2 text-xs font-bold text-slate-700">Delivery report: {event.deliveryStatus}</p> : null}
       {event.error ? <p className="mt-2 flex items-start gap-1.5 text-xs leading-5 text-rose-900"><CircleAlert className="mt-0.5 size-3.5 shrink-0" />{event.error}</p> : null}
     </div>
   );
+}
+
+function ProblemReportCard({ report }: { report: ProblemReport }) {
+  const serious = ["all_providers_rejected", "delivery_failed", "logging_gap"].includes(report.category);
+  return (
+    <details className="group p-4 open:bg-slate-50 sm:p-5">
+      <summary className="cursor-pointer list-none">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ${serious ? "bg-rose-100 text-rose-800" : "bg-amber-100 text-amber-900"}`}>{report.category.replaceAll("_", " ")}</span>
+              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black uppercase text-slate-700">{report.role}</span>
+              <span className="text-xs font-bold text-slate-500">Step {report.highestStep} of 5</span>
+            </div>
+            <h3 className="mt-3 text-lg font-black text-slate-950">{report.usernamePrefix ? `Username begins “${report.usernamePrefix}”` : "Username prefix unavailable"}</h3>
+            <p className="mt-1 max-w-4xl text-sm leading-6 text-slate-700">{report.problem}</p>
+          </div>
+          <div className="shrink-0 text-left text-xs font-bold text-slate-500 lg:text-right">
+            <p>Last activity</p>
+            <time className="mt-1 block text-sm text-slate-800">{new Date(report.lastSeenAt).toLocaleString()}</time>
+            <p className="mt-1">{formatDuration(report.elapsedSeconds)} in signup</p>
+          </div>
+        </div>
+        <p className="mt-3 text-xs font-black text-cyan-700 group-open:hidden">Open detailed timeline and provider evidence</p>
+      </summary>
+      <div className="mt-5 grid gap-5 border-t border-slate-200 pt-5">
+        <section>
+          <h4 className="text-sm font-black text-slate-950">Signup timeline</h4>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+            <Timestamp label="Started" value={report.startedAt} />
+            <Timestamp label="OTP requested" value={report.otpRequestedAt} />
+            <Timestamp label="Last activity" value={report.lastSeenAt} />
+            <Timestamp label={report.abandonedAt ? "Abandoned" : "Current status"} value={report.abandonedAt} fallback={report.status} />
+          </div>
+        </section>
+        <section>
+          <div className="flex items-center justify-between gap-3">
+            <h4 className="text-sm font-black text-slate-950">Provider evidence</h4>
+            <span className="text-xs font-bold text-slate-500">{report.providerEvents.length} provider event{report.providerEvents.length === 1 ? "" : "s"}</span>
+          </div>
+          {report.providerEvents.length ? <div className="mt-3 grid gap-2 lg:grid-cols-3">{report.providerEvents.map((event) => <ProviderEvent event={event} key={event.id} />)}</div> : <p className="mt-3 rounded-xl border border-dashed border-rose-300 bg-rose-50 p-4 text-sm font-bold text-rose-900">No provider event is linked to this signup session.</p>}
+        </section>
+        <div className="rounded-xl bg-slate-900 p-4 text-xs text-slate-200">
+          <b className="text-white">Session reference:</b> {report.sessionId}
+          <span className="mx-2 text-slate-500">•</span>
+          OTP values, complete usernames and full phone numbers are intentionally excluded.
+        </div>
+      </div>
+    </details>
+  );
+}
+
+function Timestamp({ label, value, fallback = "Not recorded" }: { label: string; value: string | null; fallback?: string }) {
+  return <div className="rounded-xl border border-slate-200 bg-white p-3"><p className="text-[10px] font-black uppercase tracking-wider text-slate-500">{label}</p><p className="mt-1 text-sm font-bold text-slate-900">{value ? new Date(value).toLocaleString() : fallback}</p></div>;
+}
+
+function formatDuration(seconds: number) {
+  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 3600) return `${Math.round(seconds / 60)}m`;
+  return `${Math.round(seconds / 3600)}h`;
 }
 
 function formatPurpose(value: string) {
