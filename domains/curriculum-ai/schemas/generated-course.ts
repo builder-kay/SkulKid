@@ -3,7 +3,8 @@ import { z } from "zod";
 export const supportedCurriculumSubjectSchema = z.enum([
   "mathematics",
   "english-language",
-  "science"
+  "science",
+  "computing"
 ]);
 
 export const generatedChallengeSchema = z.object({

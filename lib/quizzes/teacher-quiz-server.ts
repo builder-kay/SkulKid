@@ -4,7 +4,7 @@ import type { ClassQuizQuestion } from "@/lib/classes/types";
 import { markModerationPublished, moderateTeacherContent } from "@/lib/moderation/teacher-content-server";
 
 export type TeacherQuizStatus = "draft" | "ready" | "archived";
-export type TeacherQuizSubject = "mathematics" | "english-language" | "science" | "general";
+export type TeacherQuizSubject = "mathematics" | "english-language" | "science" | "computing" | "general";
 export type TeacherQuizInput = {
   title: string; description?: string; subject: TeacherQuizSubject; gradeLevels: number[];
   questions: ClassQuizQuestion[]; baseXpReward: number; passingScore: number;

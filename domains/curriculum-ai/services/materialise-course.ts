@@ -112,7 +112,7 @@ export function materialiseGeneratedCourse(course: GeneratedCourse, importKey: s
   });
 
   const fixture = curriculumFixtureSchema.parse({
-    subjects: [{ id: subjectId, name: subjectName(course.subject), slug: `${course.subject}-${importKey.slice(0, 8)}`, description: course.sourceSummary, icon: course.subject === "mathematics" ? "calculator" : course.subject === "science" ? "flask-conical" : "book-open", colourToken: `subject-${course.subject.replace("-language", "")}`, gradeLevels: [...new Set(course.units.map((unit) => unit.grade))], order: 1, status: "active", createdAt: timestamp, updatedAt: timestamp }],
+    subjects: [{ id: subjectId, name: subjectName(course.subject), slug: `${course.subject}-${importKey.slice(0, 8)}`, description: course.sourceSummary, icon: course.subject === "mathematics" ? "calculator" : course.subject === "science" ? "flask-conical" : course.subject === "computing" ? "monitor-cog" : "book-open", colourToken: `subject-${course.subject.replace("-language", "")}`, gradeLevels: [...new Set(course.units.map((unit) => unit.grade))], order: 1, status: "active", createdAt: timestamp, updatedAt: timestamp }],
     units, topics, lessons, lessonVersions
   });
   const issues = lessonVersions.flatMap((version) => validateLessonForPublishing(version, lessons).issues)

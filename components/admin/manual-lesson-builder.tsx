@@ -43,6 +43,9 @@ const subjectExampleTools = {
   ],
   "english-language": [
     ["“ ”", "“text”"], ["‘ ’", "‘text’"], ["—", "—"], [":", ": "], [";", "; "], ["Dialogue", "Speaker: “Dialogue”"], ["Evidence", "Evidence: “quotation”"], ["Meaning", "This means that…"], ["PEEL", "Point:\nEvidence:\nExplanation:\nLink:"], ["Paragraph", "\n\n"]
+  ],
+  computing: [
+    ["Algorithm", "Algorithm:\n1. "], ["Input", "Input: "], ["Process", "Process: "], ["Output", "Output: "], ["IF", "IF condition THEN\n"], ["Loop", "REPEAT until "], ["Formula", "="], ["Cell", "A1"], ["URL", "https://"], ["Safety", "Safety check: "]
   ]
 } satisfies Record<SupportedCurriculumSubject, string[][]>;
 type ImportedLesson = {
@@ -344,7 +347,7 @@ export function ManualLessonBuilder({ initialAiConfigured = false, initialAiMode
 
   function build() {
     setMessage("");
-    if (!["mathematics", "english-language", "science"].includes(form.subject)) { setMessage("Subject is invalid. Choose a subject again."); return null; }
+    if (!["mathematics", "english-language", "science", "computing"].includes(form.subject)) { setMessage("Subject is invalid. Choose a subject again."); return null; }
     if (!["foundation", "beginner", "developing", "proficient", "challenge"].includes(form.difficulty)) { setMessage("Difficulty is invalid. Choose a difficulty again."); return null; }
     if (form.title.trim().length < 3) { setMessage("Lesson title must contain at least 3 characters."); return null; }
     if (!form.unit.trim()) { setMessage("Enter the curriculum strand."); return null; }

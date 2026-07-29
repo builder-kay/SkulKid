@@ -3,7 +3,7 @@ import type { LessonBlock as DomainLessonBlock } from "@/domains/curriculum/type
 import type { AdminLessonRecord } from "@/lib/admin/lesson-library";
 import type { Lesson, LessonBlock } from "@/types/lesson";
 
-const subjectIds = { mathematics: "subject-mathematics", "english-language": "subject-english-language", science: "subject-science" } as const;
+const subjectIds = { mathematics: "subject-mathematics", "english-language": "subject-english-language", science: "subject-science", computing: "subject-computing" } as const;
 
 export function publishedLessonsFromRecords(records: AdminLessonRecord[]): Lesson[] {
   const published = records.filter((record) => record.status === "published");

@@ -8,7 +8,7 @@ import { markModerationPublished, moderateTeacherContent } from "@/lib/moderatio
 
 const lessonSchema = z.object({
   id: z.string().min(1),
-  subject: z.enum(["mathematics", "english-language", "science"]),
+  subject: z.enum(["mathematics", "english-language", "science", "computing"]),
   classId: z.string().uuid().nullable().optional(),
   courseId: z.string().min(1),
   unitId: z.string().min(1).nullable().optional(),

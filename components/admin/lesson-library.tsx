@@ -14,7 +14,8 @@ import type { SupportedCurriculumSubject } from "@/domains/curriculum-ai/schemas
 const subjectStyles: Record<SupportedCurriculumSubject, { accent: string; soft: string }> = {
   mathematics: { accent: "bg-blue-600", soft: "bg-blue-50 text-blue-800" },
   "english-language": { accent: "bg-violet-600", soft: "bg-violet-50 text-violet-800" },
-  science: { accent: "bg-green-600", soft: "bg-green-50 text-green-800" }
+  science: { accent: "bg-green-600", soft: "bg-green-50 text-green-800" },
+  computing: { accent: "bg-cyan-600", soft: "bg-cyan-50 text-cyan-800" }
 };
 
 export function LessonLibrary({ initialSubject, initialCourseId }: { initialSubject: SupportedCurriculumSubject; initialCourseId?: string }) {

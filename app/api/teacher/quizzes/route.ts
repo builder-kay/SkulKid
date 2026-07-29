@@ -11,7 +11,7 @@ const question = z.object({
 });
 const quiz = z.object({
   title: z.string().trim().min(2).max(120), description: z.string().trim().max(500).optional(),
-  subject: z.enum(["mathematics", "english-language", "science", "general"]),
+  subject: z.enum(["mathematics", "english-language", "science", "computing", "general"]),
   gradeLevels: z.array(z.number().int().min(1).max(6)).min(1).max(6),
   questions: z.array(question).min(1).max(30), baseXpReward: z.number().int().min(0).max(500),
   passingScore: z.number().int().min(0).max(100), maxAttempts: z.number().int().min(1).max(20),
