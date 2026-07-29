@@ -63,8 +63,29 @@ export async function POST(request: Request, context: { params: Promise<{ userId
         });
         if (updateError) throw updateError;
       } else {
-        const { error: deleteError } = await admin.auth.admin.deleteUser(userId, true);
+        // Keep the matching ban ids before the Auth deletion. The database sets
+        // TeacherPhoneBan.teacherId to null when auth.users is removed.
+        const { data: phoneBans, error: phoneBanReadError } = await admin
+          .from("TeacherPhoneBan")
+          .select("id")
+          .eq("teacherId", userId);
+        if (phoneBanReadError) throw new Error(phoneBanReadError.message);
+
+        // This must be a hard deletion. Passing `true` here asks Supabase to
+        // soft-delete the identity, which leaves it present in Auth.
+        const { error: deleteError } = await admin.auth.admin.deleteUser(userId);
         if (deleteError) throw deleteError;
+
+        const phoneBanIds = (phoneBans ?? []).map((ban) => ban.id);
+        if (phoneBanIds.length) {
+          const { error: phoneBanDeleteError } = await admin
+            .from("TeacherPhoneBan")
+            .delete()
+            .in("id", phoneBanIds);
+          if (phoneBanDeleteError) throw new Error(
+            `The account was deleted, but its phone-ban cleanup failed: ${phoneBanDeleteError.message}`
+          );
+        }
       }
     }
     await auditAdminAction({
