@@ -18,10 +18,13 @@ import {
   RotateCcw,
   Save,
   School,
+  Settings2,
   ShoppingBag,
   Sparkles,
   Trophy,
   UserRound,
+  Volume2,
+  VolumeX,
   Zap
 } from "lucide-react";
 import { CharacterAvatar, PremiumAssetPreview } from "@/components/student/character-avatar";
@@ -39,7 +42,8 @@ export function ProfilePage() {
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
-  const [activeTab, setActiveTab] = useState<"avatar" | "about">("avatar");
+  const [activeTab, setActiveTab] = useState<"avatar" | "about" | "settings">("avatar");
+  const [classChatSound, setClassChatSound] = useState(true);
   const [studioTab, setStudioTab] = useState<"body" | "head" | "hair" | "face" | "shirt" | "bottoms" | "shoes">("body");
   const [shopCategory, setShopCategory] = useState<AvatarAsset["category"]>("shirt");
   const level = getStudentLevel(state.xp);
@@ -57,6 +61,15 @@ export function ProfilePage() {
   }, [form]);
   const earnedAchievements = achievements.filter((achievement) => achievement.earned).length;
   useEffect(() => setForm(profile), [profile]);
+  useEffect(() => {
+    setClassChatSound(window.localStorage.getItem("skulkid:class-chat-sound") !== "off");
+  }, []);
+
+  function updateClassChatSound(enabled: boolean) {
+    setClassChatSound(enabled);
+    window.localStorage.setItem("skulkid:class-chat-sound", enabled ? "on" : "off");
+    window.dispatchEvent(new CustomEvent("skulkid:class-chat-sound-change", { detail: { enabled } }));
+  }
 
   const update = <K extends keyof StudentProfileData>(field: K, value: StudentProfileData[K]) => {
     setForm((current) => ({ ...current, [field]: value }));
@@ -147,7 +160,7 @@ export function ProfilePage() {
       ]}
     />
 
-    <nav aria-label="Profile sections" className="grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm"><button aria-current={activeTab === "avatar" ? "page" : undefined} className={`inline-flex min-h-12 items-center justify-center gap-1.5 rounded-xl text-sm font-black sm:gap-2 sm:text-base ${activeTab === "avatar" ? "bg-violet-700 text-white shadow-md" : "text-slate-600 hover:bg-slate-100"}`} onClick={() => setActiveTab("avatar")} type="button"><Palette className="size-5" />Avatar Studio</button><button aria-current={activeTab === "about" ? "page" : undefined} className={`inline-flex min-h-12 items-center justify-center gap-1.5 rounded-xl text-sm font-black sm:gap-2 sm:text-base ${activeTab === "about" ? "bg-violet-700 text-white shadow-md" : "text-slate-600 hover:bg-slate-100"}`} onClick={() => setActiveTab("about")} type="button"><UserRound className="size-5" />About Me</button></nav>
+    <nav aria-label="Profile sections" className="grid grid-cols-3 gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm"><button aria-current={activeTab === "avatar" ? "page" : undefined} className={`inline-flex min-h-12 items-center justify-center gap-1.5 rounded-xl text-xs font-black sm:gap-2 sm:text-base ${activeTab === "avatar" ? "bg-violet-700 text-white shadow-md" : "text-slate-600 hover:bg-slate-100"}`} onClick={() => setActiveTab("avatar")} type="button"><Palette className="size-5" /><span className="hidden min-[420px]:inline">Avatar Studio</span><span className="min-[420px]:hidden">Avatar</span></button><button aria-current={activeTab === "about" ? "page" : undefined} className={`inline-flex min-h-12 items-center justify-center gap-1.5 rounded-xl text-xs font-black sm:gap-2 sm:text-base ${activeTab === "about" ? "bg-violet-700 text-white shadow-md" : "text-slate-600 hover:bg-slate-100"}`} onClick={() => setActiveTab("about")} type="button"><UserRound className="size-5" />About Me</button><button aria-current={activeTab === "settings" ? "page" : undefined} className={`inline-flex min-h-12 items-center justify-center gap-1.5 rounded-xl text-xs font-black sm:gap-2 sm:text-base ${activeTab === "settings" ? "bg-violet-700 text-white shadow-md" : "text-slate-600 hover:bg-slate-100"}`} onClick={() => setActiveTab("settings")} type="button"><Settings2 className="size-5" />Settings</button></nav>
     <form className="grid min-w-0 gap-5 lg:gap-6" onSubmit={submit}>
         {activeTab === "avatar" ? <>
         <section className="min-w-0 rounded-[2rem] border border-violet-200 bg-white p-5 shadow-[var(--shadow-card)] sm:p-6" id="avatar-studio">
@@ -355,6 +368,37 @@ export function ProfilePage() {
         </div>
 
         </> : null}
+        {activeTab === "settings" ? (
+          <section className="overflow-hidden rounded-[2rem] border border-blue-200 bg-white shadow-[var(--shadow-card)]">
+            <div className="bg-gradient-to-r from-blue-700 to-indigo-700 p-5 text-white sm:p-7">
+              <Settings2 className="size-7 text-blue-100" />
+              <h2 className="mt-3 text-2xl font-black sm:text-3xl">Student settings</h2>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-blue-100">Choose how SkulKid behaves on this device.</p>
+            </div>
+            <div className="p-5 sm:p-7">
+              <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+                <div className="flex min-w-0 items-start gap-3">
+                  <span className={`grid size-12 shrink-0 place-items-center rounded-2xl ${classChatSound ? "bg-blue-100 text-blue-700" : "bg-slate-200 text-slate-600"}`}>
+                    {classChatSound ? <Volume2 className="size-6" /> : <VolumeX className="size-6" />}
+                  </span>
+                  <div>
+                    <h3 className="font-black text-slate-950">Class message sound</h3>
+                    <p className="mt-1 text-sm leading-6 text-slate-600">Play a gentle sound when a new class discussion message arrives while SkulKid is open.</p>
+                  </div>
+                </div>
+                <button
+                  aria-pressed={classChatSound}
+                  className={`inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-xl px-5 font-black transition ${classChatSound ? "bg-blue-700 text-white hover:bg-blue-800" : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-100"}`}
+                  onClick={() => updateClassChatSound(!classChatSound)}
+                  type="button"
+                >
+                  {classChatSound ? <Volume2 className="size-5" /> : <VolumeX className="size-5" />}
+                  {classChatSound ? "Sound on" : "Sound off"}
+                </button>
+              </div>
+            </div>
+          </section>
+        ) : null}
         <div className={`${activeTab === "about" ? "sticky bottom-20 z-20 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-[0_16px_40px_rgba(15,23,42,.16)] backdrop-blur sm:bottom-4" : ""}`}>
           {saveError ? <div className="mb-3 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm font-bold text-rose-800" role="alert"><CircleAlert className="mt-0.5 size-4 shrink-0" />{saveError}</div> : null}
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">

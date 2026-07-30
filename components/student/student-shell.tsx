@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, type MutableRefObject } from "react";
-import { Award, BookMarked, BookOpen, LayoutDashboard, LogOut, Menu, MessageCircle, Trophy, UserRound, Users, Volume2, VolumeX, X } from "lucide-react";
+import { Award, BookMarked, BookOpen, LayoutDashboard, LogOut, Menu, MessageCircle, Trophy, UserRound, Users, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { GamificationArena } from "@/components/gamification/gamification-arena";
 import { CharacterAvatar } from "@/components/student/character-avatar";
@@ -49,7 +49,6 @@ export function StudentShell({ activeItem, children, mobileAside }: StudentShell
   const [moreOpen, setMoreOpen] = useState(false);
   const [unreadClassMessages, setUnreadClassMessages] = useState(0);
   const [chatAlert, setChatAlert] = useState<{ classId: string; body: string } | null>(null);
-  const [soundEnabled, setSoundEnabled] = useState(true);
   const soundEnabledRef = useRef(true);
   const audioContextRef = useRef<AudioContext | null>(null);
   const morePanelRef = useRef<HTMLDivElement>(null);
@@ -60,8 +59,16 @@ export function StudentShell({ activeItem, children, mobileAside }: StudentShell
 
   useEffect(() => {
     const sound = window.localStorage.getItem("skulkid:class-chat-sound") !== "off";
-    setSoundEnabled(sound);
     soundEnabledRef.current = sound;
+    function updateSound(event: Event) {
+      const enabled = (event as CustomEvent<{ enabled?: boolean }>).detail?.enabled;
+      if (typeof enabled !== "boolean") return;
+      soundEnabledRef.current = enabled;
+      window.localStorage.setItem("skulkid:class-chat-sound", enabled ? "on" : "off");
+      if (enabled) playClassChatSound(audioContextRef);
+    }
+    window.addEventListener("skulkid:class-chat-sound-change", updateSound);
+    return () => window.removeEventListener("skulkid:class-chat-sound-change", updateSound);
   }, []);
 
   useEffect(() => {
@@ -86,13 +93,6 @@ export function StudentShell({ activeItem, children, mobileAside }: StudentShell
       if (channel) void supabase.removeChannel(channel);
     };
   }, []);
-
-  function setSound(enabled: boolean) {
-    setSoundEnabled(enabled);
-    soundEnabledRef.current = enabled;
-    window.localStorage.setItem("skulkid:class-chat-sound", enabled ? "on" : "off");
-    if (enabled) playClassChatSound(audioContextRef);
-  }
 
   useEffect(() => {
     if (!rewardsNavOpen) return;
@@ -262,8 +262,6 @@ export function StudentShell({ activeItem, children, mobileAside }: StudentShell
       </div>
 
       {chatAlert ? <aside aria-live="polite" className="fixed inset-x-3 top-20 z-[60] mx-auto max-w-md rounded-2xl border border-blue-200 bg-white p-3 shadow-2xl sm:right-5 sm:left-auto sm:top-5 sm:w-[25rem]"><div className="flex items-start gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-blue-100 text-blue-700"><MessageCircle className="size-5" /></span><div className="min-w-0 flex-1"><p className="font-black text-slate-950">Class discussion is active</p><p className="mt-1 line-clamp-2 text-sm text-slate-600">{chatAlert.body}</p><Link className="mt-2 inline-flex min-h-9 items-center rounded-lg bg-blue-700 px-3 text-xs font-black text-white" href={`/classes/${chatAlert.classId}`} onClick={() => { setChatAlert(null); setUnreadClassMessages(0); }}>Open class chat</Link></div><button aria-label="Dismiss class message notification" className="grid size-9 shrink-0 place-items-center rounded-lg text-slate-500 hover:bg-slate-100" onClick={() => setChatAlert(null)} type="button"><X className="size-4" /></button></div></aside> : null}
-      <button aria-label={soundEnabled ? "Mute class message sounds" : "Enable class message sounds"} className="fixed bottom-[calc(6.9rem+env(safe-area-inset-bottom))] right-4 z-30 grid size-11 place-items-center rounded-full border border-blue-200 bg-white text-blue-700 shadow-lg lg:bottom-5" onClick={() => setSound(!soundEnabled)} title={soundEnabled ? "Class message sound on" : "Class message sound off"} type="button">{soundEnabled ? <Volume2 className="size-5" /> : <VolumeX className="size-5" />}</button>
-
       <div aria-hidden={!moreOpen} className={cn("fixed inset-0 z-40 bg-slate-950/45 backdrop-blur-[2px] transition lg:hidden", moreOpen ? "opacity-100" : "pointer-events-none opacity-0")} onClick={() => setMoreOpen(false)} />
       <div aria-hidden={!moreOpen} aria-labelledby="student-more-title" aria-modal="true" className={cn("fixed inset-x-3 bottom-[calc(5.7rem+env(safe-area-inset-bottom))] z-50 max-h-[75dvh] overflow-y-auto rounded-[1.75rem] bg-white p-4 shadow-2xl transition duration-200 lg:hidden", moreOpen ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-5 opacity-0")} ref={morePanelRef} role="dialog">
         <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-wider text-violet-700">Student space</p><h2 className="text-xl font-black" id="student-more-title">More</h2></div><button aria-label="Close More menu" className="grid size-10 place-items-center rounded-xl bg-slate-100" onClick={() => { setMoreOpen(false); moreButtonRef.current?.focus(); }} type="button"><X className="size-5" /></button></div>
