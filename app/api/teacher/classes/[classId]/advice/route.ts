@@ -5,7 +5,14 @@ import { createClassAdvice, requireTeacher } from "@/lib/classes/classroom-serve
 const schema = z.object({
   studentId: z.string().uuid(),
   message: z.string().trim().min(4).max(600),
-  suggestionType: z.enum(["class_adventure", "platform_adventure", "general"]).default("general")
+  suggestionType: z.enum(["class_adventure", "platform_adventure", "general"]).default("general"),
+  title: z.string().trim().min(3).max(120).nullable().optional(),
+  feedbackCategory: z.enum(["celebration", "practice", "intervention"]).nullable().optional(),
+  priority: z.enum(["low", "normal", "high"]).nullable().optional(),
+  recommendedActions: z.array(z.object({ label: z.string().trim().min(2).max(160), href: z.string().trim().max(300).optional() })).max(5).optional(),
+  evidenceSnapshot: z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null()])).optional(),
+  followUpStatus: z.enum(["not_required", "open"]).optional(),
+  dueAt: z.string().datetime().nullable().optional()
 });
 
 export async function POST(request: Request, context: { params: Promise<{ classId: string }> }) {
@@ -18,7 +25,14 @@ export async function POST(request: Request, context: { params: Promise<{ classI
       classId,
       studentId: input.studentId,
       message: input.message,
-      suggestionType: input.suggestionType
+      suggestionType: input.suggestionType,
+      title: input.title,
+      feedbackCategory: input.feedbackCategory,
+      priority: input.priority,
+      recommendedActions: input.recommendedActions,
+      evidenceSnapshot: input.evidenceSnapshot,
+      followUpStatus: input.followUpStatus,
+      dueAt: input.dueAt
     });
     return NextResponse.json({ ok: true }, { status: 201 });
   } catch (error) {

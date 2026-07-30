@@ -15,6 +15,12 @@ type ChatItem = {
   messageId?: string;
   senderName?: string;
   canReport?: boolean;
+  adviceId?: string;
+  feedbackCategory?: "celebration" | "practice" | "intervention" | null;
+  recommendedActions?: Array<{ label: string; href?: string }>;
+  followUpStatus?: "not_required" | "open" | "acknowledged" | "resolved";
+  dueAt?: string | null;
+  resolutionNote?: string | null;
 };
 
 type ChatState = {
@@ -40,7 +46,7 @@ export function StudentClassChat({
   chat: ChatState;
   messages: Array<{ id: string; body: string; createdAt: string; fromStudent: boolean; senderName: string; senderRole: "student" | "teacher" | "admin"; kind: "discussion" | "announcement"; editedAt: string | null }>;
   notifications: Array<{ id: string; title: string; body: string; audience: string; createdAt: string }>;
-  advice: Array<{ id: string; message: string; suggestionType: AdviceSuggestionType; createdAt: string; readAt: string | null }>;
+  advice: Array<{ id: string; message: string; suggestionType: AdviceSuggestionType; createdAt: string; readAt: string | null; title?: string | null; feedbackCategory?: "celebration" | "practice" | "intervention" | null; recommendedActions?: Array<{ label: string; href?: string }>; followUpStatus?: "not_required" | "open" | "acknowledged" | "resolved"; dueAt?: string | null; resolutionNote?: string | null }>;
   value: string;
   sending: boolean;
   onChange: (value: string) => void;
@@ -66,8 +72,10 @@ export function StudentClassChat({
       direction: "incoming" as const, kind: "announcement" as const
     })),
     ...advice.map((item) => ({
-      id: `advice-${item.id}`, title: adviceLabel(item.suggestionType), body: item.message, createdAt: item.createdAt,
-      direction: "incoming" as const, kind: "advice" as const
+      id: `advice-${item.id}`, title: item.title || adviceLabel(item.suggestionType), body: item.message, createdAt: item.createdAt,
+      direction: "incoming" as const, kind: "advice" as const, adviceId: item.id,
+      feedbackCategory: item.feedbackCategory, recommendedActions: item.recommendedActions,
+      followUpStatus: item.followUpStatus, dueAt: item.dueAt, resolutionNote: item.resolutionNote
     }))
   ].sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt)), [advice, messages, notifications]);
 
@@ -105,6 +113,21 @@ export function StudentClassChat({
     }
   }
 
+  async function acknowledge(adviceId: string) {
+    setReporting(`advice-${adviceId}`);
+    try {
+      const response = await fetch(`/api/student/advice/${adviceId}/acknowledge`, { method: "POST" });
+      const payload = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(payload.error || "Could not acknowledge this feedback.");
+      setNotice("Your teacher can now see that you acknowledged this next step.");
+      onReported();
+    } catch (cause) {
+      setNotice(cause instanceof Error ? cause.message : "Could not acknowledge this feedback.");
+    } finally {
+      setReporting(null);
+    }
+  }
+
   const unavailableReason = !chat.enabled ? "Class discussion is not enabled."
     : chat.locked ? "Your teacher has paused this discussion."
       : !chat.consentReady ? "Guardian consent and acceptance of the class rules are required before posting."
@@ -132,7 +155,7 @@ export function StudentClassChat({
           {timeline.length ? timeline.map((item, index) => {
             const previous = timeline[index - 1];
             const showDate = !previous || new Date(previous.createdAt).toDateString() !== new Date(item.createdAt).toDateString();
-            return <div key={item.id}>{showDate ? <DateDivider value={item.createdAt} /> : null}<Bubble item={item} onReport={report} reporting={reporting} /></div>;
+            return <div key={item.id}>{showDate ? <DateDivider value={item.createdAt} /> : null}<Bubble item={item} onAcknowledge={acknowledge} onReport={report} reporting={reporting} /></div>;
           }) : <div className="mx-auto mt-12 max-w-sm rounded-2xl border border-blue-100 bg-white/95 p-5 text-center text-sm leading-6 text-slate-700 shadow-sm"><span className="mx-auto mb-3 grid size-11 place-items-center rounded-full bg-blue-100 text-xl text-blue-700">💬</span><b className="block text-slate-950">Your class conversation starts here</b>Your teacher supervises this room, and only active classmates can participate.</div>}
           <div ref={endRef} />
         </div>
@@ -147,13 +170,20 @@ export function StudentClassChat({
   );
 }
 
-function Bubble({ item, onReport, reporting }: { item: ChatItem; onReport: (id: string) => void; reporting: string | null }) {
+function Bubble({ item, onAcknowledge, onReport, reporting }: { item: ChatItem; onAcknowledge: (id: string) => void; onReport: (id: string) => void; reporting: string | null }) {
   const outgoing = item.direction === "outgoing";
   return <div className={cn("flex", outgoing ? "justify-end" : "justify-start")}>
     <article className={cn("max-w-[88%] rounded-2xl px-3.5 py-2.5 shadow-sm sm:max-w-[76%] lg:max-w-[68%]", outgoing ? "rounded-br-sm bg-blue-700 text-white" : "rounded-bl-sm border border-slate-200/80 bg-white")}>
       {item.senderName && !outgoing ? <p className="mb-0.5 text-xs font-black text-blue-700">{item.senderName}</p> : null}
       {item.title ? <p className={cn("mb-1 text-xs font-black", outgoing ? "text-blue-100" : item.kind === "announcement" ? "text-violet-700" : "text-blue-700")}>{item.title}</p> : null}
       <p className={cn("whitespace-pre-wrap break-words text-sm leading-5", outgoing ? "text-white" : "text-slate-900")}>{item.body}</p>
+      {item.recommendedActions?.length ? <div className="mt-3 grid gap-1.5">{item.recommendedActions.map((action) => action.href ? <a className="rounded-lg bg-blue-50 px-3 py-2 text-xs font-black text-blue-800 hover:bg-blue-100" href={action.href} key={action.label}>→ {action.label}</a> : <p className="rounded-lg bg-blue-50 px-3 py-2 text-xs font-bold text-blue-950" key={action.label}>→ {action.label}</p>)}</div> : null}
+      {item.dueAt ? <p className="mt-2 flex items-center gap-1 text-[11px] font-bold text-amber-800"><Clock3 className="size-3" />Suggested by {new Date(item.dueAt).toLocaleDateString()}</p> : null}
+      {item.kind === "advice" && item.followUpStatus ? <div className="mt-3 flex flex-wrap items-center gap-2">
+        <span className={cn("rounded-full px-2 py-1 text-[10px] font-black uppercase", item.followUpStatus === "resolved" ? "bg-emerald-100 text-emerald-800" : item.followUpStatus === "acknowledged" ? "bg-blue-100 text-blue-800" : "bg-amber-100 text-amber-900")}>{item.followUpStatus.replace("_", " ")}</span>
+        {item.followUpStatus === "open" && item.adviceId ? <button className="min-h-9 rounded-lg bg-blue-700 px-3 text-xs font-black text-white disabled:opacity-60" disabled={reporting === `advice-${item.adviceId}`} onClick={() => void onAcknowledge(item.adviceId!)} type="button">{reporting === `advice-${item.adviceId}` ? "Saving…" : "I understand this next step"}</button> : null}
+      </div> : null}
+      {item.resolutionNote ? <p className="mt-2 rounded-lg bg-emerald-50 p-2 text-xs font-bold text-emerald-900">Teacher follow-up: {item.resolutionNote}</p> : null}
       <div className="mt-1 flex items-center justify-end gap-1 pl-8">
         <time className={cn("text-[10px]", outgoing ? "text-blue-100" : "text-slate-500")}>{new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(new Date(item.createdAt))}</time>
         {outgoing ? <CheckCheck className="size-4 text-sky-200" /> : null}

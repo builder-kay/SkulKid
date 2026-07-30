@@ -69,6 +69,13 @@ type Detail = {
     createdAt: string;
     readAt: string | null;
     teacherName: string;
+    title?: string | null;
+    feedbackCategory?: "celebration" | "practice" | "intervention" | null;
+    priority?: "low" | "normal" | "high" | null;
+    recommendedActions?: Array<{ label: string; href?: string }>;
+    followUpStatus?: "not_required" | "open" | "acknowledged" | "resolved";
+    dueAt?: string | null;
+    resolutionNote?: string | null;
   }>;
   deductions: PointDeductionView[];
   messages: Array<{ id: string; body: string; createdAt: string; fromStudent: boolean; senderId: string; senderName: string; senderRole: "student" | "teacher" | "admin"; kind: "discussion" | "announcement"; editedAt: string | null }>;

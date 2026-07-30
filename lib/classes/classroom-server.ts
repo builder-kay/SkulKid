@@ -718,6 +718,13 @@ export async function createClassAdvice(input: {
   studentId: string;
   message: string;
   suggestionType: AdviceSuggestionType;
+  title?: string | null;
+  feedbackCategory?: "celebration" | "practice" | "intervention" | null;
+  priority?: "low" | "normal" | "high" | null;
+  recommendedActions?: Array<{ label: string; href?: string }>;
+  evidenceSnapshot?: Record<string, unknown>;
+  followUpStatus?: "not_required" | "open";
+  dueAt?: string | null;
 }) {
   await assertOwnsClass(input.teacherId, input.classId);
   const admin = createAdminClient();
@@ -734,7 +741,14 @@ export async function createClassAdvice(input: {
     teacherId: input.teacherId,
     studentId: input.studentId,
     message: input.message.trim(),
-    suggestionType: input.suggestionType
+    suggestionType: input.suggestionType,
+    title: input.title ?? null,
+    feedbackCategory: input.feedbackCategory ?? null,
+    priority: input.priority ?? null,
+    recommendedActions: input.recommendedActions ?? [],
+    evidenceSnapshot: input.evidenceSnapshot ?? {},
+    followUpStatus: input.followUpStatus ?? "not_required",
+    dueAt: input.dueAt ?? null
   });
   if (error) throw new Error(error.message);
 }
@@ -1210,7 +1224,7 @@ export async function getStudentClassDetail(studentId: string, classId: string) 
     admin.from("ClassCourseAssignment").select("id,courseId,note,assignedAt").eq("classId", classId),
     admin.from("ClassQuiz").select("id,classId,title,description,questions,startAt,deadline,offPlatformReward,baseXpReward,passingScore,maxAttempts,status,createdAt").eq("classId", classId).in("status", ["published", "closed"]).order("createdAt", { ascending: false }),
     admin.from("ClassQuizAttempt").select("quizId,attemptNumber,scorePercentage,passed,starsAwarded,xpAwarded,submittedAt").eq("studentId", studentId).order("attemptNumber", { ascending: true }),
-    admin.from("ClassAdvice").select("id,classId,message,suggestionType,createdAt,readAt,teacherId").eq("classId", classId).eq("studentId", studentId).order("createdAt", { ascending: false }),
+    admin.from("ClassAdvice").select("id,classId,message,suggestionType,createdAt,readAt,teacherId,title,feedbackCategory,priority,recommendedActions,evidenceSnapshot,followUpStatus,dueAt,acknowledgedAt,resolvedAt,resolutionNote").eq("classId", classId).eq("studentId", studentId).order("createdAt", { ascending: false }),
     admin.from("PointDeduction").select("id,classId,amount,reason,balanceBefore,balanceAfter,status,createdAt,teacherId").eq("classId", classId).eq("studentId", studentId).order("createdAt", { ascending: false }),
     admin.from("ClassMessage").select("id,body,createdAt,senderId,senderRole,kind,editedAt").eq("classId", classId).eq("scope", "class_room").eq("moderationStatus", "allowed").is("deletedAt", null).order("createdAt", { ascending: true }).limit(500),
     admin.from("ClassChatSetting").select("enabled,locked,postingStartsAt,postingEndsAt,timezone,guardianConsentRequired,rulesVersion").eq("classId", classId).maybeSingle(),
@@ -1369,7 +1383,17 @@ export async function getStudentClassDetail(studentId: string, classId: string) 
       suggestionType: row.suggestionType as AdviceSuggestionType,
       createdAt: row.createdAt as string,
       readAt: (row.readAt as string | null) ?? null,
-      teacherName: displayNameFrom(teacher.user, "Teacher")
+      teacherName: displayNameFrom(teacher.user, "Teacher"),
+      title: (row.title as string | null) ?? null,
+      feedbackCategory: (row.feedbackCategory as ClassAdviceView["feedbackCategory"]) ?? null,
+      priority: (row.priority as ClassAdviceView["priority"]) ?? null,
+      recommendedActions: Array.isArray(row.recommendedActions) ? row.recommendedActions as Array<{ label: string; href?: string }> : [],
+      evidenceSnapshot: (row.evidenceSnapshot ?? {}) as Record<string, unknown>,
+      followUpStatus: (row.followUpStatus as ClassAdviceView["followUpStatus"]) ?? "not_required",
+      dueAt: (row.dueAt as string | null) ?? null,
+      acknowledgedAt: (row.acknowledgedAt as string | null) ?? null,
+      resolvedAt: (row.resolvedAt as string | null) ?? null,
+      resolutionNote: (row.resolutionNote as string | null) ?? null
     })),
     deductions: (deductionRows ?? []).map((row): PointDeductionView => {
       const dispute = disputeByDeduction.get(row.id as string);
@@ -1804,11 +1828,26 @@ export async function markAdviceRead(studentId: string, adviceId: string) {
   if (error) throw new Error(error.message);
 }
 
+export async function acknowledgeAdvice(studentId: string, adviceId: string) {
+  const admin = createAdminClient();
+  const now = new Date().toISOString();
+  const { data, error } = await admin
+    .from("ClassAdvice")
+    .update({ followUpStatus: "acknowledged", acknowledgedAt: now, readAt: now })
+    .eq("id", adviceId)
+    .eq("studentId", studentId)
+    .eq("followUpStatus", "open")
+    .select("id")
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("This feedback cannot be acknowledged.");
+}
+
 export async function listStudentAdvice(studentId: string): Promise<ClassAdviceView[]> {
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("ClassAdvice")
-    .select("id,classId,message,suggestionType,createdAt,readAt,teacherId")
+    .select("id,classId,message,suggestionType,createdAt,readAt,teacherId,title,feedbackCategory,priority,recommendedActions,evidenceSnapshot,followUpStatus,dueAt,acknowledgedAt,resolvedAt,resolutionNote")
     .eq("studentId", studentId)
     .order("createdAt", { ascending: false })
     .limit(50);
@@ -1832,6 +1871,16 @@ export async function listStudentAdvice(studentId: string): Promise<ClassAdviceV
     suggestionType: row.suggestionType as AdviceSuggestionType,
     createdAt: row.createdAt as string,
     readAt: (row.readAt as string | null) ?? null,
-    teacherName: teacherNameById.get(row.teacherId as string) ?? "Teacher"
+    teacherName: teacherNameById.get(row.teacherId as string) ?? "Teacher",
+    title: (row.title as string | null) ?? null,
+    feedbackCategory: (row.feedbackCategory as ClassAdviceView["feedbackCategory"]) ?? null,
+    priority: (row.priority as ClassAdviceView["priority"]) ?? null,
+    recommendedActions: Array.isArray(row.recommendedActions) ? row.recommendedActions as Array<{ label: string; href?: string }> : [],
+    evidenceSnapshot: (row.evidenceSnapshot ?? {}) as Record<string, unknown>,
+    followUpStatus: (row.followUpStatus as ClassAdviceView["followUpStatus"]) ?? "not_required",
+    dueAt: (row.dueAt as string | null) ?? null,
+    acknowledgedAt: (row.acknowledgedAt as string | null) ?? null,
+    resolvedAt: (row.resolvedAt as string | null) ?? null,
+    resolutionNote: (row.resolutionNote as string | null) ?? null
   }));
 }

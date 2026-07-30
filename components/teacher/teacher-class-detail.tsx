@@ -2,9 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, ArrowRight, BookOpen, ClipboardList, Copy, Layers3, Loader2, MessageSquareHeart, MinusCircle, Plus, ShieldCheck, Trophy, Trash2, Users } from "lucide-react";
+import { ArrowLeft, ArrowRight, BarChart3, BookOpen, ClipboardList, Copy, Layers3, Loader2, MinusCircle, Plus, ShieldCheck, Trophy, Trash2, Users } from "lucide-react";
 import type {
-  AdviceSuggestionType,
   ClassCourseAssignmentView,
   ClassLeaderboardEntry,
   ClassQuizQuestion,
@@ -12,8 +11,9 @@ import type {
   ClassRosterMember,
   TeacherClassSummary
 } from "@/lib/classes/types";
+import { TeacherPerformanceWorkspace } from "@/components/teacher/teacher-performance-workspace";
 
-type Tab = "roster" | "courses" | "quizzes" | "leaderboard" | "monitor";
+type Tab = "roster" | "courses" | "quizzes" | "leaderboard" | "performance";
 type PointReport = { id: string; deductionId: string; studentName: string; amount: number; reason: string; message: string; status: string; createdAt: string; resolutionNote: string | null };
 
 export function TeacherClassDetail({ classId }: { classId: string }) {
@@ -43,9 +43,6 @@ export function TeacherClassDetail({ classId }: { classId: string }) {
   const [questions, setQuestions] = useState<ClassQuizQuestion[]>([
     { id: "q-1", prompt: "", type: "multiple_choice", options: ["", "", "", ""], correctIndex: 0 }
   ]);
-  const [adviceStudentId, setAdviceStudentId] = useState("");
-  const [adviceMessage, setAdviceMessage] = useState("");
-  const [adviceType, setAdviceType] = useState<AdviceSuggestionType>("class_adventure");
   const [deductionStudent, setDeductionStudent] = useState<ClassRosterMember | null>(null);
   const [deductionAmount, setDeductionAmount] = useState(1);
   const [deductionReason, setDeductionReason] = useState("");
@@ -77,7 +74,6 @@ export function TeacherClassDetail({ classId }: { classId: string }) {
       setLeaderboard(payload.leaderboard ?? []);
       setPointReports(payload.pointReports ?? []);
       setCourses(coursesPayload.courses ?? []);
-      if (!adviceStudentId && payload.roster?.[0]) setAdviceStudentId(payload.roster[0].studentId);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to load class.");
     } finally {
@@ -232,27 +228,6 @@ export function TeacherClassDetail({ classId }: { classId: string }) {
     }
   }
 
-  async function sendAdvice(event: React.FormEvent) {
-    event.preventDefault();
-    setBusy(true);
-    setError("");
-    try {
-      const response = await fetch(`/api/teacher/classes/${classId}/advice`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ studentId: adviceStudentId, message: adviceMessage, suggestionType: adviceType })
-      });
-      const payload = await response.json() as { error?: string };
-      if (!response.ok) throw new Error(payload.error || "Unable to send advice.");
-      setAdviceMessage("");
-      setMessage("Advice sent to the student.");
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Unable to send advice.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
   async function deductPoints(event: React.FormEvent) {
     event.preventDefault();
     if (!deductionStudent) return;
@@ -355,7 +330,7 @@ export function TeacherClassDetail({ classId }: { classId: string }) {
           ["courses", "Subjects", BookOpen],
           ["quizzes", "Quizzes", ClipboardList],
           ["leaderboard", "Leaderboard", Trophy],
-          ["monitor", "Monitor & advise", MessageSquareHeart]
+          ["performance", "Performance", BarChart3]
         ] as const).map(([id, label, Icon]) => (
           <button
             aria-selected={tab === id}
@@ -608,70 +583,7 @@ export function TeacherClassDetail({ classId }: { classId: string }) {
         </section>
       ) : null}
 
-      {tab === "monitor" ? (
-        <section className="grid gap-4 lg:grid-cols-[1.2fr_.8fr]">
-          {pointReports.length ? (
-            <div className="rounded-[1.5rem] border border-rose-200 bg-rose-50 p-5 shadow-sm lg:col-span-2">
-              <h2 className="text-xl font-black text-rose-950">Student point reports</h2>
-              <p className="mt-1 text-sm text-rose-900">These reports are also logged for administrators. Only an admin can uphold or reverse the deduction.</p>
-              <div className="mt-4 grid gap-3">
-                {pointReports.map((report) => <article className="rounded-xl border border-rose-200 bg-white p-4" key={report.id}><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-black">{report.studentName} reported a {report.amount}-point deduction</h3><span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-black uppercase">{report.status}</span></div><p className="mt-2 text-sm"><b>Your reason:</b> {report.reason}</p><p className="mt-1 text-sm"><b>Student’s report:</b> {report.message}</p>{report.resolutionNote ? <p className="mt-2 text-sm font-bold text-emerald-800">Admin response: {report.resolutionNote}</p> : null}</article>)}
-              </div>
-            </div>
-          ) : null}
-          <div className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="text-xl font-black">Performance snapshot</h2>
-            <p className="mt-1 text-sm text-slate-600">Encourage learners who need more practice in class or on the wider SkulKid platform.</p>
-            <div className="mt-4 grid gap-3">
-              {roster.length === 0 ? <p className="text-sm text-slate-600">Invite students to start monitoring progress.</p> : null}
-              {roster.map((member) => {
-                const needsSupport = (member.averageQuizScore != null && member.averageQuizScore < 70) || member.completedLessons < 2;
-                return (
-                  <article className={`rounded-2xl border p-4 ${needsSupport ? "border-amber-200 bg-amber-50" : "border-emerald-200 bg-emerald-50"}`} key={member.studentId}>
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <h3 className="font-black text-slate-950">{member.displayName}</h3>
-                      <span className="text-xs font-black uppercase tracking-wider">{needsSupport ? "Needs a nudge" : "On track"}</span>
-                    </div>
-                    <p className="mt-2 text-sm text-slate-700">
-                      {member.classXp} class XP · {member.xp} XP · {member.stars} stars · {member.completedLessons} lessons · quiz avg {member.averageQuizScore == null ? "—" : `${member.averageQuizScore}%`}
-                    </p>
-                    <p className="mt-2 text-sm text-slate-600">
-                      {needsSupport
-                        ? "Suggest a class quiz retake or a platform adventure in Subjects."
-                        : "Celebrate progress and invite them to help classmates or explore a new subject."}
-                    </p>
-                  </article>
-                );
-              })}
-            </div>
-          </div>
-          <form className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm" onSubmit={sendAdvice}>
-            <h2 className="text-xl font-black">Send advice</h2>
-            <p className="mt-1 text-sm text-slate-600">Guide a student toward more class work or platform adventures.</p>
-            <label className="mt-4 grid gap-1.5 text-sm font-bold">
-              Student
-              <select className="min-h-11 rounded-xl border border-slate-300 px-3" onChange={(event) => setAdviceStudentId(event.target.value)} required value={adviceStudentId}>
-                {roster.map((member) => <option key={member.studentId} value={member.studentId}>{member.displayName}</option>)}
-              </select>
-            </label>
-            <label className="mt-3 grid gap-1.5 text-sm font-bold">
-              Suggestion type
-              <select className="min-h-11 rounded-xl border border-slate-300 px-3" onChange={(event) => setAdviceType(event.target.value as AdviceSuggestionType)} value={adviceType}>
-                <option value="class_adventure">More adventures in class</option>
-                <option value="platform_adventure">Explore the wider platform</option>
-                <option value="general">General encouragement</option>
-              </select>
-            </label>
-            <label className="mt-3 grid gap-1.5 text-sm font-bold">
-              Message
-              <textarea className="min-h-32 rounded-xl border border-slate-300 px-3 py-2" onChange={(event) => setAdviceMessage(event.target.value)} placeholder="Try the new class quiz, or open Mathematics for extra practice." required value={adviceMessage} />
-            </label>
-            <button className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-teal-700 px-4 font-black text-white disabled:opacity-60" disabled={busy || !adviceStudentId} type="submit">
-              <MessageSquareHeart className="size-4" /> Send advice
-            </button>
-          </form>
-        </section>
-      ) : null}
+      {tab === "performance" ? <TeacherPerformanceWorkspace classId={classId} pointReports={pointReports} /> : null}
     </main>
   );
 }

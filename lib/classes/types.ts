@@ -113,6 +113,100 @@ export type ClassAdviceView = {
   createdAt: string;
   readAt: string | null;
   teacherName: string;
+  title?: string | null;
+  feedbackCategory?: "celebration" | "practice" | "intervention" | null;
+  priority?: "low" | "normal" | "high" | null;
+  recommendedActions?: Array<{ label: string; href?: string }>;
+  evidenceSnapshot?: Record<string, unknown>;
+  followUpStatus?: "not_required" | "open" | "acknowledged" | "resolved";
+  dueAt?: string | null;
+  acknowledgedAt?: string | null;
+  resolvedAt?: string | null;
+  resolutionNote?: string | null;
+};
+
+export type PerformanceMetric = "academic" | "completion" | "activity" | "class_xp";
+export type PerformanceRange = "30d" | "90d" | "term";
+
+export type PerformanceTimelinePoint = {
+  date: string;
+  classAverage: number | null;
+  students: Record<string, number | null>;
+};
+
+export type PerformanceLearner = {
+  studentId: string;
+  displayName: string;
+  grade: string;
+  academicAverage: number | null;
+  trend: number | null;
+  completedLessons: number;
+  totalLessons: number;
+  completionPercent: number | null;
+  quizzesPassed: number;
+  quizzesAttempted: number;
+  passRate: number | null;
+  attemptCount: number;
+  activityMinutes: number;
+  classXp: number;
+  platformXp: number;
+  platformStreak: number;
+  lastActiveAt: string | null;
+  supportStatus: "no_data" | "needs_support" | "watch" | "on_track";
+  openInterventions: number;
+};
+
+export type PerformanceAttempt = {
+  id: string;
+  kind: "class_quiz" | "lesson";
+  title: string;
+  subject: string;
+  strand: string;
+  substrand: string;
+  attemptNumber: number;
+  score: number;
+  bestScore: number;
+  passed: boolean;
+  xpAwarded: number;
+  submittedAt: string;
+};
+
+export type PerformanceBreakdown = {
+  id: string;
+  label: string;
+  subject: string;
+  strand: string;
+  substrand: string;
+  average: number | null;
+  attempts: number;
+  completed: number;
+  total: number;
+};
+
+export type ClassPerformanceData = {
+  generatedAt: string;
+  range: PerformanceRange;
+  metric: PerformanceMetric;
+  rangeStart: string;
+  rangeEnd: string;
+  subjects: Array<{ id: string; name: string; strands: Array<{ id: string; name: string }> }>;
+  summary: {
+    academicAverage: number | null;
+    completionPercent: number | null;
+    activeLearners: number;
+    needsSupport: number;
+    improving: number;
+    declining: number;
+  };
+  learners: PerformanceLearner[];
+  timeline: PerformanceTimelinePoint[];
+  details: Record<string, {
+    attempts: PerformanceAttempt[];
+    breakdown: PerformanceBreakdown[];
+    feedback: ClassAdviceView[];
+    strengths: string[];
+    concerns: string[];
+  }>;
 };
 
 export type StudentClassSummary = {

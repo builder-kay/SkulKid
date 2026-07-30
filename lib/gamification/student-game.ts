@@ -12,6 +12,7 @@ export const DAILY_LEARNING_XP_GOAL = 30;
 export type QuizAnswerResult = { blockId: string; correct: boolean; attempts: number };
 type QuizRecord = {
   bestScore: number;
+  latestScore?: number;
   stars: number;
   passed: boolean;
   rewardedQuestionIds: string[];
@@ -182,6 +183,7 @@ export function useStudentGame() {
     const starIncrease = Math.max(0, earnedStars - previous.stars);
     const record = {
       bestScore: Math.max(previous.bestScore, score),
+      latestScore: score,
       stars: Math.max(previous.stars, earnedStars),
       passed: previous.passed || passed,
       rewardedQuestionIds: [...new Set([...previous.rewardedQuestionIds, ...newCorrect.map((answer) => answer.blockId)])],
