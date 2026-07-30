@@ -292,10 +292,32 @@ export function StudentClassDetail({ classId }: { classId: string }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ body: teacherMessage })
       });
-      const payload = await response.json() as { error?: string };
+      const payload = await response.json() as {
+        error?: string;
+        message?: { id: string; body: string; createdAt: string };
+      };
       if (!response.ok) throw new Error(payload.error || "Unable to send your message.");
+      if (payload.message) {
+        setDetail((current) => {
+          if (!current || current.messages.some((message) => message.id === payload.message!.id)) return current;
+          return {
+            ...current,
+            messages: [
+              ...current.messages,
+              {
+                ...payload.message!,
+                fromStudent: true,
+                senderId: "",
+                senderName: "You",
+                senderRole: "student",
+                kind: "discussion",
+                editedAt: null
+              }
+            ]
+          };
+        });
+      }
       setTeacherMessage("");
-      await load();
       setSection("advice");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to send your message.");
@@ -527,7 +549,7 @@ export function StudentClassDetail({ classId }: { classId: string }) {
                   notifications={detail.notifications}
                   onChange={setTeacherMessage}
                   onReadAdvice={(adviceId) => void markRead(adviceId)}
-                  onReported={() => void load()}
+                  onReported={() => void load({ silent: true })}
                   onSubmit={sendTeacherMessage}
                   sending={sendingMessage}
                   teacherName={detail.classroom.teacherName}

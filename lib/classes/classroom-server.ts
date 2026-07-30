@@ -807,7 +807,7 @@ export async function createStudentTeacherMessage(input: {
     moderationStatus: safety.allowed ? "allowed" : "blocked",
     moderationCategories: safety.categories,
     moderationReason: safety.reason
-  }).select("id").single();
+  }).select("id,body,createdAt").single();
   if (insertError) throw new Error(insertError.message);
   await admin.from("ClassMessageAudit").insert({
     messageId: inserted.id,
@@ -838,6 +838,11 @@ export async function createStudentTeacherMessage(input: {
     ]);
     throw new Error(safety.reason ?? "This message was held for safety review.");
   }
+  return {
+    id: String(inserted.id),
+    body: String(inserted.body),
+    createdAt: String(inserted.createdAt)
+  };
 }
 
 export async function reportClassMessage(input: {

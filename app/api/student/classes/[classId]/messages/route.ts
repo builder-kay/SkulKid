@@ -9,8 +9,8 @@ export async function POST(request: Request, context: { params: Promise<{ classI
     const student = await requireStudent();
     const { classId } = await context.params;
     const { body } = schema.parse(await request.json());
-    await createStudentTeacherMessage({ studentId: student.id, classId, body });
-    return NextResponse.json({ ok: true }, { status: 201 });
+    const message = await createStudentTeacherMessage({ studentId: student.id, classId, body });
+    return NextResponse.json({ ok: true, message }, { status: 201 });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to send message." }, { status: 400 });
   }
