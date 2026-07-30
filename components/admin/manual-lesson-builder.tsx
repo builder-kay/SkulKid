@@ -3,7 +3,7 @@
 /* eslint-disable @next/next/no-img-element -- teachers may use image hosts that are not known at build time */
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowDown, ArrowUp, Bold, Bot, CheckCircle2, ChevronRight, Download, Eye, FileImage, FileText, FileUp, Flame, Heading2, Italic, Lightbulb, Link2, List, ListOrdered, ListTree, LoaderCircle, Plus, Quote, RemoveFormatting, RotateCcw, Save, Send, Sparkles, Star, Trash2, TriangleAlert, Trophy, Underline, Video, WandSparkles, Zap } from "lucide-react";
+import { ArrowDown, ArrowUp, Bold, Bot, CheckCircle2, ChevronDown, ChevronRight, Download, Eye, FileImage, FileText, FileUp, Flame, Heading2, Italic, Lightbulb, Link2, List, ListOrdered, ListTree, LoaderCircle, Plus, Quote, RemoveFormatting, RotateCcw, Save, Send, Sparkles, Star, Trash2, TriangleAlert, Trophy, Underline, Video, WandSparkles, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Input, Select, Textarea } from "@/components/design-system/form-controls";
 import { EmbeddedVideo } from "@/components/shared/embedded-video";
@@ -229,30 +229,35 @@ export function ManualLessonBuilder({ initialAiConfigured = false, initialAiMode
     }
   }
 
+  function resumeLesson(lesson: AdminLessonRecord) {
+    if (lesson.builderState && typeof lesson.builderState === "object") {
+      const saved = lesson.builderState as Partial<FormState>;
+      const restoredVideos = saved.videos?.length ? saved.videos.map((video) => ({ ...initial.videos[0], ...video, participationPrompt: video.participationPrompt ?? "", participationXp: video.participationXp ?? 5 })) : saved.videoUrl ? [{ ...initial.videos[0], id: "restored-video-1", url: saved.videoUrl, title: saved.videoTitle || "Watch and learn", caption: saved.videoCaption || "" }] : initial.videos;
+      const legacyFormat = (saved as { lessonFormat?: string }).lessonFormat;
+      const restoredTextSections = saved.textSections?.length ? saved.textSections : [{ ...initial.textSections[0], heading: saved.heading || initial.heading, body: saved.body || "", ...(legacyFormat === "blended" && restoredVideos[0]?.url ? { videoUrl: restoredVideos[0].url, videoTitle: restoredVideos[0].title, videoCaption: restoredVideos[0].caption } : {}) }];
+      setForm({
+        ...initial, ...saved, lessonFormat: saved.lessonFormat === "video" ? "video" : "text",
+        videos: restoredVideos, textSections: restoredTextSections,
+        classId: lesson.classId ?? saved.classId ?? "",
+        courseId: lesson.courseId ?? saved.courseId ?? courseIdForSubject(lesson.subject),
+        unitId: lesson.unitId ?? saved.unitId ?? "", topicId: lesson.topicId ?? saved.topicId ?? ""
+      });
+    } else {
+      setForm({ ...restoreFormFromLesson(lesson), classId: lesson.classId ?? "", courseId: lesson.courseId ?? courseIdForSubject(lesson.subject), unitId: lesson.unitId ?? "", topicId: lesson.topicId ?? "" });
+    }
+    setSavedLessonId(lesson.id);
+    setResult(null);
+    setMessage(`Resumed ${lesson.status === "published" ? "published" : "draft"} lesson: ${lesson.title}`);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   useEffect(() => {
     void readAdminLessons().then((lessons) => {
       setLibraryLessons(lessons);
       if (!editLessonId) return;
       const lesson = lessons.find((candidate) => candidate.id === editLessonId);
       if (!lesson) { setMessage("The lesson to edit could not be found."); return; }
-      if (lesson.builderState && typeof lesson.builderState === "object") {
-        const saved = lesson.builderState as Partial<FormState>;
-        const restoredVideos = saved.videos?.length ? saved.videos.map((video) => ({ ...initial.videos[0], ...video, participationPrompt: video.participationPrompt ?? "", participationXp: video.participationXp ?? 5 })) : saved.videoUrl ? [{ ...initial.videos[0], id: "restored-video-1", url: saved.videoUrl, title: saved.videoTitle || "Watch and learn", caption: saved.videoCaption || "" }] : initial.videos;
-        const legacyFormat = (saved as { lessonFormat?: string }).lessonFormat;
-        const restoredTextSections = saved.textSections?.length ? saved.textSections : [{ ...initial.textSections[0], heading: saved.heading || initial.heading, body: saved.body || "", ...(legacyFormat === "blended" && restoredVideos[0]?.url ? { videoUrl: restoredVideos[0].url, videoTitle: restoredVideos[0].title, videoCaption: restoredVideos[0].caption } : {}) }];
-        setForm({
-          ...initial,
-          ...saved,
-          lessonFormat: saved.lessonFormat === "video" ? "video" : "text",
-          videos: restoredVideos,
-          textSections: restoredTextSections,
-          courseId: lesson.courseId ?? saved.courseId ?? courseIdForSubject(lesson.subject),
-          unitId: lesson.unitId ?? saved.unitId ?? "",
-          topicId: lesson.topicId ?? saved.topicId ?? ""
-        });
-      } else setForm({ ...restoreFormFromLesson(lesson), classId: lesson.classId ?? "", courseId: lesson.courseId ?? courseIdForSubject(lesson.subject), unitId: lesson.unitId ?? "", topicId: lesson.topicId ?? "" });
-      setSavedLessonId(lesson.id);
-      setMessage(`Editing ${lesson.status === "published" ? "published" : "draft"} lesson: ${lesson.title}`);
+      resumeLesson(lesson);
     }).catch(() => setMessage("Lessons could not be loaded from Supabase."));
   }, [editLessonId]);
 
@@ -561,7 +566,21 @@ export function ManualLessonBuilder({ initialAiConfigured = false, initialAiMode
 
     <div className="sticky top-0 z-20 mt-4 rounded-2xl border border-slate-200/90 bg-white/95 p-3 shadow-[0_12px_35px_rgba(15,23,42,.09)] backdrop-blur-xl sm:px-4"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div className="flex min-w-0 items-center gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-violet-100 text-sm font-black text-violet-800">{studioProgress}%</span><div className="min-w-0"><div className="flex items-center justify-between gap-3"><p className="truncate text-sm font-black text-slate-900">Lesson readiness</p><span className="text-xs font-bold text-slate-500">{studioChecks.filter(Boolean).length} of {studioChecks.length} essentials</span></div><div className="mt-1.5 h-2 w-full min-w-40 overflow-hidden rounded-full bg-slate-100 sm:w-72"><div className="h-full rounded-full bg-gradient-to-r from-violet-600 to-fuchsia-500 transition-all" style={{ width: `${studioProgress}%` }} /></div></div></div><div className="flex gap-2"><SkulKidButton type="button" variant="outline" disabled={!canBuild} onClick={build}><CheckCircle2 className="size-4" />Check lesson</SkulKidButton><SkulKidButton type="button" variant="success" disabled={!canBuild || savingStatus !== null} onClick={() => saveLesson("published")}><Send className="size-4" />{savingStatus === "published" ? "Publishing…" : "Publish"}</SkulKidButton></div></div></div>
 
-    <section id="lesson-format" className="scroll-mt-6 mt-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5"><div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"><div><p className="text-xs font-black uppercase tracking-wider text-violet-700">Lesson format</p><h2 className="mt-1 text-xl font-black">Choose your content</h2></div><div className="grid gap-2 sm:grid-cols-2 lg:min-w-[28rem]"><LessonFormatButton active={form.lessonFormat === "text"} icon={FileText} title="Text lesson" subtitle="Sections, images & embeds" onClick={() => update("lessonFormat", "text")} /><LessonFormatButton active={form.lessonFormat === "video"} icon={Video} title="Video lesson" subtitle="Hosted videos" onClick={() => update("lessonFormat", "video")} /></div></div></section>
+    <section id="lesson-format" className="scroll-mt-6 mt-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div><p className="text-xs font-black uppercase tracking-wider text-violet-700">Lesson format</p><h2 className="mt-1 text-xl font-black">Choose your content</h2></div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
+          <div className="grid gap-2 sm:grid-cols-2 lg:min-w-[28rem]"><LessonFormatButton active={form.lessonFormat === "text"} icon={FileText} title="Text lesson" subtitle="Sections, images & embeds" onClick={() => update("lessonFormat", "text")} /><LessonFormatButton active={form.lessonFormat === "video"} icon={Video} title="Video lesson" subtitle="Hosted videos" onClick={() => update("lessonFormat", "video")} /></div>
+          <details className="group relative">
+            <summary className="flex min-h-16 cursor-pointer list-none items-center justify-center gap-2 rounded-xl border-2 border-amber-200 bg-amber-50 px-4 text-sm font-black text-amber-950 transition hover:border-amber-400 [&::-webkit-details-marker]:hidden"><Save className="size-4" />Drafts<span className="grid min-w-6 place-items-center rounded-full bg-amber-200 px-1.5 py-0.5 text-[10px]">{libraryLessons.filter((lesson) => lesson.status === "draft").length}</span><ChevronDown className="size-4 transition group-open:rotate-180" /></summary>
+            <div className="absolute right-0 z-30 mt-2 max-h-80 w-[min(24rem,calc(100vw-2rem))] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl">
+              <div className="border-b border-slate-100 px-3 py-2"><p className="font-black text-slate-950">Resume a draft</p><p className="text-xs text-slate-500">Continue exactly where you stopped.</p></div>
+              <div className="mt-1 grid gap-1">{libraryLessons.filter((lesson) => lesson.status === "draft").map((lesson) => <button className={`rounded-xl p-3 text-left transition hover:bg-violet-50 ${savedLessonId === lesson.id ? "bg-violet-50 ring-1 ring-violet-200" : ""}`} key={lesson.id} onClick={(event) => { resumeLesson(lesson); event.currentTarget.closest("details")?.removeAttribute("open"); }} type="button"><span className="flex items-start justify-between gap-3"><span className="min-w-0"><b className="block truncate text-sm text-slate-950">{lesson.title || "Untitled lesson"}</b><span className="mt-1 block truncate text-xs font-semibold text-slate-500">{lesson.unit || "No strand"} · {lesson.topic || "No topic"}</span></span><span className="shrink-0 text-[10px] font-bold text-slate-400">{new Date(lesson.updatedAt).toLocaleDateString()}</span></span></button>)}{!libraryLessons.some((lesson) => lesson.status === "draft") ? <div className="p-5 text-center"><FileText className="mx-auto size-7 text-slate-300" /><p className="mt-2 text-sm font-bold text-slate-600">No saved drafts yet</p><p className="mt-1 text-xs text-slate-400">Use Save as draft when your lesson has a title and content.</p></div> : null}</div>
+            </div>
+          </details>
+        </div>
+      </div>
+    </section>
 
     {form.lessonFormat === "text" ? <SkulKidCard id="ai-extraction" className="ai-text-only scroll-mt-6 mt-4 overflow-hidden border-violet-200 shadow-sm">
       <div className="grid gap-5 border-b border-violet-100 bg-violet-50 p-5 sm:p-6 lg:grid-cols-[1fr_auto] lg:items-center">
