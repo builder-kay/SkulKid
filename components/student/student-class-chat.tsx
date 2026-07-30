@@ -112,7 +112,7 @@ export function StudentClassChat({
           : "";
 
   return (
-    <section className="flex min-h-[34rem] max-h-[calc(100dvh-7rem)] flex-col overflow-hidden rounded-[1.25rem] border border-blue-100 bg-white shadow-[0_20px_60px_-28px_rgba(30,64,175,0.45)] sm:min-h-[40rem] sm:rounded-[1.75rem] lg:max-h-[52rem]">
+    <section className="flex h-[min(42rem,calc(100dvh-6rem))] min-h-[28rem] flex-col overflow-hidden rounded-[1.25rem] border border-blue-100 bg-white shadow-[0_20px_60px_-28px_rgba(30,64,175,0.45)] sm:h-[min(46rem,calc(100dvh-8rem))] sm:min-h-[34rem] sm:rounded-[1.75rem] lg:h-[46rem]">
       <header className="flex min-h-16 shrink-0 items-center gap-3 border-b border-blue-800/40 bg-gradient-to-r from-blue-700 via-blue-700 to-indigo-700 px-3 py-2.5 text-white sm:px-5">
         <span className="grid size-11 shrink-0 place-items-center rounded-full border border-white/25 bg-white/15 shadow-inner"><Users className="size-5" /></span>
         <div className="min-w-0 flex-1">
