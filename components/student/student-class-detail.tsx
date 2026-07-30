@@ -186,25 +186,41 @@ export function StudentClassDetail({ classId }: { classId: string }) {
   const [teacherMessage, setTeacherMessage] = useState("");
   const [sendingMessage, setSendingMessage] = useState(false);
 
-  async function load() {
-    setLoading(true);
+  async function load(options: { silent?: boolean } = {}) {
+    if (!options.silent) setLoading(true);
     try {
       const response = await fetch(`/api/student/classes/${classId}`, { cache: "no-store" });
       const payload = await response.json() as Detail & { error?: string };
       if (!response.ok) throw new Error(payload.error || "Unable to load class.");
       setDetail(payload);
-      const unread = (payload.advice ?? []).some((item) => !item.readAt);
-      const openQuiz = (payload.quizzes ?? []).some((quiz) => quiz.canRetake || !quiz.attemptsUsed);
-      if (unread) setSection("advice");
-      else if (openQuiz) setSection("quizzes");
+      if (!options.silent) {
+        const unread = (payload.advice ?? []).some((item) => !item.readAt);
+        const openQuiz = (payload.quizzes ?? []).some((quiz) => quiz.canRetake || !quiz.attemptsUsed);
+        if (unread) setSection("advice");
+        else if (openQuiz) setSection("quizzes");
+      }
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Unable to load class.");
+      if (!options.silent) setError(cause instanceof Error ? cause.message : "Unable to load class.");
     } finally {
-      setLoading(false);
+      if (!options.silent) setLoading(false);
     }
   }
 
   useEffect(() => { void load(); }, [classId]);
+  useEffect(() => {
+    if (section !== "advice") return;
+
+    const refresh = () => {
+      if (document.visibilityState === "visible") void load({ silent: true });
+    };
+    const interval = window.setInterval(refresh, 5000);
+    document.addEventListener("visibilitychange", refresh);
+
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [classId, section]);
 
   async function markRead(adviceId: string) {
     await fetch(`/api/student/advice/${adviceId}/read`, { method: "POST" });

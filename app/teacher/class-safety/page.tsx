@@ -30,6 +30,20 @@ export default function TeacherClassSafetyPage() {
     setClassId((current) => current || result.classes?.[0]?.id || "");
   }
   useEffect(() => { void load().catch((cause) => setError(cause.message)); }, []);
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState !== "visible") return;
+      void load().catch(() => {
+        // Preserve the current room while a background refresh is unavailable.
+      });
+    };
+    const interval = window.setInterval(refresh, 5000);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, []);
   const setting = data?.settings.find((item) => item.classId === classId);
   const messages = useMemo(() => data?.messages.filter((item) => item.classId === classId) ?? [], [classId, data]);
   const reports = useMemo(() => data?.reports.filter((item) => item.classId === classId) ?? [], [classId, data]);

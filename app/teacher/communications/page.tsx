@@ -69,6 +69,21 @@ export default function TeacherCommunicationsPage() {
       .catch((cause) => setError(cause instanceof Error ? cause.message : "Unable to load messages."))
       .finally(() => setLoading(false));
   }, []);
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState !== "visible") return;
+      void load().catch(() => {
+        // Keep the current conversation visible during a temporary refresh failure.
+      });
+    };
+    const interval = window.setInterval(refresh, 5000);
+    document.addEventListener("visibilitychange", refresh);
+
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, []);
 
   const contacts = useMemo<Contact[]>(() => {
     const map = new Map<string, Contact>();
