@@ -142,19 +142,19 @@ const statTones = {
 function StatTile({ icon: Icon, label, value, detail, progress, tone }: StatTileProps) {
   const style = statTones[tone];
   return (
-    <SkulKidCard className={`group relative overflow-hidden p-3 transition duration-200 hover:-translate-y-1 hover:shadow-[var(--shadow-card-hover)] sm:p-3.5 ${style.card}`}>
-      <div className="pointer-events-none absolute -right-6 -top-6 size-20 rounded-full bg-white/60 transition group-hover:scale-110" />
+    <SkulKidCard className={`group relative overflow-hidden p-2.5 transition duration-200 hover:-translate-y-1 hover:shadow-[var(--shadow-card-hover)] sm:p-3 ${style.card}`}>
+      <div className="pointer-events-none absolute -right-6 -top-6 size-16 rounded-full bg-white/60 transition group-hover:scale-110" />
       <div className="relative flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className={`text-xs font-black uppercase tracking-wider ${style.text}`}>{label}</p>
-          <p className="mt-1 text-2xl font-black leading-none text-text-primary sm:text-3xl">{value}</p>
-          <p className="mt-1.5 truncate text-xs font-bold text-text-secondary">{detail}</p>
+          <p className="mt-0.5 text-xl font-black leading-none text-text-primary sm:text-2xl">{value}</p>
+          <p className="mt-1 truncate text-[0.7rem] font-bold leading-4 text-text-secondary sm:text-xs">{detail}</p>
         </div>
-        <div className={`relative grid size-9 shrink-0 place-items-center rounded-xl shadow-md sm:size-10 ${style.icon}`}>
-          <Icon aria-hidden="true" className="size-5" />
+        <div className={`relative grid size-8 shrink-0 place-items-center rounded-lg shadow-md sm:size-9 ${style.icon}`}>
+          <Icon aria-hidden="true" className="size-4 sm:size-[1.125rem]" />
         </div>
       </div>
-      <div className="relative mt-3 h-1.5 overflow-hidden rounded-full bg-white shadow-inner"><div className={`h-full rounded-full transition-all ${style.bar}`} style={{ width: `${Math.max(4, progress)}%` }} /></div>
+      <div className="relative mt-2 h-1 overflow-hidden rounded-full bg-white shadow-inner"><div className={`h-full rounded-full transition-all ${style.bar}`} style={{ width: `${Math.max(4, progress)}%` }} /></div>
     </SkulKidCard>
   );
 }
