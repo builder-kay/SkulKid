@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { Award, BookMarked, BookOpen, LayoutDashboard, LogOut, Menu, Trophy, UserRound, Users, X } from "lucide-react";
+import { Award, BookMarked, BookOpen, Clapperboard, LayoutDashboard, LogOut, Menu, Trophy, UserRound, Users, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { GamificationArena } from "@/components/gamification/gamification-arena";
 import { CharacterAvatar } from "@/components/student/character-avatar";
@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 import { useStudentGame } from "@/lib/gamification/student-game";
 import { useStudentProfile } from "@/lib/student/student-profile";
 
-export type StudentNavItem = "dashboard" | "courses" | "classes" | "pasco" | "mathematics" | "preview" | "leaderboard" | "achievements" | "profile";
+export type StudentNavItem = "dashboard" | "courses" | "classes" | "pasco" | "break-zone" | "mathematics" | "preview" | "leaderboard" | "achievements" | "profile";
 
 export type StudentShellProps = {
   activeItem: StudentNavItem;
@@ -36,6 +36,7 @@ const navItems: Array<{
   { id: "courses", href: "/courses", label: "Public Learning", mobileLabel: "Learning", icon: BookOpen },
   { id: "classes", href: "/classes", label: "My Classes", mobileLabel: "Classes", icon: Users },
   { id: "pasco", href: "/pasco", label: "PASCO", mobileLabel: "PASCO", icon: BookMarked },
+  { id: "break-zone", href: "/break-zone", label: "Break Zone", mobileLabel: "Break", icon: Clapperboard },
   { id: "leaderboard", href: "/leaderboard", label: "Leaderboard", mobileLabel: "League", icon: Trophy },
   { id: "achievements", href: "/achievements", label: "Rewards & Achievements", mobileLabel: "Rewards", icon: Award },
   { id: "profile", href: "/profile", label: "My Avatar", mobileLabel: "Avatar", icon: UserRound }

@@ -6,6 +6,7 @@ import { useState } from "react";
 import {
   Activity,
   BookOpenCheck,
+  Clapperboard,
   ChevronRight,
   GraduationCap,
   Gauge,
@@ -35,6 +36,7 @@ const navItems: NavItem[] = [
   { href: "/admin/moderation", label: "Content moderation", shortLabel: "Review", icon: BookOpenCheck, match: "prefix" },
   { href: "/admin/point-disputes", label: "Point disputes", shortLabel: "Disputes", icon: MessageSquareWarning, match: "prefix" },
   { href: "/admin/child-safety", label: "Child safety", shortLabel: "Safety", icon: ShieldCheck, match: "prefix" },
+  { href: "/admin/break-zone", label: "Break Zone", shortLabel: "Break", icon: Clapperboard, match: "prefix" },
   { href: "/admin/security", label: "Security & audit", shortLabel: "Security", icon: ShieldCheck, match: "prefix" },
   { href: "/admin/operations", label: "Operations", shortLabel: "Ops", icon: Wrench, match: "prefix" },
   { href: "/admin/system", label: "System control", shortLabel: "System", icon: Gauge, match: "prefix" },
@@ -44,9 +46,9 @@ const navItems: NavItem[] = [
 ];
 
 const navGroups = [
-  { label: "Workspace", items: navItems.slice(0, 6) },
-  { label: "Monitor", items: navItems.slice(6, 11) },
-  { label: "Configure", items: navItems.slice(11) }
+  { label: "Workspace", items: navItems.slice(0, 7) },
+  { label: "Monitor", items: navItems.slice(7, 12) },
+  { label: "Configure", items: navItems.slice(12) }
 ];
 
 export function PlatformAdminShell({ children }: { children: React.ReactNode }) {

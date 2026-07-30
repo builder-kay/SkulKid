@@ -17,7 +17,8 @@ type GeminiStructuredInput = {
 type GeminiStructuredTextInput = Omit<GeminiStructuredInput, "mimeType" | "bytes">;
 export type GeminiContentPart =
   | { text: string }
-  | { inlineData: { mimeType: string; data: string } };
+  | { inlineData: { mimeType: string; data: string } }
+  | { fileData: { fileUri: string; mimeType?: string } };
 
 export class GeminiRequestError extends Error {
   constructor(message: string, readonly status = 502) {

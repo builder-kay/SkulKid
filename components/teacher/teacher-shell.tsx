@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { BellRing, BookOpenCheck, CircleHelp, ClipboardList, LayoutDashboard, LogOut, Settings2, ShieldCheck, SquarePen, Users } from "lucide-react";
+import { BellRing, BookOpenCheck, CircleHelp, ClipboardList, Clapperboard, LayoutDashboard, LogOut, Settings2, ShieldCheck, SquarePen, Users } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { SkulKidLogo } from "@/components/shared/skulkid-logo";
 import { SignOutConfirmation } from "@/components/shared/sign-out-confirmation";
@@ -17,6 +17,7 @@ const navItems: TeacherNavItem[] = [
   { href: "/teacher/quizzes", label: "Quizzes", shortLabel: "Quizzes", icon: ClipboardList, match: "prefix" },
   { href: "/teacher/communications", label: "Messages", shortLabel: "Messages", icon: BellRing, match: "prefix" },
   { href: "/teacher/class-safety", label: "Class chat safety", shortLabel: "Safety", icon: ShieldCheck, match: "prefix" },
+  { href: "/teacher/break-zone", label: "Break Zone", shortLabel: "Break", icon: Clapperboard, match: "prefix" },
   { href: "/teacher/curriculum", label: "Subjects & lessons", shortLabel: "Subjects", icon: BookOpenCheck, match: "exact" },
   { href: "/teacher/lessons/new", label: "Create Lesson", shortLabel: "Create", icon: SquarePen, match: "exact" },
   { href: "/teacher/settings", label: "Teacher settings", shortLabel: "Settings", icon: Settings2, match: "prefix" }

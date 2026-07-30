@@ -1,0 +1,54 @@
+"use client";
+
+import Image from "next/image";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { AlertTriangle, CheckCircle2, Clock3, Film, Flag, LoaderCircle, Play, Search, ShieldCheck, Sparkles, Trash2, X } from "lucide-react";
+import { applyServerGameState } from "@/lib/gamification/student-game";
+
+type Video = { id:string; title:string; channelTitle:string; thumbnailUrl:string|null; durationSeconds:number; summary?:string; moderationStatus:string; playable:boolean; reason?:string; state?:string };
+type Feed = { videos:Video[]; recentIds:string[]; notifications:Array<{id:string;title:string;body:string}>; schedule:{allowed:boolean;reason:string} };
+
+export function BreakZonePage() {
+  const [feed,setFeed]=useState<Feed|null>(null), [videos,setVideos]=useState<Video[]>([]);
+  const [query,setQuery]=useState(""), [filter,setFilter]=useState("all"), [busy,setBusy]=useState(false), [error,setError]=useState("");
+  const [player,setPlayer]=useState<{video:Video;sessionId:string;embedUrl:string}|null>(null);
+  const load=useCallback(async()=>{ const r=await fetch("/api/student/break-zone/feed"); const b=await r.json(); if(!r.ok) throw new Error(b.error); setFeed(b); setVideos(b.videos); },[]);
+  useEffect(()=>{ load().catch(e=>setError(e.message)); },[load]);
+  async function search(e:FormEvent){ e.preventDefault(); if(query.trim().length<2)return; setBusy(true);setError(""); try{const r=await fetch(`/api/student/break-zone/search?q=${encodeURIComponent(query)}`);const b=await r.json();if(!r.ok)throw new Error(b.error);setVideos(b.results);}catch(e){setError(e instanceof Error?e.message:"Search failed.");}finally{setBusy(false)}}
+  async function choose(video:Video){
+    setBusy(true);setError("");
+    try {
+      if(!video.playable){ const r=await fetch("/api/student/break-zone/search",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({videoId:video.id})});const b=await r.json();if(!r.ok)throw new Error(b.error); setVideos(v=>v.map(x=>x.id===video.id?{...x,state:b.status}:x)); return; }
+      const r=await fetch("/api/student/break-zone/playback",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:"start",videoId:video.id})});const b=await r.json();if(!r.ok)throw new Error(b.error);setPlayer({video,sessionId:b.sessionId,embedUrl:b.embedUrl});
+    }catch(e){setError(e instanceof Error?e.message:"Video unavailable.");}finally{setBusy(false)}
+  }
+  async function clearHistory(){if(!confirm("Clear your Break Zone history and interests?"))return;await fetch("/api/student/break-zone/feed",{method:"DELETE"});await load();}
+  const shown=videos.filter(v=>filter==="all"||filter==="playable"&&v.playable||filter==="checking"&&["pending","error"].includes(v.moderationStatus)||filter==="review"&&v.moderationStatus==="rejected");
+  return <main className="mx-auto max-w-7xl space-y-6">
+    <section className="overflow-hidden rounded-[2rem] bg-gradient-to-br from-indigo-950 via-violet-900 to-fuchsia-700 p-6 text-white shadow-xl sm:p-9">
+      <div className="grid gap-6 md:grid-cols-[1fr_auto] md:items-center"><div><span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-black uppercase tracking-wider"><ShieldCheck className="size-4"/> Child-safe videos</span><h1 className="mt-4 text-3xl font-black sm:text-5xl">Welcome to Break Zone</h1><p className="mt-3 max-w-2xl text-sm font-semibold text-violet-100 sm:text-base">Search for something fun, curious or creative. Every video is checked before it can play.</p></div><Film className="hidden size-28 text-white/20 md:block"/></div>
+      <form className="mt-7 flex gap-2 rounded-2xl bg-white p-2 shadow-lg" onSubmit={search}><Search className="ml-2 size-5 self-center text-slate-400"/><input aria-label="Search safe videos" className="min-w-0 flex-1 px-2 text-sm font-bold text-slate-900 outline-none" maxLength={100} onChange={e=>setQuery(e.target.value)} placeholder="Try drawing, animals, space or music…" value={query}/><button className="min-h-11 rounded-xl bg-violet-600 px-5 text-sm font-black text-white disabled:opacity-60" disabled={busy}>{busy?<LoaderCircle className="size-5 animate-spin"/>:"Search"}</button></form>
+    </section>
+    {feed&&!feed.schedule.allowed?<div className="flex gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-950"><Clock3 className="mt-0.5 size-5 shrink-0"/><div><p className="font-black">It is not Break Zone time yet</p><p className="text-sm font-semibold">{feed.schedule.reason}</p></div></div>:null}
+    {error?<div role="alert" className="flex gap-2 rounded-2xl border border-red-200 bg-red-50 p-4 font-bold text-red-800"><AlertTriangle className="size-5"/>{error}</div>:null}
+    {feed?.notifications.length?<section><h2 className="text-lg font-black text-slate-900">Updates for you</h2><div className="mt-2 grid gap-2 sm:grid-cols-2">{feed.notifications.slice(0,4).map(n=><div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4" key={n.id}><p className="font-black text-emerald-900">{n.title}</p><p className="text-sm text-emerald-800">{n.body}</p></div>)}</div></section>:null}
+    <section><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-2xl font-black text-slate-950">{query?"Search results":"Safe picks for you"}</h2><p className="text-sm font-semibold text-slate-500">Only screened titles and thumbnails appear here.</p></div><button className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black" onClick={clearHistory}><Trash2 className="size-4"/>Clear history</button></div>
+      <div className="mt-4 flex gap-2 overflow-x-auto pb-2">{[["all","All"],["playable","Ready"],["checking","Checking"],["review","Needs review"]].map(([id,label])=><button className={`rounded-full px-4 py-2 text-sm font-black ${filter===id?"bg-slate-950 text-white":"border border-slate-200 bg-white text-slate-600"}`} key={id} onClick={()=>setFilter(id)}>{label}</button>)}</div>
+      <div className="mt-3 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">{shown.map(video=><VideoCard key={video.id} video={video} onChoose={()=>choose(video)}/>)}</div>
+      {!busy&&!shown.length?<div className="mt-4 rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center"><Sparkles className="mx-auto size-9 text-violet-500"/><p className="mt-3 font-black">Search for your next safe adventure.</p></div>:null}
+    </section>
+    {player?<PlayerModal data={player} onClose={()=>setPlayer(null)} onError={setError}/>:null}
+  </main>
+}
+
+function VideoCard({video,onChoose}:{video:Video;onChoose:()=>void}){
+ const ready=video.playable; const state=video.state??(video.moderationStatus==="rejected"?"teacher_review":video.moderationStatus==="suspended"?"suspended":"checking");
+ return <article className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl"><div className="relative aspect-video bg-slate-200">{video.thumbnailUrl?<Image alt="" className="object-cover" fill sizes="(max-width:768px) 100vw, 33vw" src={video.thumbnailUrl}/>:null}<span className="absolute bottom-2 right-2 rounded-lg bg-slate-950/85 px-2 py-1 text-xs font-black text-white">{formatTime(video.durationSeconds)}</span></div><div className="p-4"><div className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-black ${ready?"bg-emerald-100 text-emerald-800":state==="suspended"?"bg-red-100 text-red-800":"bg-amber-100 text-amber-800"}`}>{ready?<CheckCircle2 className="size-3.5"/>:<Clock3 className="size-3.5"/>}{ready?"Ready to play":state==="teacher_review"?"Teacher review needed":state==="suspended"?"Temporarily suspended":"Safety check needed"}</div><h3 className="mt-3 line-clamp-2 text-lg font-black text-slate-950">{video.title}</h3><p className="mt-1 text-sm font-semibold text-slate-500">{video.channelTitle}</p><button className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 text-sm font-black text-white disabled:opacity-50" onClick={onChoose}><Play className="size-4"/>{ready?"Watch safely":state==="checking"?"Checking…":"Request safety check"}</button></div></article>
+}
+function PlayerModal({data,onClose,onError}:{data:{video:Video;sessionId:string;embedUrl:string};onClose:()=>void;onError:(s:string)=>void}){
+ const started=useRef(Date.now());
+ useEffect(()=>{const timer=setInterval(async()=>{const seconds=Math.floor((Date.now()-started.current)/1000);const r=await fetch("/api/student/break-zone/playback",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:"heartbeat",sessionId:data.sessionId,positionSeconds:Math.min(seconds,data.video.durationSeconds),playing:true})});const b=await r.json();if(!r.ok){onError(b.error);onClose();}else if(b.state)applyServerGameState(b.state);},10000);return()=>clearInterval(timer)},[data,onClose,onError]);
+ async function report(){const reason=prompt("What is wrong? Type: violence, bullying, dangerous, frightening, personal_information, misinformation, sexual, hate, self_harm, or other.","other");if(!reason)return;const allowed=["sexual","violence","bullying","hate","self_harm","dangerous","frightening","misinformation","personal_information","other"];const r=await fetch("/api/student/break-zone/report",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({videoId:data.video.id,reason:allowed.includes(reason)?reason:"other",details:"Reported while watching"})});if(r.ok){onClose();onError("Thank you. The video was stopped and sent to an administrator for review.");}}
+ return <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-950/80 p-3 backdrop-blur" role="dialog" aria-modal="true"><div className="w-full max-w-5xl overflow-hidden rounded-3xl bg-slate-950 text-white shadow-2xl"><div className="flex items-center justify-between gap-3 p-4"><div><p className="font-black">{data.video.title}</p><p className="text-xs text-slate-400">Privacy-enhanced player</p></div><button aria-label="Close player" onClick={onClose}><X/></button></div><div className="aspect-video"><iframe allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowFullScreen className="size-full" referrerPolicy="strict-origin-when-cross-origin" src={data.embedUrl} title={data.video.title}/></div><div className="flex justify-end p-3"><button className="inline-flex items-center gap-2 rounded-xl bg-red-950 px-4 py-2 text-sm font-black text-red-100" onClick={report}><Flag className="size-4"/>Report and stop</button></div></div></div>
+}
+function formatTime(seconds:number){return `${Math.floor(seconds/60)}:${String(seconds%60).padStart(2,"0")}`}
