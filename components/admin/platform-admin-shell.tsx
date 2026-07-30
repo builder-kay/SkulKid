@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
   Activity,
+  Cable,
   BookOpenCheck,
   Clapperboard,
   ChevronRight,
@@ -44,6 +45,7 @@ const navItems: NavItem[] = [
   { href: "/admin/system", label: "System control", shortLabel: "System", icon: Gauge, match: "prefix" },
   { href: "/admin/otp-diagnostics", label: "OTP diagnostics", shortLabel: "OTP", icon: RadioTower, match: "prefix" },
   { href: "/admin/activity", label: "Platform activity", shortLabel: "Activity", icon: Activity, match: "prefix" },
+  { href: "/admin/api-platforms", label: "API platforms", shortLabel: "APIs", icon: Cable, match: "prefix" },
   { href: "/admin/settings", label: "System settings", shortLabel: "Settings", icon: Settings2, match: "prefix" }
 ];
 
