@@ -580,8 +580,11 @@ export function ManualLessonBuilder({ initialAiConfigured = false, initialAiMode
       <p className="border-t border-slate-200 px-5 py-3 text-xs text-muted sm:px-6">Model: {aiModel || "checking…"}. Uploaded files are processed only when you click Extract.</p>
     </SkulKidCard> : null}
 
-    <div className="mt-6 grid gap-6 xl:grid-cols-[17rem_minmax(0,1fr)_20rem] xl:items-start">
-      <aside className="hidden xl:sticky xl:top-24 xl:block"><LessonSectionNav format={form.lessonFormat} progress={studioProgress} /></aside>
+    <div className="mt-6 grid gap-6 xl:grid-cols-[18rem_minmax(0,1fr)] xl:items-start">
+      <aside className="hidden space-y-5 xl:sticky xl:top-24 xl:block">
+        <LessonSectionNav finishId="finish-lesson-desktop" format={form.lessonFormat} progress={studioProgress} />
+        <FinishLessonPanel canBuild={canBuild} download={download} id="finish-lesson-desktop" message={message} onBuild={build} onSave={saveLesson} result={result} savingStatus={savingStatus} />
+      </aside>
       <div className="min-w-0 space-y-6">
         <Section number="1" title="Curriculum placement" description="Place the lesson under its Ghana curriculum strand, sub-strand and topic.">
           <div className="grid gap-4 sm:grid-cols-2">
@@ -837,8 +840,9 @@ export function ManualLessonBuilder({ initialAiConfigured = false, initialAiMode
         </Section>
       </div>
 
-      <aside className="space-y-5 xl:sticky xl:top-24 xl:self-start"><div className="xl:hidden"><LessonSectionNav format={form.lessonFormat} progress={studioProgress} /></div>
-        <SkulKidCard id="finish-lesson" className="scroll-mt-6 overflow-hidden"><div className="border-b border-slate-200 bg-slate-50 px-6 py-4"><p className="text-xs font-black uppercase tracking-wider text-violet-700">Finish lesson</p><h2 className="mt-1 text-xl font-black">Review and save</h2><p className="mt-1 text-sm leading-6 text-muted">Drafts remain private. Published lessons are marked ready for pupils.</p></div><div className="p-6"><SkulKidButton type="button" variant="outline" className="w-full" disabled={!canBuild} onClick={build}><CheckCircle2 className="size-5" />Check lesson</SkulKidButton>{message ? <div role="status" className={`mt-4 flex gap-2 rounded-xl p-3 text-sm ${result && !result.issues.some((issue) => issue.severity === "error") ? "bg-green-50 text-green-900" : "bg-amber-50 text-amber-950"}`}>{result && !result.issues.some((issue) => issue.severity === "error") ? <CheckCircle2 className="size-5 shrink-0" /> : <TriangleAlert className="size-5 shrink-0" />}<span>{message}</span></div> : null}<div className="mt-5 grid gap-3"><SkulKidButton type="button" size="lg" variant="outline" disabled={!canBuild || savingStatus !== null} onClick={() => saveLesson("draft")}><Save className="size-5" />{savingStatus === "draft" ? "Saving…" : "Save as draft"}</SkulKidButton><SkulKidButton type="button" size="lg" variant="success" disabled={!canBuild || savingStatus !== null} onClick={() => saveLesson("published")}><Send className="size-5" />{savingStatus === "published" ? "Publishing…" : "Publish lesson"}</SkulKidButton></div>{result ? <><div className="mt-4 text-sm text-text-secondary"><p><b>{result.fixture.lessonVersions[0].blocks.length}</b> lesson blocks</p><p className="mt-1"><b>{result.issues.length}</b> validation notices</p></div><SkulKidButton type="button" variant="ghost" className="mt-3 w-full" onClick={download}><Download className="size-4" />Download JSON copy</SkulKidButton></> : null}</div></SkulKidCard>
+      <aside className="space-y-5 xl:hidden">
+        <LessonSectionNav format={form.lessonFormat} progress={studioProgress} />
+        <FinishLessonPanel canBuild={canBuild} download={download} id="finish-lesson" message={message} onBuild={build} onSave={saveLesson} result={result} savingStatus={savingStatus} />
       </aside>
     </div>
   </main></LessonFormatContext.Provider>;
@@ -885,9 +889,38 @@ function TeachingMaterialStudio({
   </div>;
 }
 
+function FinishLessonPanel({ canBuild, download, id, message, onBuild, onSave, result, savingStatus }: {
+  canBuild: boolean;
+  download: () => void;
+  id: string;
+  message: string;
+  onBuild: () => void;
+  onSave: (status: AdminLessonStatus) => void | Promise<void>;
+  result: MaterialisedCourse | null;
+  savingStatus: AdminLessonStatus | null;
+}) {
+  const valid = Boolean(result && !result.issues.some((issue) => issue.severity === "error"));
+  return <SkulKidCard id={id} className="scroll-mt-28 overflow-hidden border-slate-200 shadow-sm">
+    <div className="border-b border-slate-200 bg-gradient-to-br from-violet-50 to-white px-4 py-4">
+      <p className="text-[10px] font-black uppercase tracking-[.16em] text-violet-700">Finish lesson</p>
+      <h2 className="mt-1 text-lg font-black">Review and save</h2>
+      <p className="mt-1 text-xs leading-5 text-muted">Drafts remain private. Published lessons are marked ready for pupils.</p>
+    </div>
+    <div className="p-4">
+      <SkulKidButton type="button" variant="outline" className="w-full" disabled={!canBuild} onClick={onBuild}><CheckCircle2 className="size-4" />Check lesson</SkulKidButton>
+      {message ? <div role="status" className={`mt-3 flex gap-2 rounded-xl p-3 text-xs leading-5 ${valid ? "bg-green-50 text-green-900" : "bg-amber-50 text-amber-950"}`}>{valid ? <CheckCircle2 className="mt-0.5 size-4 shrink-0" /> : <TriangleAlert className="mt-0.5 size-4 shrink-0" />}<span>{message}</span></div> : null}
+      <div className="mt-3 grid gap-2">
+        <SkulKidButton type="button" variant="outline" disabled={!canBuild || savingStatus !== null} onClick={() => void onSave("draft")}><Save className="size-4" />{savingStatus === "draft" ? "Saving…" : "Save as draft"}</SkulKidButton>
+        <SkulKidButton type="button" variant="success" disabled={!canBuild || savingStatus !== null} onClick={() => void onSave("published")}><Send className="size-4" />{savingStatus === "published" ? "Publishing…" : "Publish lesson"}</SkulKidButton>
+      </div>
+      {result ? <><div className="mt-3 rounded-xl bg-slate-50 p-3 text-xs text-text-secondary"><p><b>{result.fixture.lessonVersions[0].blocks.length}</b> lesson blocks</p><p className="mt-1"><b>{result.issues.length}</b> validation notices</p></div><SkulKidButton type="button" variant="ghost" className="mt-2 w-full text-xs" onClick={download}><Download className="size-4" />Download JSON</SkulKidButton></> : null}
+    </div>
+  </SkulKidCard>;
+}
+
 function Section({ number, title, description, children }: { number: string; title: string; description: string; children: React.ReactNode }) { const lessonFormat = useContext(LessonFormatContext); const textOnly = title === "Teaching material" || title === "Worked example"; const tone = sectionTones[number] ?? sectionTones["1"]; if (textOnly && lessonFormat === "video") return null; return <section id={sectionId(title)} className={`scroll-mt-28 overflow-hidden rounded-[1.5rem] border bg-white shadow-[0_8px_30px_rgba(15,23,42,.055)] ${tone.border} ${textOnly ? "text-lesson-fields" : ""}`}><div className="flex gap-4 border-b border-slate-200 bg-gradient-to-r from-white to-slate-50/80 px-5 py-5 sm:px-7"><span className={`grid size-10 shrink-0 place-items-center rounded-xl text-sm font-black text-white shadow-sm ${tone.badge}`}>{number.padStart(2, "0")}</span><div><p className="text-[10px] font-black uppercase tracking-[.16em] text-slate-400">Step {number}</p><h2 className="mt-0.5 text-xl font-black text-slate-950">{title}</h2><p className="mt-1 max-w-3xl text-sm leading-6 text-slate-600">{description}</p></div></div><div className="p-5 sm:p-7">{children}</div></section>; }
 function Field({ label, children }: { label: string; children: React.ReactNode }) { return <label className="grid gap-2 text-sm font-bold text-slate-800">{label}{children}</label>; }
-function LessonSectionNav({ format, progress }: { format: LessonFormat; progress: number }) {
+function LessonSectionNav({ format, progress, finishId = "finish-lesson" }: { format: LessonFormat; progress: number; finishId?: string }) {
   const items = [
     { id: "lesson-format", label: "Lesson format" },
     ...(format === "text" ? [{ id: "ai-extraction", label: "AI text extraction" }] : []),
@@ -897,7 +930,7 @@ function LessonSectionNav({ format, progress }: { format: LessonFormat; progress
     ...(format !== "text" ? [{ id: "video-content", label: "Video content" }] : []),
     { id: "assessment", label: "Assessment" },
     { id: "rewards-mastery", label: "Rewards and mastery" },
-    { id: "finish-lesson", label: "Review and save" }
+    { id: finishId, label: "Review and save" }
   ];
   return <nav aria-label="Create lesson sections" className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><div className="border-b border-slate-200 bg-slate-950 px-4 py-4 text-white"><div className="flex items-center gap-3"><span className="grid size-9 place-items-center rounded-xl bg-white/10"><ListTree className="size-4" /></span><div><p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Lesson outline</p><h2 className="text-sm font-black">Build in a clear order</h2></div></div><div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-violet-400" style={{ width: `${progress}%` }} /></div></div><ol className="grid gap-0.5 p-2">{items.map((item, index) => <li key={item.id}><a href={`#${item.id}`} className="group flex min-h-10 items-center gap-2.5 rounded-xl px-2.5 text-[13px] font-bold text-slate-700 transition hover:bg-violet-50 hover:text-violet-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-600"><span className="grid size-6 shrink-0 place-items-center rounded-lg bg-slate-100 text-[10px] font-black group-hover:bg-violet-100">{index + 1}</span><span className="min-w-0 flex-1 truncate">{item.label}</span><ChevronRight className="size-3.5 text-slate-300 group-hover:text-violet-600" /></a></li>)}</ol><p className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-[11px] leading-5 text-muted"><b className="capitalize">{format}</b> lesson · fields save when you choose Save draft.</p></nav>;
 }
