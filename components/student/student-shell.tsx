@@ -36,12 +36,16 @@ const navItems: Array<{
   { id: "dashboard", href: "/dashboard", label: "Dashboard", mobileLabel: "Home", icon: LayoutDashboard },
   { id: "courses", href: "/courses", label: "Public Learning", mobileLabel: "Learning", icon: BookOpen },
   { id: "classes", href: "/classes", label: "My Classes", mobileLabel: "Classes", icon: Users },
-  { id: "messages", href: "/messages", label: "Messages", mobileLabel: "Messages", icon: MessageCircle },
+  { id: "messages", href: "/messages", label: "Messages", mobileLabel: "Chat", icon: MessageCircle },
   { id: "pasco", href: "/pasco", label: "PASCO", mobileLabel: "PASCO", icon: BookMarked },
   { id: "leaderboard", href: "/leaderboard", label: "Leaderboard", mobileLabel: "League", icon: Trophy },
   { id: "achievements", href: "/achievements", label: "Rewards & Achievements", mobileLabel: "Rewards", icon: Award },
   { id: "profile", href: "/profile", label: "My Avatar", mobileLabel: "Avatar", icon: UserRound }
 ];
+
+const mobilePrimaryNavItems = (["dashboard", "classes", "courses", "messages"] as const)
+  .map((id) => navItems.find((item) => item.id === id))
+  .filter((item): item is (typeof navItems)[number] => Boolean(item));
 
 
 export function StudentShell({ activeItem, children, mobileAside }: StudentShellProps) {
@@ -299,10 +303,10 @@ export function StudentShell({ activeItem, children, mobileAside }: StudentShell
         className="fixed inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-40 rounded-[1.6rem] border border-white/90 bg-white/95 p-2 shadow-[0_18px_50px_rgba(15,23,42,0.18)] backdrop-blur lg:hidden"
       >
         <div className="grid grid-cols-5 gap-1">
-          {navItems.filter((item) => ["dashboard", "courses", "classes", "messages"].includes(item.id)).map((item) => (
+          {mobilePrimaryNavItems.map((item) => (
             <MobileNavLink active={activeItem === item.id} item={item} key={item.id} unread={item.id === "messages" ? unreadClassMessages : 0} />
           ))}
-          <button aria-expanded={moreOpen} aria-haspopup="dialog" className={cn("flex min-h-14 flex-col items-center justify-center gap-1 rounded-2xl px-1 text-[11px] font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary", ["pasco", "profile", "achievements"].includes(activeItem) ? "bg-primary text-white shadow-sm" : "text-text-secondary hover:bg-slate-100")} onClick={() => setMoreOpen(true)} ref={moreButtonRef} type="button"><Menu className="size-5" /><span>More</span></button>
+          <button aria-expanded={moreOpen} aria-haspopup="dialog" className={cn("flex min-h-14 flex-col items-center justify-center gap-1 rounded-2xl px-1 text-[11px] font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary", ["pasco", "leaderboard", "profile", "achievements"].includes(activeItem) ? "bg-primary text-white shadow-sm" : "text-text-secondary hover:bg-slate-100")} onClick={() => setMoreOpen(true)} ref={moreButtonRef} type="button"><Menu className="size-5" /><span>More</span></button>
         </div>
       </nav>
     </div>
