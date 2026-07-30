@@ -20,6 +20,12 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith("/admin") ||
     (pathname.startsWith("/teacher") && !publicTeacherAppeal) ||
     staffApi;
+  const hasSupabaseSession = request.cookies.getAll().some(({ name }) =>
+    name.startsWith("sb-") && name.includes("-auth-token")
+  );
+  const needsAuthenticationLookup =
+    protectedRoute ||
+    (hasSupabaseSession && (isAuthPage(pathname) || pathname === "/"));
 
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) {
     if (staffApi) return NextResponse.json({ error: "Authentication is not configured." }, { status: 503 });
@@ -29,6 +35,13 @@ export async function proxy(request: NextRequest) {
       url.searchParams.set("next", pathname);
       return NextResponse.redirect(url);
     }
+    return NextResponse.next();
+  }
+
+  // Anonymous public traffic does not need a network round trip to Supabase.
+  // Protected routes still verify the token server-side, while signed-in visitors
+  // retain the convenience redirects away from landing and authentication pages.
+  if (!needsAuthenticationLookup) {
     return NextResponse.next();
   }
 

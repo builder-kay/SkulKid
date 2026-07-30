@@ -56,7 +56,7 @@ export default function RootLayout({
         <Script
           id="pushalert-unified"
           src="https://cdn.pushalert.co/unified_e34bec8a86a6ffbe16e5ff6e395375d5.js"
-          strategy="afterInteractive"
+          strategy="lazyOnload"
         />
       </body>
     </html>

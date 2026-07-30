@@ -24,24 +24,44 @@ const emptyActivity: StudentDashboardActivity = {
   quizzes: [],
   subjects: []
 };
+let activityCache: StudentDashboardActivity | null = null;
+let activityCachedAt = 0;
+let activityRequest: Promise<StudentDashboardActivity> | null = null;
+const activityCacheLifetimeMs = 30_000;
 
-export function DashboardClassActivity() {
-  const [activity, setActivity] = useState<StudentDashboardActivity>(emptyActivity);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
-  async function loadActivity() {
-    setLoading(true);
-    setError("");
-    try {
-      const response = await fetch("/api/student/dashboard-activity", { cache: "no-store" });
+async function readActivity(force = false) {
+  if (!force && activityCache && Date.now() - activityCachedAt < activityCacheLifetimeMs) {
+    return activityCache;
+  }
+  if (activityRequest) return activityRequest;
+  activityRequest = fetch("/api/student/dashboard-activity")
+    .then(async (response) => {
       const payload = await response.json() as StudentDashboardActivity & { error?: string };
       if (!response.ok) throw new Error(payload.error || "We could not load your class updates.");
-      setActivity({
+      activityCache = {
         classes: payload.classes ?? [],
         quizzes: payload.quizzes ?? [],
         subjects: payload.subjects ?? []
-      });
+      };
+      activityCachedAt = Date.now();
+      return activityCache;
+    })
+    .finally(() => {
+      activityRequest = null;
+    });
+  return activityRequest;
+}
+
+export function DashboardClassActivity() {
+  const [activity, setActivity] = useState<StudentDashboardActivity>(activityCache ?? emptyActivity);
+  const [loading, setLoading] = useState(activityCache === null);
+  const [error, setError] = useState("");
+
+  async function loadActivity(force = false) {
+    if (!activityCache) setLoading(true);
+    setError("");
+    try {
+      setActivity(await readActivity(force));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "We could not load your class updates.");
     } finally {
@@ -66,7 +86,7 @@ export function DashboardClassActivity() {
           </div>
           <button
             className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-rose-600 px-4 text-sm font-black text-white transition hover:bg-rose-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
-            onClick={() => void loadActivity()}
+            onClick={() => void loadActivity(true)}
             type="button"
           >
             <RefreshCw aria-hidden="true" className="size-4" />
