@@ -145,6 +145,10 @@ export async function resolvePlaybackApproval(studentId: string, videoId: string
 
 export async function checkBreakSchedule(studentId: string, classIds?: string[], now = new Date()) {
   const admin = createAdminClient();
+  const { data: config } = await admin.from("BreakZoneConfig").select("enforceSchedules").eq("id", true).maybeSingle();
+  if (config?.enforceSchedules !== true) {
+    return { allowed: true, reason: "", unrestricted: true };
+  }
   let ids = classIds;
   if (!ids) {
     const { data } = await admin.from("ClassMembership").select("classId").eq("studentId", studentId).eq("status", "active");
