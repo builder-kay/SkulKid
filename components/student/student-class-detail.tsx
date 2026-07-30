@@ -302,11 +302,11 @@ export function StudentClassDetail({ classId }: { classId: string }) {
     );
   }
 
-  const tabs: Array<{ id: SectionId; label: string; icon: typeof ClipboardList; count?: number }> = [
-    { id: "quizzes", label: "Quizzes", icon: ClipboardList, count: openQuizzes || undefined },
-    { id: "subjects", label: "Subjects", icon: BookOpen, count: detail.courses.length || undefined },
-    { id: "advice", label: "Messages", icon: MessageSquareHeart, count: unreadAdvice || undefined },
-    { id: "board", label: "Board", icon: Trophy }
+  const tabs: Array<{ id: SectionId; label: string; hint: string; icon: typeof ClipboardList; count?: number; accent: string; activeStyle: string }> = [
+    { id: "quizzes", label: "Quizzes", hint: "Challenges", icon: ClipboardList, count: openQuizzes || undefined, accent: "bg-amber-100 text-amber-700", activeStyle: "border-amber-400 bg-amber-50 shadow-amber-100/80" },
+    { id: "subjects", label: "Subjects", hint: "Class learning", icon: BookOpen, count: detail.courses.length || undefined, accent: "bg-sky-100 text-sky-700", activeStyle: "border-sky-400 bg-sky-50 shadow-sky-100/80" },
+    { id: "advice", label: "Messages", hint: "Class discussion", icon: MessageSquareHeart, count: unreadAdvice || undefined, accent: "bg-violet-100 text-violet-700", activeStyle: "border-violet-400 bg-violet-50 shadow-violet-100/80" },
+    { id: "board", label: "Board", hint: "Class ranking", icon: Trophy, accent: "bg-emerald-100 text-emerald-700", activeStyle: "border-emerald-400 bg-emerald-50 shadow-emerald-100/80" }
   ];
 
   return (
@@ -358,7 +358,7 @@ export function StudentClassDetail({ classId }: { classId: string }) {
               ]}
             />
 
-            <div className="flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Class sections">
+            <div className="grid grid-cols-2 gap-2 rounded-[1.5rem] border border-slate-200 bg-slate-100/80 p-2 shadow-inner sm:grid-cols-4 sm:gap-3 sm:p-3" role="tablist" aria-label="Class sections">
               {tabs.map((tab) => {
                 const Icon = tab.icon;
                 const active = section === tab.id;
@@ -366,18 +366,28 @@ export function StudentClassDetail({ classId }: { classId: string }) {
                   <button
                     aria-selected={active}
                     className={cn(
-                      "inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl px-4 text-sm font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500",
-                      active ? "bg-sky-600 text-white shadow-md" : "border border-slate-200 bg-white text-slate-700 hover:border-sky-300 hover:text-sky-800"
+                      "group relative flex min-h-[4.5rem] min-w-0 items-center gap-3 rounded-2xl border px-3 text-left transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 sm:min-h-[5.25rem] sm:px-4",
+                      active
+                        ? cn("scale-[1.01] text-slate-950 shadow-lg", tab.activeStyle)
+                        : "border-white bg-white text-slate-700 shadow-sm hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md"
                     )}
                     key={tab.id}
                     onClick={() => setSection(tab.id)}
                     role="tab"
                     type="button"
                   >
-                    <Icon className="size-4" />
-                    {tab.label}
+                    <span className={cn("grid size-10 shrink-0 place-items-center rounded-xl transition group-hover:scale-105 sm:size-11", tab.accent)}>
+                      <Icon className="size-5" strokeWidth={2.5} />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-black sm:text-base">{tab.label}</span>
+                      <span className="mt-0.5 hidden truncate text-[11px] font-bold text-slate-500 sm:block">{tab.hint}</span>
+                    </span>
                     {typeof tab.count === "number" ? (
-                      <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-black", active ? "bg-white/20 text-white" : "bg-sky-100 text-sky-800")}>
+                      <span className={cn(
+                        "absolute right-2 top-2 grid min-w-5 place-items-center rounded-full px-1.5 py-0.5 text-[10px] font-black ring-2 ring-white sm:right-3 sm:top-3",
+                        tab.id === "advice" ? "bg-rose-500 text-white" : "bg-slate-800 text-white"
+                      )}>
                         {tab.count}
                       </span>
                     ) : null}
