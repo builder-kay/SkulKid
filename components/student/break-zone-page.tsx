@@ -6,7 +6,7 @@ import { AlertTriangle, CheckCircle2, Clock3, Film, Flag, LoaderCircle, Play, Se
 import { applyServerGameState } from "@/lib/gamification/student-game";
 
 type Video = { id:string; title:string; channelTitle:string; thumbnailUrl:string|null; durationSeconds:number; summary?:string; moderationStatus:string; playable:boolean; reason?:string; state?:string };
-type Feed = { videos:Video[]; recentIds:string[]; notifications:Array<{id:string;title:string;body:string}>; schedule:{allowed:boolean;reason:string} };
+type Feed = { featureEnabled:boolean; videos:Video[]; recentIds:string[]; notifications:Array<{id:string;title:string;body:string}>; schedule:{allowed:boolean;reason:string} };
 
 export function BreakZonePage() {
   const [feed,setFeed]=useState<Feed|null>(null), [videos,setVideos]=useState<Video[]>([]);
@@ -24,6 +24,7 @@ export function BreakZonePage() {
   }
   async function clearHistory(){if(!confirm("Clear your Break Zone history and interests?"))return;await fetch("/api/student/break-zone/feed",{method:"DELETE"});await load();}
   const shown=videos.filter(v=>filter==="all"||filter==="playable"&&v.playable||filter==="checking"&&["pending","error"].includes(v.moderationStatus)||filter==="review"&&v.moderationStatus==="rejected");
+  if(feed&&!feed.featureEnabled)return <main className="mx-auto grid min-h-[65vh] max-w-3xl place-items-center"><section className="w-full rounded-[2rem] border border-slate-200 bg-white p-8 text-center shadow-sm sm:p-12"><ShieldCheck className="mx-auto size-12 text-violet-600"/><h1 className="mt-4 text-3xl font-black text-slate-950">Break Zone is taking a break</h1><p className="mx-auto mt-3 max-w-xl font-semibold text-slate-600">This feature is temporarily unavailable while we prepare a safer and better video experience.</p></section></main>;
   return <main className="mx-auto max-w-7xl space-y-6">
     <section className="overflow-hidden rounded-[2rem] bg-gradient-to-br from-indigo-950 via-violet-900 to-fuchsia-700 p-6 text-white shadow-xl sm:p-9">
       <div className="grid gap-6 md:grid-cols-[1fr_auto] md:items-center"><div><span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-black uppercase tracking-wider"><ShieldCheck className="size-4"/> Child-safe videos</span><h1 className="mt-4 text-3xl font-black sm:text-5xl">Welcome to Break Zone</h1><p className="mt-3 max-w-2xl text-sm font-semibold text-violet-100 sm:text-base">Search for something fun, curious or creative. Every video is checked before it can play.</p></div><Film className="hidden size-28 text-white/20 md:block"/></div>

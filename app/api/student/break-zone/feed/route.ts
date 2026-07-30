@@ -6,7 +6,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 export async function GET() {
   try {
     const student = await requireStudent(); const admin = createAdminClient();
-    const [{ data: videos }, { data: sessions }, { data: notifications }] = await Promise.all([
+    const [{ data: config }, { data: videos }, { data: sessions }, { data: notifications }] = await Promise.all([
+      admin.from("BreakZoneConfig").select("enabled").eq("id", true).maybeSingle(),
       admin.from("BreakZoneVideo").select("*").eq("metadataStatus", "approved").in("moderationStatus", ["approved","rejected","pending"]).order("updatedAt", { ascending: false }).limit(48),
       admin.from("BreakZoneViewSession").select("videoId,startedAt,watchedSeconds,completed").eq("studentId", student.id).order("startedAt", { ascending: false }).limit(30),
       admin.from("BreakZoneNotification").select("*").eq("studentId", student.id).order("createdAt", { ascending: false }).limit(20)
@@ -20,7 +21,7 @@ export async function GET() {
       const approval = await resolvePlaybackApproval(student.id, String(video.id));
       return { id: video.id, title: video.title, channelTitle: video.channelTitle, thumbnailUrl: video.thumbnailUrl, durationSeconds: video.durationSeconds, summary: video.summary, moderationStatus: video.moderationStatus, playable: approval.allowed, reason: approval.reason };
     }));
-    return NextResponse.json({ videos: cards, recentIds, sessions: sessions ?? [], notifications: notifications ?? [], schedule: await checkBreakSchedule(student.id) });
+    return NextResponse.json({ featureEnabled: config?.enabled !== false, videos: cards, recentIds, sessions: sessions ?? [], notifications: notifications ?? [], schedule: await checkBreakSchedule(student.id) });
   } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "Could not load Break Zone." }, { status: 400 }); }
 }
 
