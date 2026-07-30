@@ -38,6 +38,30 @@ BEGIN
   UPDATE public."Subject"
   SET "currentPublicRevisionId" = NULL
   WHERE id = subject_id AND "createdBy" = teacher_id;
+
+  DELETE FROM public."PublicLearningRevision"
+  WHERE "courseId" = subject_id;
+
+  DELETE FROM public."TeacherQuiz"
+  WHERE "createdBy" = teacher_id
+    AND (
+      "courseId" = subject_id
+      OR "lessonId" LIKE subject_id || '-lesson-%'
+    );
+
+  DELETE FROM public."AdminLessonRecord"
+  WHERE "createdBy" = teacher_id
+    AND (
+      "courseId" = subject_id
+      OR id LIKE subject_id || '-lesson-%'
+    );
+
+  DELETE FROM public."Topic"
+  WHERE "unitId" LIKE subject_id || '-strand-%';
+
+  DELETE FROM public."Unit"
+  WHERE "subjectId" = subject_id;
+
   DELETE FROM public."Subject"
   WHERE id = subject_id AND "createdBy" = teacher_id;
 
@@ -154,7 +178,7 @@ BEGIN
         'id',version_id,'lessonId',lesson_id,'versionNumber',1,'status','published',
         'title',item.lesson_title,'description',item.lesson_description,
         'objectiveSummary','Observe visual evidence, explain one key idea and create or discuss a response.',
-        'difficulty','mixed','estimatedMinutes',18,'baseXpReward',80,'passingScore',70,
+        'difficulty','developing','estimatedMinutes',18,'baseXpReward',80,'passingScore',70,
         'masteryScore',90,'maximumLessonRedos',3,'publishedAt',timestamp_text,
         'learningObjectives',jsonb_build_array(jsonb_build_object(
           'id',lesson_id || '-objective','lessonVersionId',version_id,'code','VIS.' || item.strand_no || '.' || item.lesson_no,

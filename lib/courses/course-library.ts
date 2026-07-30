@@ -55,7 +55,7 @@ export async function setCourseStatus(id: string, status: CourseStatus) {
   notify();
 }
 
-export async function saveUnit(courseId: string, input: { id?: string; title: string; description: string }) {
+export async function saveUnit(courseId: string, input: { id?: string; title: string; description: string; requiresPrevious?: boolean }) {
   const { id } = await mutateCatalog<{ id: string }>({ action: "save_unit", courseId, ...input });
   notify();
   return id;

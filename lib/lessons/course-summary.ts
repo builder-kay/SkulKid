@@ -1,4 +1,5 @@
 import { canUnlockLesson } from "@/lib/lessons/can-unlock-lesson";
+import { canUnlockStrand } from "@/lib/lessons/can-unlock-strand";
 import type { Lesson } from "@/types/lesson";
 import type { Subject } from "@/types/subject";
 import type { StudentLessonProgress } from "@/types/progress";
@@ -32,7 +33,8 @@ export function getCourseSummary(
     return progress?.status === "completed" || progress?.status === "mastered";
   }).length;
   const unlockedLessons = subjectLessons.filter((lesson) =>
-    canUnlockLesson(lesson, progressRecords, subjectLessons)
+    canUnlockStrand(lesson, subject, subjectLessons, progressRecords)
+    && canUnlockLesson(lesson, progressRecords, subjectLessons)
   ).length;
   const totalLessons = subjectLessons.length;
 

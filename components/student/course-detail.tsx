@@ -21,6 +21,7 @@ import { StudentPageNav } from "@/components/student/student-page-nav";
 import { useStudentClassCourse } from "@/lib/classes/student-class-course";
 import { usePublishedCourses } from "@/lib/courses/published-courses";
 import { getCourseSummary } from "@/lib/lessons/course-summary";
+import { canUnlockStrand } from "@/lib/lessons/can-unlock-strand";
 import { resolveLessonStatus } from "@/lib/lessons/resolve-lesson-status";
 import { usePublishedLessons } from "@/lib/lessons/published-lessons";
 import { useStudentGame } from "@/lib/gamification/student-game";
@@ -121,12 +122,15 @@ export function CourseDetail({ subjectSlug, classId }: CourseDetailProps) {
 
   const progressRecords = lessonProgressFromGameState("current-student", state.completedLessonIds, state.quizRecords);
   const course = getCourseSummary(subject, lessons, progressRecords);
+  const lessonStatus = (lesson: (typeof course.lessons)[number]) => canUnlockStrand(lesson, subject, course.lessons, progressRecords)
+    ? resolveLessonStatus(lesson, progressRecords, course.lessons)
+    : "locked" as const;
   const theme = subjectThemes[subject.name] ?? subjectThemes.Mathematics;
   const activeItem: StudentNavItem = classId ? "classes" : subject.slug === "mathematics" ? "mathematics" : "courses";
   const unit = subject.units[0];
   const topic = unit?.topics[0];
   const nextLesson = course.lessons.find((lesson) => {
-    const status = resolveLessonStatus(lesson, progressRecords, course.lessons);
+    const status = lessonStatus(lesson);
     return status === "available" || status === "in_progress" || status === "revision_required";
   });
   const earnedStars = course.lessons.reduce((total, lesson) => {
@@ -276,7 +280,7 @@ export function CourseDetail({ subjectSlug, classId }: CourseDetailProps) {
 
           <ol className="relative mt-8 space-y-0">
             {course.lessons.map((lesson, index) => {
-              const status = resolveLessonStatus(lesson, progressRecords, course.lessons);
+              const status = lessonStatus(lesson);
               const progress = progressRecords.find((record) => record.lessonId === lesson.id);
               const locked = status === "locked";
               const cleared = status === "completed" || status === "mastered";

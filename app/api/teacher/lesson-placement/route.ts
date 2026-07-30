@@ -25,7 +25,7 @@ export async function GET() {
     const ownedClassIds = new Set((classes ?? []).map((item) => item.id as string));
     const [{ data: subjects, error: subjectError }, { data: units, error: unitError }] = await Promise.all([
       admin.from("Subject").select("id,name,slug,description,gradeLevels,status,visibility,ownerClassId,createdBy").order("name"),
-      admin.from("Unit").select("id,subjectId,name,description,order").order("order")
+      admin.from("Unit").select("id,subjectId,name,description,order,requiresPrevious").order("order")
     ]);
     if (subjectError) throw new Error(subjectError.message);
     if (unitError) throw new Error(unitError.message);
@@ -46,7 +46,8 @@ export async function GET() {
           id: unit.id as string,
           title: unit.name as string,
           description: (unit.description as string) ?? "",
-          order: Number(unit.order)
+          order: Number(unit.order),
+          requiresPrevious: Boolean(unit.requiresPrevious)
         }))
       }))
     });

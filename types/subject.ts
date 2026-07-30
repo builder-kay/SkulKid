@@ -21,6 +21,7 @@ export type Unit = {
   slug: string;
   description: string;
   order: number;
+  requiresPrevious?: boolean;
   topics: Topic[];
 };
 

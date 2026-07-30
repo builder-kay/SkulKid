@@ -157,6 +157,15 @@ export function ManualLessonBuilder({ initialAiConfigured = false, initialAiMode
   const subjectBadge = `${subjectCourse?.name ?? subjectLabel(form.subject)} Explorer`;
   const moduleOptions = subjectCourse?.units ?? [];
   const subStrandOptions = moduleOptions.find((unit) => unit.id === form.unitId)?.topics ?? [];
+  const lessonsInSelectedStrand = libraryLessons.filter((lesson) =>
+    lesson.courseId === form.courseId && lesson.unitId === form.unitId
+  );
+  const currentLessonIndex = lessonsInSelectedStrand.findIndex((lesson) => lesson.id === savedLessonId);
+  const previousLesson = currentLessonIndex > 0
+    ? lessonsInSelectedStrand[currentLessonIndex - 1]
+    : currentLessonIndex === -1
+      ? lessonsInSelectedStrand.at(-1)
+      : undefined;
   const availableSubjectCourses = courses.filter((course) =>
     course.visibility !== "class" || !form.classId || course.ownerClassId === form.classId
   );
@@ -687,6 +696,11 @@ export function ManualLessonBuilder({ initialAiConfigured = false, initialAiMode
         </Section>
 
         <Section number="2" title="Lesson foundations" description="State what pupils will learn and connect it to the Ghana curriculum."><div className="grid gap-5"><div className="grid gap-4 sm:grid-cols-[1fr_9rem]"><Field label="Lesson title"><Input value={form.title} onChange={(e) => update("title", e.target.value)} placeholder="e.g. Classification of Plants Based on Their Root Systems" required /></Field><Field label="Lesson number"><Input type="number" min={1} value={form.lessonNumber} onChange={(e) => update("lessonNumber", Number(e.target.value))} required /></Field></div><Field label="Short description"><Textarea value={form.description} onChange={(e) => update("description", e.target.value)} placeholder="What will happen in this lesson?" required /></Field>
+          <fieldset className="grid gap-3 rounded-2xl border border-blue-200 bg-blue-50/70 p-4 sm:grid-cols-2 sm:p-5">
+            <legend className="px-1 font-black text-blue-950">When can learners open this lesson?</legend>
+            <label className={`cursor-pointer rounded-xl border p-4 ${!form.prerequisiteLessonId ? "border-blue-500 bg-white ring-2 ring-blue-100" : "border-blue-100 bg-white/70"}`}><span className="flex gap-2 font-black"><input checked={!form.prerequisiteLessonId} name="lesson-access" onChange={() => update("prerequisiteLessonId", "")} type="radio" />Open immediately</span><span className="mt-1 block pl-6 text-xs leading-5 text-slate-600">Learners may choose this lesson first.</span></label>
+            <label className={`rounded-xl border p-4 ${form.prerequisiteLessonId ? "border-amber-500 bg-white ring-2 ring-amber-100" : "border-blue-100 bg-white/70"} ${!previousLesson ? "cursor-not-allowed opacity-55" : "cursor-pointer"}`}><span className="flex gap-2 font-black"><input checked={Boolean(form.prerequisiteLessonId)} disabled={!previousLesson} name="lesson-access" onChange={() => previousLesson && update("prerequisiteLessonId", previousLesson.id)} type="radio" />After the previous lesson</span><span className="mt-1 block pl-6 text-xs leading-5 text-slate-600">{previousLesson ? `Requires “${previousLesson.title}” to be completed.` : "There is no earlier lesson in this strand yet."}</span></label>
+          </fieldset>
           <div className="grid gap-4 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 sm:p-5">
             <div><p className="font-black text-emerald-950">Curriculum references <span className="font-bold text-emerald-700">(optional)</span></p><p className="mt-1 text-xs leading-5 text-emerald-800">Add these when the official curriculum provides them. Leaving either field blank will not block saving or publishing.</p></div>
             <Field label="Content standard (optional)"><Textarea value={form.contentStandard} onChange={(e) => update("contentStandard", e.target.value)} placeholder="B6.1.1.1: Show understanding of the physical features and life processes…" /></Field>

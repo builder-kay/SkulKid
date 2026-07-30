@@ -23,7 +23,8 @@ const unitSchema = z.object({
   courseId: z.string().min(1),
   id: z.string().min(1).optional(),
   title: z.string().trim().min(2).max(120),
-  description: z.string().trim().max(500)
+  description: z.string().trim().max(500),
+  requiresPrevious: z.boolean().default(false)
 });
 const topicSchema = z.object({
   action: z.literal("save_topic"),
@@ -75,7 +76,7 @@ export async function GET() {
     const admin = createAdminClient();
     const [coursesResult, unitsResult, topicsResult, lessonsResult, classesResult] = await Promise.all([
       admin.from("Subject").select("id,name,slug,description,icon,colourToken,coverUrl,gradeLevels,order,status,visibility,ownerClassId,createdBy,currentPublicRevisionId").order("order"),
-      admin.from("Unit").select("id,subjectId,name,slug,description,order").order("order"),
+      admin.from("Unit").select("id,subjectId,name,slug,description,order,requiresPrevious").order("order"),
       admin.from("Topic").select("id,unitId,name,slug,description,order").order("order"),
       admin.from("AdminLessonRecord").select("id,courseId,unitId,topicId,status").eq("status", "published").order("position"),
       resolveAppRole(teacher.app_metadata?.role) === "admin"
@@ -127,6 +128,7 @@ export async function GET() {
         slug: String(unit.slug),
         description: String(unit.description),
         order: Number(unit.order),
+        requiresPrevious: Boolean(unit.requiresPrevious),
         topics: topicsByUnit.get(String(unit.id)) ?? []
       };
       unitsByCourse.set(subjectId, [...(unitsByCourse.get(subjectId) ?? []), mapped]);
@@ -253,6 +255,7 @@ export async function POST(request: Request) {
         name: input.title,
         slug: safeSlug(input.title),
         description: input.description,
+        requiresPrevious: input.requiresPrevious,
         order: count ?? 0,
         updatedAt: new Date().toISOString()
       }, { onConflict: "id" });

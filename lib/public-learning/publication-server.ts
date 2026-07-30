@@ -50,7 +50,7 @@ export async function buildPublicLearningSnapshot(
       .eq("id", courseId)
       .maybeSingle(),
     admin.from("Unit")
-      .select("id,subjectId,name,slug,description,order")
+      .select("id,subjectId,name,slug,description,order,requiresPrevious")
       .eq("subjectId", courseId)
       .order("order"),
     admin.from("Topic")
@@ -105,6 +105,7 @@ export async function buildPublicLearningSnapshot(
     slug: String(unit.slug),
     description: String(unit.description ?? ""),
     order: Number(unit.order),
+    requiresPrevious: Boolean(unit.requiresPrevious),
     topics: topicsByUnit.get(String(unit.id)) ?? []
   }));
   const course = courseResult.data;
