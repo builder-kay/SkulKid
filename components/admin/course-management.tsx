@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { ArrowDown, ArrowUp, BookOpen, CheckCircle2, ChevronDown, ChevronRight, Eye, EyeOff, ImageIcon, Layers3, Loader2, Palette, Pencil, Plus, Save, Send, Tags, X } from "lucide-react";
+import { ArrowDown, ArrowUp, BookOpen, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Eye, EyeOff, ImageIcon, Layers3, Loader2, Palette, Pencil, Plus, Save, Send, Tags, X } from "lucide-react";
 import { SkulKidCard } from "@/components/shared/skulkid-card";
 import { readAdminLessons, type AdminLessonRecord } from "@/lib/admin/lesson-library";
 import {
@@ -228,11 +228,24 @@ function CourseWorkspace({ course, lessons, saving, access, settings, onEdit, on
   const [unitTitle, setUnitTitle] = useState("");
   const [unitDescription, setUnitDescription] = useState("");
   const [unitRequiresPrevious, setUnitRequiresPrevious] = useState(false);
+  const [activeStrandId, setActiveStrandId] = useState<string | null>(course.units[0]?.id ?? null);
   const courseLessons = lessons.filter((lesson) => (lesson.courseId ?? `subject-${lesson.subject}`) === course.id);
   const publishedCount = courseLessons.filter((lesson) => lesson.status === "published").length;
   const isPublic = access?.visibility !== "class";
   const publication = access?.publication;
   const latestStatus = publication?.latest?.status;
+  const activeStrandIndex = Math.max(0, course.units.findIndex((unit) => unit.id === activeStrandId));
+  const activeStrand = course.units[activeStrandIndex] ?? null;
+
+  useEffect(() => {
+    if (!course.units.some((unit) => unit.id === activeStrandId)) setActiveStrandId(course.units[0]?.id ?? null);
+  }, [activeStrandId, course.id, course.units]);
+
+  function moveCarousel(direction: -1 | 1) {
+    if (!course.units.length) return;
+    const nextIndex = (activeStrandIndex + direction + course.units.length) % course.units.length;
+    setActiveStrandId(course.units[nextIndex].id);
+  }
 
   async function addUnit() {
     if (!unitTitle.trim()) return;
@@ -267,7 +280,17 @@ function CourseWorkspace({ course, lessons, saving, access, settings, onEdit, on
     <div>
       <div className="flex items-center justify-between gap-3"><div><h4 className="text-lg font-black">Strands</h4><p className="text-sm text-muted">Subject → Strand → Sub-strand → Topic → Lesson.</p></div><button className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-violet-100 px-3 text-sm font-black text-violet-900" onClick={() => setUnitOpen((open) => !open)} type="button"><Plus className="size-4" />Add strand</button></div>
       {unitOpen ? <InlineForm title="New strand" value={unitTitle} description={unitDescription} requiresPrevious={unitRequiresPrevious} onRequiresPrevious={setUnitRequiresPrevious} onValue={setUnitTitle} onDescription={setUnitDescription} onCancel={() => setUnitOpen(false)} onSave={() => void addUnit()} /> : null}
-      <div className="mt-4 grid gap-3">{course.units.map((unit, index) => <UnitPanel canMoveDown={index < course.units.length - 1} canMoveUp={index > 0} course={course} unit={unit} lessons={lessons} key={unit.id} onMove={(direction) => void reorderStrand(unit.id, direction)} onRefresh={onRefresh} setMessage={setMessage} />)}{!course.units.length ? <div className="rounded-2xl border border-dashed border-slate-300 p-7 text-center"><Layers3 className="mx-auto size-8 text-violet-500" /><p className="mt-2 font-black">No strands yet</p><p className="text-sm text-muted">Add a strand, then create its sub-strands and lessons.</p></div> : null}</div>
+      {activeStrand ? <div className="mt-4 overflow-hidden rounded-[1.5rem] border border-violet-200 bg-violet-50/40 p-3 sm:p-4">
+        <div className="mb-4 flex flex-col gap-3 rounded-2xl border border-violet-100 bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0" aria-live="polite"><p className="text-[10px] font-black uppercase tracking-[.16em] text-violet-700">Strand {activeStrandIndex + 1} of {course.units.length}</p><h5 className="mt-1 truncate text-lg font-black text-slate-950">{activeStrand.title}</h5></div>
+          <div className="flex items-center gap-2">
+            <button aria-label="Show previous strand" className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-black text-slate-700 hover:border-violet-300 hover:bg-violet-50 sm:flex-none" onClick={() => moveCarousel(-1)} type="button"><ChevronLeft className="size-4" />Previous</button>
+            <div className="hidden max-w-48 gap-1 overflow-hidden lg:flex" aria-label="Choose strand">{course.units.map((unit, index) => <button aria-label={`Show strand ${index + 1}: ${unit.title}`} className={`h-2.5 rounded-full transition-all ${unit.id === activeStrand.id ? "w-7 bg-violet-600" : "w-2.5 bg-slate-300 hover:bg-violet-300"}`} key={unit.id} onClick={() => setActiveStrandId(unit.id)} title={unit.title} type="button" />)}</div>
+            <button aria-label="Show next strand" className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-violet-700 px-3 text-sm font-black text-white hover:bg-violet-800 sm:flex-none" onClick={() => moveCarousel(1)} type="button">Next<ChevronRight className="size-4" /></button>
+          </div>
+        </div>
+        <UnitPanel canMoveDown={activeStrandIndex < course.units.length - 1} canMoveUp={activeStrandIndex > 0} course={course} unit={activeStrand} lessons={lessons} key={activeStrand.id} onMove={(direction) => void reorderStrand(activeStrand.id, direction)} onRefresh={onRefresh} setMessage={setMessage} />
+      </div> : <div className="mt-4 rounded-2xl border border-dashed border-slate-300 p-7 text-center"><Layers3 className="mx-auto size-8 text-violet-500" /><p className="mt-2 font-black">No strands yet</p><p className="text-sm text-muted">Add a strand, then create its sub-strands and lessons.</p></div>}
     </div>
   </div>;
 }
