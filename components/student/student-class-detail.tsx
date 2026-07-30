@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
   BookMarked,
@@ -25,6 +25,7 @@ import { StudentPageNav } from "@/components/student/student-page-nav";
 import { StudentShell } from "@/components/student/student-shell";
 import type { AdviceSuggestionType, ClassLeaderboardEntry, ClassQuizAttemptSummary, CourseVisibility, PointDeductionView } from "@/lib/classes/types";
 import { cn } from "@/lib/utils";
+import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 
 type Detail = {
   classroom: { id: string; name: string; description: string; gradeLevel: number; teacherName: string };
@@ -192,6 +193,8 @@ export function StudentClassDetail({ classId }: { classId: string }) {
   const [submittingReport, setSubmittingReport] = useState(false);
   const [teacherMessage, setTeacherMessage] = useState("");
   const [sendingMessage, setSendingMessage] = useState(false);
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
+  const sectionRef = useRef<SectionId>("quizzes");
 
   async function load(options: { silent?: boolean } = {}) {
     if (!options.silent) setLoading(true);
@@ -214,20 +217,40 @@ export function StudentClassDetail({ classId }: { classId: string }) {
   }
 
   useEffect(() => { void load(); }, [classId]);
+  useEffect(() => { sectionRef.current = section; if (section === "advice") setUnreadChatCount(0); }, [section]);
   useEffect(() => {
-    if (section !== "advice") return;
-
     const refresh = () => {
       if (document.visibilityState === "visible") void load({ silent: true });
     };
-    const interval = window.setInterval(refresh, 5000);
+    const interval = window.setInterval(refresh, 30000);
     document.addEventListener("visibilitychange", refresh);
 
     return () => {
       window.clearInterval(interval);
       document.removeEventListener("visibilitychange", refresh);
     };
-  }, [classId, section]);
+  }, [classId]);
+  useEffect(() => {
+    const supabase = createBrowserSupabaseClient();
+    let cancelled = false;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    void supabase.auth.getUser().then(({ data: { user } }) => {
+      if (cancelled) return;
+      channel = supabase
+        .channel(`student-class-chat:${classId}`)
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "ClassMessage", filter: `classId=eq.${classId}` }, (payload) => {
+          const message = payload.new as { senderId?: string; scope?: string };
+          if (message.scope !== "class_room") return;
+          if (sectionRef.current !== "advice" && message.senderId !== user?.id) setUnreadChatCount((count) => count + 1);
+          void load({ silent: true });
+        })
+        .subscribe();
+    });
+    return () => {
+      cancelled = true;
+      if (channel) void supabase.removeChannel(channel);
+    };
+  }, [classId]);
 
   async function markRead(adviceId: string) {
     await fetch(`/api/student/advice/${adviceId}/read`, { method: "POST" });
@@ -328,7 +351,7 @@ export function StudentClassDetail({ classId }: { classId: string }) {
   const tabs: Array<{ id: SectionId; label: string; hint: string; icon: typeof ClipboardList; count?: number; accent: string; activeStyle: string }> = [
     { id: "quizzes", label: "Quizzes", hint: "Challenges", icon: ClipboardList, count: openQuizzes || undefined, accent: "bg-amber-100 text-amber-700", activeStyle: "border-amber-400 bg-amber-50 shadow-amber-100/80" },
     { id: "subjects", label: "Subjects", hint: "Class learning", icon: BookOpen, count: detail.courses.length || undefined, accent: "bg-sky-100 text-sky-700", activeStyle: "border-sky-400 bg-sky-50 shadow-sky-100/80" },
-    { id: "advice", label: "Messages", hint: "Class discussion", icon: MessageSquareHeart, count: unreadAdvice || undefined, accent: "bg-violet-100 text-violet-700", activeStyle: "border-violet-400 bg-violet-50 shadow-violet-100/80" },
+    { id: "advice", label: "Messages", hint: "Class discussion", icon: MessageSquareHeart, count: unreadAdvice + unreadChatCount || undefined, accent: "bg-violet-100 text-violet-700", activeStyle: "border-violet-400 bg-violet-50 shadow-violet-100/80" },
     { id: "board", label: "Board", hint: "Class ranking", icon: Trophy, accent: "bg-emerald-100 text-emerald-700", activeStyle: "border-emerald-400 bg-emerald-50 shadow-emerald-100/80" }
   ];
 

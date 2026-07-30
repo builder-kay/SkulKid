@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { Award, BookMarked, BookOpen, LayoutDashboard, LogOut, Menu, Trophy, UserRound, Users, X } from "lucide-react";
+import { Award, BookMarked, BookOpen, LayoutDashboard, LogOut, Menu, MessageCircle, Trophy, UserRound, Users, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { GamificationArena } from "@/components/gamification/gamification-arena";
 import { CharacterAvatar } from "@/components/student/character-avatar";
@@ -15,6 +15,7 @@ import { getStudentLevel } from "@/lib/gamification/calculate-level";
 import { cn } from "@/lib/utils";
 import { useStudentGame } from "@/lib/gamification/student-game";
 import { useStudentProfile } from "@/lib/student/student-profile";
+import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 
 export type StudentNavItem = "dashboard" | "courses" | "classes" | "pasco" | "break-zone" | "mathematics" | "preview" | "leaderboard" | "achievements" | "profile";
 
@@ -46,11 +47,35 @@ export function StudentShell({ activeItem, children, mobileAside }: StudentShell
   const [rewardsNavOpen, setRewardsNavOpen] = useState(false);
   const [signOutOpen, setSignOutOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [unreadClassMessages, setUnreadClassMessages] = useState(0);
+  const [chatAlert, setChatAlert] = useState<{ classId: string; body: string } | null>(null);
   const morePanelRef = useRef<HTMLDivElement>(null);
   const moreButtonRef = useRef<HTMLButtonElement>(null);
   const { state } = useStudentGame();
   const { profile } = useStudentProfile();
   const studentLevel = getStudentLevel(state.xp);
+
+  useEffect(() => {
+    const supabase = createBrowserSupabaseClient();
+    let cancelled = false;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    void supabase.auth.getUser().then(({ data: { user } }) => {
+      if (cancelled || !user) return;
+      channel = supabase
+        .channel(`student-global-class-chat:${user.id}`)
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "ClassMessage" }, (payload) => {
+          const message = payload.new as { classId?: string; body?: string; senderId?: string; scope?: string };
+          if (message.scope !== "class_room" || message.senderId === user.id || !message.classId) return;
+          setUnreadClassMessages((count) => count + 1);
+          setChatAlert({ classId: message.classId, body: message.body || "A new message was posted in your class discussion." });
+        })
+        .subscribe();
+    });
+    return () => {
+      cancelled = true;
+      if (channel) void supabase.removeChannel(channel);
+    };
+  }, []);
 
   useEffect(() => {
     if (!rewardsNavOpen) return;
@@ -191,7 +216,7 @@ export function StudentShell({ activeItem, children, mobileAside }: StudentShell
               Learn
             </p>
             {navItems.map((item) => (
-              <StudentNavLink active={activeItem === item.id} item={item} key={item.id} />
+              <StudentNavLink active={activeItem === item.id} item={item} key={item.id} unread={item.id === "classes" ? unreadClassMessages : 0} />
             ))}
           </nav>
 
@@ -218,6 +243,8 @@ export function StudentShell({ activeItem, children, mobileAside }: StudentShell
       <div className="min-w-0 px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-5 sm:px-6 sm:pb-[calc(7.5rem+env(safe-area-inset-bottom))] sm:pt-8 lg:p-8">
         {children}
       </div>
+
+      {chatAlert ? <aside aria-live="polite" className="fixed inset-x-3 top-20 z-[60] mx-auto max-w-md rounded-2xl border border-blue-200 bg-white p-3 shadow-2xl sm:right-5 sm:left-auto sm:top-5 sm:w-[25rem]"><div className="flex items-start gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-blue-100 text-blue-700"><MessageCircle className="size-5" /></span><div className="min-w-0 flex-1"><p className="font-black text-slate-950">Class discussion is active</p><p className="mt-1 line-clamp-2 text-sm text-slate-600">{chatAlert.body}</p><Link className="mt-2 inline-flex min-h-9 items-center rounded-lg bg-blue-700 px-3 text-xs font-black text-white" href={`/classes/${chatAlert.classId}`} onClick={() => { setChatAlert(null); setUnreadClassMessages(0); }}>Open class chat</Link></div><button aria-label="Dismiss class message notification" className="grid size-9 shrink-0 place-items-center rounded-lg text-slate-500 hover:bg-slate-100" onClick={() => setChatAlert(null)} type="button"><X className="size-4" /></button></div></aside> : null}
 
       <div aria-hidden={!moreOpen} className={cn("fixed inset-0 z-40 bg-slate-950/45 backdrop-blur-[2px] transition lg:hidden", moreOpen ? "opacity-100" : "pointer-events-none opacity-0")} onClick={() => setMoreOpen(false)} />
       <div aria-hidden={!moreOpen} aria-labelledby="student-more-title" aria-modal="true" className={cn("fixed inset-x-3 bottom-[calc(5.7rem+env(safe-area-inset-bottom))] z-50 max-h-[75dvh] overflow-y-auto rounded-[1.75rem] bg-white p-4 shadow-2xl transition duration-200 lg:hidden", moreOpen ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-5 opacity-0")} ref={morePanelRef} role="dialog">
@@ -253,7 +280,7 @@ export function StudentShell({ activeItem, children, mobileAside }: StudentShell
       >
         <div className="grid grid-cols-5 gap-1">
           {navItems.filter((item) => ["dashboard", "courses", "classes", "leaderboard"].includes(item.id)).map((item) => (
-            <MobileNavLink active={activeItem === item.id} item={item} key={item.id} />
+            <MobileNavLink active={activeItem === item.id} item={item} key={item.id} unread={item.id === "classes" ? unreadClassMessages : 0} />
           ))}
           <button aria-expanded={moreOpen} aria-haspopup="dialog" className={cn("flex min-h-14 flex-col items-center justify-center gap-1 rounded-2xl px-1 text-[11px] font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary", ["pasco", "profile", "achievements"].includes(activeItem) ? "bg-primary text-white shadow-sm" : "text-text-secondary hover:bg-slate-100")} onClick={() => setMoreOpen(true)} ref={moreButtonRef} type="button"><Menu className="size-5" /><span>More</span></button>
         </div>
@@ -269,9 +296,10 @@ type StudentNavLinkProps = {
     label: string;
     icon: LucideIcon;
   };
+  unread?: number;
 };
 
-function StudentNavLink({ active, item }: StudentNavLinkProps) {
+function StudentNavLink({ active, item, unread = 0 }: StudentNavLinkProps) {
   const Icon = item.icon;
 
   return (
@@ -285,7 +313,7 @@ function StudentNavLink({ active, item }: StudentNavLinkProps) {
       )}
       href={item.href}
     >
-      <Icon aria-hidden="true" className="size-5" />
+      <span className="relative"><Icon aria-hidden="true" className="size-5" />{unread ? <span className="absolute -right-3 -top-3 grid min-w-5 place-items-center rounded-full bg-rose-500 px-1 text-[10px] font-black text-white ring-2 ring-white">{Math.min(unread, 99)}</span> : null}</span>
       {item.label}
     </Link>
   );
@@ -298,9 +326,10 @@ type MobileNavLinkProps = {
     mobileLabel: string;
     icon: LucideIcon;
   };
+  unread?: number;
 };
 
-function MobileNavLink({ active, item }: MobileNavLinkProps) {
+function MobileNavLink({ active, item, unread = 0 }: MobileNavLinkProps) {
   const Icon = item.icon;
 
   return (
@@ -314,7 +343,7 @@ function MobileNavLink({ active, item }: MobileNavLinkProps) {
       )}
       href={item.href}
     >
-      <Icon aria-hidden="true" className="size-5" />
+      <span className="relative"><Icon aria-hidden="true" className="size-5" />{unread ? <span className="absolute -right-3 -top-3 grid min-w-5 place-items-center rounded-full bg-rose-500 px-1 text-[9px] font-black text-white ring-2 ring-white">{Math.min(unread, 99)}</span> : null}</span>
       <span className="max-w-full truncate">{item.mobileLabel}</span>
     </Link>
   );

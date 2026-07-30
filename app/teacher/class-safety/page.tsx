@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, CheckCircle2, Clock3, Loader2, LockKeyhole, Megaphone, MessageCircle, Send, ShieldCheck, Trash2, UserCheck, Users } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 
 type Data = {
   classes: Array<{ id: string; name: string }>;
@@ -37,13 +38,26 @@ export default function TeacherClassSafetyPage() {
         // Preserve the current room while a background refresh is unavailable.
       });
     };
-    const interval = window.setInterval(refresh, 5000);
+    const interval = window.setInterval(refresh, 30000);
     document.addEventListener("visibilitychange", refresh);
     return () => {
       window.clearInterval(interval);
       document.removeEventListener("visibilitychange", refresh);
     };
   }, []);
+  useEffect(() => {
+    if (!classId) return;
+    const supabase = createBrowserSupabaseClient();
+    const channel = supabase
+      .channel(`teacher-class-chat:${classId}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "ClassMessage", filter: `classId=eq.${classId}` }, () => {
+        void load().catch(() => {
+          // The 30-second fallback will retry if this refresh is interrupted.
+        });
+      })
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [classId]);
   const setting = data?.settings.find((item) => item.classId === classId);
   const messages = useMemo(() => data?.messages.filter((item) => item.classId === classId) ?? [], [classId, data]);
   const reports = useMemo(() => data?.reports.filter((item) => item.classId === classId) ?? [], [classId, data]);
