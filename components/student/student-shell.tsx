@@ -17,7 +17,7 @@ import { useStudentGame } from "@/lib/gamification/student-game";
 import { useStudentProfile } from "@/lib/student/student-profile";
 import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 
-export type StudentNavItem = "dashboard" | "courses" | "classes" | "pasco" | "break-zone" | "mathematics" | "preview" | "leaderboard" | "achievements" | "profile";
+export type StudentNavItem = "dashboard" | "courses" | "classes" | "messages" | "pasco" | "break-zone" | "mathematics" | "preview" | "leaderboard" | "achievements" | "profile";
 
 export type StudentShellProps = {
   activeItem: StudentNavItem;
@@ -36,6 +36,7 @@ const navItems: Array<{
   { id: "dashboard", href: "/dashboard", label: "Dashboard", mobileLabel: "Home", icon: LayoutDashboard },
   { id: "courses", href: "/courses", label: "Public Learning", mobileLabel: "Learning", icon: BookOpen },
   { id: "classes", href: "/classes", label: "My Classes", mobileLabel: "Classes", icon: Users },
+  { id: "messages", href: "/messages", label: "Messages", mobileLabel: "Messages", icon: MessageCircle },
   { id: "pasco", href: "/pasco", label: "PASCO", mobileLabel: "PASCO", icon: BookMarked },
   { id: "leaderboard", href: "/leaderboard", label: "Leaderboard", mobileLabel: "League", icon: Trophy },
   { id: "achievements", href: "/achievements", label: "Rewards & Achievements", mobileLabel: "Rewards", icon: Award },
@@ -82,8 +83,10 @@ export function StudentShell({ activeItem, children, mobileAside }: StudentShell
         .on("postgres_changes", { event: "INSERT", schema: "public", table: "ClassMessage" }, (payload) => {
           const message = payload.new as { classId?: string; body?: string; senderId?: string; scope?: string };
           if (message.scope !== "class_room" || message.senderId === user.id || !message.classId) return;
-          setUnreadClassMessages((count) => count + 1);
-          setChatAlert({ classId: message.classId, body: message.body || "A new message was posted in your class discussion." });
+          if (activeItem !== "messages") {
+            setUnreadClassMessages((count) => count + 1);
+            setChatAlert({ classId: message.classId, body: message.body || "A new message was posted in your class discussion." });
+          }
           if (soundEnabledRef.current) playClassChatSound(audioContextRef);
         })
         .subscribe();
@@ -92,7 +95,7 @@ export function StudentShell({ activeItem, children, mobileAside }: StudentShell
       cancelled = true;
       if (channel) void supabase.removeChannel(channel);
     };
-  }, []);
+  }, [activeItem]);
 
   useEffect(() => {
     if (!rewardsNavOpen) return;
@@ -233,7 +236,7 @@ export function StudentShell({ activeItem, children, mobileAside }: StudentShell
               Learn
             </p>
             {navItems.map((item) => (
-              <StudentNavLink active={activeItem === item.id} item={item} key={item.id} unread={item.id === "classes" ? unreadClassMessages : 0} />
+              <StudentNavLink active={activeItem === item.id} item={item} key={item.id} unread={item.id === "messages" ? unreadClassMessages : 0} />
             ))}
           </nav>
 
@@ -261,12 +264,13 @@ export function StudentShell({ activeItem, children, mobileAside }: StudentShell
         {children}
       </div>
 
-      {chatAlert ? <aside aria-live="polite" className="fixed inset-x-3 top-20 z-[60] mx-auto max-w-md rounded-2xl border border-blue-200 bg-white p-3 shadow-2xl sm:right-5 sm:left-auto sm:top-5 sm:w-[25rem]"><div className="flex items-start gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-blue-100 text-blue-700"><MessageCircle className="size-5" /></span><div className="min-w-0 flex-1"><p className="font-black text-slate-950">Class discussion is active</p><p className="mt-1 line-clamp-2 text-sm text-slate-600">{chatAlert.body}</p><Link className="mt-2 inline-flex min-h-9 items-center rounded-lg bg-blue-700 px-3 text-xs font-black text-white" href={`/classes/${chatAlert.classId}`} onClick={() => { setChatAlert(null); setUnreadClassMessages(0); }}>Open class chat</Link></div><button aria-label="Dismiss class message notification" className="grid size-9 shrink-0 place-items-center rounded-lg text-slate-500 hover:bg-slate-100" onClick={() => setChatAlert(null)} type="button"><X className="size-4" /></button></div></aside> : null}
+      {chatAlert ? <aside aria-live="polite" className="fixed inset-x-3 top-20 z-[60] mx-auto max-w-md rounded-2xl border border-blue-200 bg-white p-3 shadow-2xl sm:right-5 sm:left-auto sm:top-5 sm:w-[25rem]"><div className="flex items-start gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-blue-100 text-blue-700"><MessageCircle className="size-5" /></span><div className="min-w-0 flex-1"><p className="font-black text-slate-950">Class discussion is active</p><p className="mt-1 line-clamp-2 text-sm text-slate-600">{chatAlert.body}</p><Link className="mt-2 inline-flex min-h-9 items-center rounded-lg bg-blue-700 px-3 text-xs font-black text-white" href={`/messages?classId=${encodeURIComponent(chatAlert.classId)}`} onClick={() => { setChatAlert(null); setUnreadClassMessages(0); }}>Open class chat</Link></div><button aria-label="Dismiss class message notification" className="grid size-9 shrink-0 place-items-center rounded-lg text-slate-500 hover:bg-slate-100" onClick={() => setChatAlert(null)} type="button"><X className="size-4" /></button></div></aside> : null}
       <div aria-hidden={!moreOpen} className={cn("fixed inset-0 z-40 bg-slate-950/45 backdrop-blur-[2px] transition lg:hidden", moreOpen ? "opacity-100" : "pointer-events-none opacity-0")} onClick={() => setMoreOpen(false)} />
       <div aria-hidden={!moreOpen} aria-labelledby="student-more-title" aria-modal="true" className={cn("fixed inset-x-3 bottom-[calc(5.7rem+env(safe-area-inset-bottom))] z-50 max-h-[75dvh] overflow-y-auto rounded-[1.75rem] bg-white p-4 shadow-2xl transition duration-200 lg:hidden", moreOpen ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-5 opacity-0")} ref={morePanelRef} role="dialog">
         <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-wider text-violet-700">Student space</p><h2 className="text-xl font-black" id="student-more-title">More</h2></div><button aria-label="Close More menu" className="grid size-10 place-items-center rounded-xl bg-slate-100" onClick={() => { setMoreOpen(false); moreButtonRef.current?.focus(); }} type="button"><X className="size-5" /></button></div>
         <nav aria-label="More student pages" className="mt-4 grid gap-2">{[
           { id: "pasco" as const, href: "/pasco", label: "PASCO", text: "Review and practise past quizzes", icon: BookMarked },
+          { id: "leaderboard" as const, href: "/leaderboard", label: "Leaderboard", text: "See the SkulKid league standings", icon: Trophy },
           { id: "profile" as const, href: "/profile", label: "My Avatar", text: "Update your learner character", icon: UserRound },
           { id: "achievements" as const, href: "/achievements", label: "Rewards & Achievements", text: "See your progress collection", icon: Award }
         ].map((item) => { const Icon = item.icon; const active = activeItem === item.id; return <Link aria-current={active ? "page" : undefined} className={cn("flex min-h-16 items-center gap-3 rounded-2xl border p-3", active ? "border-violet-400 bg-violet-50 text-violet-950" : "border-slate-200 bg-slate-50 text-slate-800")} href={item.href} key={item.id} onClick={() => setMoreOpen(false)}><span className={cn("grid size-10 shrink-0 place-items-center rounded-xl", active ? "bg-violet-600 text-white" : "bg-white text-violet-700")}><Icon className="size-5" /></span><span><b className="block">{item.label}</b><span className="text-xs text-slate-500">{item.text}</span></span></Link>; })}</nav>
@@ -295,8 +299,8 @@ export function StudentShell({ activeItem, children, mobileAside }: StudentShell
         className="fixed inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-40 rounded-[1.6rem] border border-white/90 bg-white/95 p-2 shadow-[0_18px_50px_rgba(15,23,42,0.18)] backdrop-blur lg:hidden"
       >
         <div className="grid grid-cols-5 gap-1">
-          {navItems.filter((item) => ["dashboard", "courses", "classes", "leaderboard"].includes(item.id)).map((item) => (
-            <MobileNavLink active={activeItem === item.id} item={item} key={item.id} unread={item.id === "classes" ? unreadClassMessages : 0} />
+          {navItems.filter((item) => ["dashboard", "courses", "classes", "messages"].includes(item.id)).map((item) => (
+            <MobileNavLink active={activeItem === item.id} item={item} key={item.id} unread={item.id === "messages" ? unreadClassMessages : 0} />
           ))}
           <button aria-expanded={moreOpen} aria-haspopup="dialog" className={cn("flex min-h-14 flex-col items-center justify-center gap-1 rounded-2xl px-1 text-[11px] font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary", ["pasco", "profile", "achievements"].includes(activeItem) ? "bg-primary text-white shadow-sm" : "text-text-secondary hover:bg-slate-100")} onClick={() => setMoreOpen(true)} ref={moreButtonRef} type="button"><Menu className="size-5" /><span>More</span></button>
         </div>

@@ -2,8 +2,8 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { isStaffRole, resolveAppRole, roleHome } from "@/lib/auth/roles";
 
-const protectedPrefixes = ["/dashboard", "/courses", "/classes", "/profile", "/leaderboard", "/achievements", "/preview/lessons"];
-const studentOnlyPrefixes = ["/dashboard", "/courses", "/classes", "/profile", "/leaderboard", "/achievements"];
+const protectedPrefixes = ["/dashboard", "/courses", "/classes", "/messages", "/profile", "/leaderboard", "/achievements", "/preview/lessons"];
+const studentOnlyPrefixes = ["/dashboard", "/courses", "/classes", "/messages", "/profile", "/leaderboard", "/achievements"];
 
 const authPages = ["/login", "/signup", "/forgot-password"];
 const isAuthPage = (pathname: string) =>

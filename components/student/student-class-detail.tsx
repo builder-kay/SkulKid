@@ -20,7 +20,6 @@ import {
   Trophy
 } from "lucide-react";
 import { ClassLeaderboardPanel, ClassLeaderboardStandings } from "@/components/student/class-leaderboard-panel";
-import { StudentClassChat } from "@/components/student/student-class-chat";
 import { StudentPageNav } from "@/components/student/student-page-nav";
 import { StudentShell } from "@/components/student/student-shell";
 import type { AdviceSuggestionType, ClassLeaderboardEntry, ClassQuizAttemptSummary, CourseVisibility, PointDeductionView } from "@/lib/classes/types";
@@ -191,8 +190,6 @@ export function StudentClassDetail({ classId }: { classId: string }) {
   const [reportingId, setReportingId] = useState<string | null>(null);
   const [reportMessage, setReportMessage] = useState("");
   const [submittingReport, setSubmittingReport] = useState(false);
-  const [teacherMessage, setTeacherMessage] = useState("");
-  const [sendingMessage, setSendingMessage] = useState(false);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
   const sectionRef = useRef<SectionId>("quizzes");
 
@@ -252,13 +249,6 @@ export function StudentClassDetail({ classId }: { classId: string }) {
     };
   }, [classId]);
 
-  async function markRead(adviceId: string) {
-    await fetch(`/api/student/advice/${adviceId}/read`, { method: "POST" });
-    setDetail((current) => current
-      ? { ...current, advice: current.advice.map((item) => item.id === adviceId ? { ...item, readAt: new Date().toISOString() } : item) }
-      : current);
-  }
-
   async function reportDeduction(event: React.FormEvent, deductionId: string) {
     event.preventDefault();
     setSubmittingReport(true);
@@ -279,50 +269,6 @@ export function StudentClassDetail({ classId }: { classId: string }) {
       setError(cause instanceof Error ? cause.message : "Unable to report this deduction.");
     } finally {
       setSubmittingReport(false);
-    }
-  }
-
-  async function sendTeacherMessage(event: React.FormEvent) {
-    event.preventDefault();
-    setSendingMessage(true);
-    setError("");
-    try {
-      const response = await fetch(`/api/student/classes/${classId}/messages`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ body: teacherMessage })
-      });
-      const payload = await response.json() as {
-        error?: string;
-        message?: { id: string; body: string; createdAt: string };
-      };
-      if (!response.ok) throw new Error(payload.error || "Unable to send your message.");
-      if (payload.message) {
-        setDetail((current) => {
-          if (!current || current.messages.some((message) => message.id === payload.message!.id)) return current;
-          return {
-            ...current,
-            messages: [
-              ...current.messages,
-              {
-                ...payload.message!,
-                fromStudent: true,
-                senderId: "",
-                senderName: "You",
-                senderRole: "student",
-                kind: "discussion",
-                editedAt: null
-              }
-            ]
-          };
-        });
-      }
-      setTeacherMessage("");
-      setSection("advice");
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Unable to send your message.");
-    } finally {
-      setSendingMessage(false);
     }
   }
 
@@ -540,21 +486,14 @@ export function StudentClassDetail({ classId }: { classId: string }) {
 
             {section === "advice" ? (
               <section className="grid gap-4">
-                <StudentClassChat
-                  advice={detail.advice}
-                  chat={detail.chat}
-                  classId={classId}
-                  className={detail.classroom.name}
-                  messages={detail.messages}
-                  notifications={detail.notifications}
-                  onChange={setTeacherMessage}
-                  onReadAdvice={(adviceId) => void markRead(adviceId)}
-                  onReported={() => void load({ silent: true })}
-                  onSubmit={sendTeacherMessage}
-                  sending={sendingMessage}
-                  teacherName={detail.classroom.teacherName}
-                  value={teacherMessage}
-                />
+                <div className="overflow-hidden rounded-[1.75rem] border border-blue-200 bg-white shadow-sm">
+                  <div className="bg-gradient-to-r from-blue-700 to-indigo-700 p-5 text-white sm:p-6">
+                    <MessageSquareHeart className="size-7 text-blue-100" />
+                    <h2 className="mt-3 text-2xl font-black">Continue in Messages</h2>
+                    <p className="mt-2 max-w-2xl text-sm leading-6 text-blue-100">Class conversations now have their own WhatsApp-style workspace, where every class appears as a separate supervised group chat.</p>
+                    <Link className="mt-5 inline-flex min-h-12 items-center gap-2 rounded-xl bg-white px-5 font-black text-blue-800 shadow-sm" href={`/messages?classId=${encodeURIComponent(classId)}`}>Open {detail.classroom.name} chat <ArrowRight className="size-4" /></Link>
+                  </div>
+                </div>
                 {detail.deductions.length ? <div className="mt-2"><p className="text-xs font-black uppercase tracking-wider text-amber-800">Points and safety reports</p><h2 className="mt-1 text-xl font-black text-slate-950">Account activity</h2></div> : null}
                 {detail.deductions.map((item) => (
                   <article className={cn("rounded-[1.5rem] border p-5 shadow-sm", item.status === "reversed" ? "border-emerald-200 bg-emerald-50" : "border-amber-200 bg-amber-50")} key={item.id}>
