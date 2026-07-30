@@ -300,7 +300,7 @@ export function StudentClassDetail({ classId }: { classId: string }) {
   const tabs: Array<{ id: SectionId; label: string; icon: typeof ClipboardList; count?: number }> = [
     { id: "quizzes", label: "Quizzes", icon: ClipboardList, count: openQuizzes || undefined },
     { id: "subjects", label: "Subjects", icon: BookOpen, count: detail.courses.length || undefined },
-    { id: "advice", label: "Messages & points", icon: MessageSquareHeart, count: unreadAdvice || undefined },
+    { id: "advice", label: "Messages", icon: MessageSquareHeart, count: unreadAdvice || undefined },
     { id: "board", label: "Board", icon: Trophy }
   ];
 
