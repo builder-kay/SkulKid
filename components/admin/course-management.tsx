@@ -155,34 +155,53 @@ export function CourseManagement({ initialCreate = false, initialSelectedCourseI
 
   return (
     <section className="mt-6 grid gap-5" aria-labelledby="course-management-heading">
-      <SkulKidCard className="overflow-hidden">
-        <div className="flex flex-col gap-4 bg-gradient-to-r from-slate-950 via-violet-950 to-violet-800 p-6 text-white sm:flex-row sm:items-end sm:justify-between sm:p-8">
+      <SkulKidCard className="overflow-hidden border-slate-200 shadow-[0_18px_55px_rgba(15,23,42,.08)]">
+        <div className="flex flex-col gap-4 bg-slate-950 p-6 text-white sm:flex-row sm:items-center sm:justify-between sm:px-7">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-violet-200">Course workspace</p>
-            <h2 className="mt-2 text-3xl font-black" id="course-management-heading">Browse every subject and lesson</h2>
-            <p className="mt-2 max-w-2xl text-violet-100">Choose an audience once, then organise strands, sub-strands, topics and lessons. Public versions stay private until submitted.</p>
+            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-violet-300">Subject workspace</p>
+            <h2 className="mt-1 text-2xl font-black" id="course-management-heading">Your teaching subjects</h2>
+            <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-300">Choose a subject, then organise every strand, sub-strand, topic and lesson in one workspace.</p>
           </div>
-          <button className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-white px-5 font-black text-slate-950 shadow-lg hover:bg-violet-50" onClick={() => setForm({ ...emptyForm, gradeLevels: [...emptyForm.gradeLevels], classIds: [] })} type="button"><Plus className="size-5" />Create subject</button>
+          <button className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-violet-500 px-4 text-sm font-black text-white shadow-lg shadow-violet-950/30 hover:bg-violet-400" onClick={() => setForm({ ...emptyForm, gradeLevels: [...emptyForm.gradeLevels], classIds: [] })} type="button"><Plus className="size-4" />Create subject</button>
         </div>
         {message ? <p className="m-4 rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm font-bold text-blue-900" role="status">{message}</p> : null}
         {error ? <p className="m-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm font-bold text-rose-800">{error}</p> : null}
         {loading ? <div className="grid min-h-40 place-items-center"><Loader2 className="size-7 animate-spin text-violet-700" /></div> : (
-          <div className="grid lg:grid-cols-[20rem_1fr]">
-            <div className="border-b border-slate-200 bg-slate-50 p-4 lg:border-b-0 lg:border-r">
-              <div className="grid gap-2">
-                {manageableCourses.map((course) => (
-                  <div className={`rounded-2xl border p-3 ${selected?.id === course.id ? "border-violet-400 bg-white shadow-sm" : "border-transparent hover:bg-white"}`} key={course.id}>
-                    <button className="flex w-full items-center gap-3 text-left" onClick={() => setSelectedId(course.id)} type="button">
-                      <span className="grid size-10 shrink-0 place-items-center rounded-xl text-white shadow-sm" style={{ backgroundColor: course.color }}><BookOpen className="size-5" /></span>
-                      <span className="min-w-0 flex-1"><b className="block truncate">{course.name}</b><span className="text-xs font-bold text-slate-500">{audienceLabel(access.subjects.find((item) => item.courseId === course.id))}</span></span>
-                      <ChevronRight className="size-4 text-muted" />
-                    </button>
-                  </div>
-                ))}
-                {!manageableCourses.length ? <p className="p-5 text-center text-sm font-bold text-muted">Create the first subject to begin.</p> : null}
+          <div>
+            <section aria-label="Subject list" className="border-b border-slate-200 bg-slate-50/80 p-4 sm:p-5 lg:p-6">
+              <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+                <div><h3 className="text-lg font-black text-slate-950">Choose a subject</h3><p className="mt-0.5 text-sm text-slate-500">{manageableCourses.length} subject{manageableCourses.length === 1 ? "" : "s"} available to manage</p></div>
+                <p className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600">Subject → Strand → Sub-strand → Topic → Lesson</p>
               </div>
-            </div>
-            <div className="min-w-0 p-4 sm:p-6">
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {manageableCourses.map((course) => (
+                  <button
+                    aria-pressed={selected?.id === course.id}
+                    className={`group relative min-h-32 overflow-hidden rounded-2xl border bg-white p-4 text-left transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-600 focus-visible:ring-offset-2 ${selected?.id === course.id ? "border-violet-500 shadow-[0_10px_30px_rgba(124,58,237,.14)] ring-2 ring-violet-100" : "border-slate-200 hover:-translate-y-0.5 hover:border-violet-300 hover:shadow-lg"}`}
+                    key={course.id}
+                    onClick={() => setSelectedId(course.id)}
+                    type="button"
+                  >
+                    <span className="absolute inset-x-0 top-0 h-1" style={{ backgroundColor: course.color }} />
+                    <span className="flex items-start gap-3">
+                      <span className="grid size-11 shrink-0 place-items-center rounded-xl text-white shadow-sm" style={{ backgroundColor: course.color }}><BookOpen className="size-5" /></span>
+                      <span className="min-w-0 flex-1">
+                        <span className="flex items-start justify-between gap-2"><b className="line-clamp-2 text-base leading-5 text-slate-950">{course.name}</b>{selected?.id === course.id ? <CheckCircle2 className="size-5 shrink-0 text-violet-600" /> : <ChevronRight className="size-4 shrink-0 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-violet-500" />}</span>
+                        <span className="mt-1 block text-xs font-bold text-slate-500">{audienceLabel(access.subjects.find((item) => item.courseId === course.id))}</span>
+                      </span>
+                    </span>
+                    <span className="mt-4 flex flex-wrap gap-1.5">
+                      <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black text-slate-700">{course.units.length} strand{course.units.length === 1 ? "" : "s"}</span>
+                      <span className="rounded-full bg-violet-50 px-2.5 py-1 text-[10px] font-black text-violet-800">{lessons.filter((lesson) => (lesson.courseId ?? `subject-${lesson.subject}`) === course.id).length} lesson{lessons.filter((lesson) => (lesson.courseId ?? `subject-${lesson.subject}`) === course.id).length === 1 ? "" : "s"}</span>
+                      <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black text-slate-700">{course.gradeLevels?.length === 6 ? "All grades" : `B${course.gradeLevels?.join(", B") || "—"}`}</span>
+                      <span className={`rounded-full px-2.5 py-1 text-[10px] font-black ${course.status === "published" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>{course.status === "published" ? "Ready" : "Draft"}</span>
+                    </span>
+                  </button>
+                ))}
+                {!manageableCourses.length ? <button className="grid min-h-36 place-items-center rounded-2xl border-2 border-dashed border-violet-200 bg-white p-5 text-center hover:border-violet-400 hover:bg-violet-50" onClick={() => setForm({ ...emptyForm, gradeLevels: [...emptyForm.gradeLevels], classIds: [] })} type="button"><span><Plus className="mx-auto size-7 text-violet-600" /><b className="mt-2 block text-slate-900">Create your first subject</b><span className="mt-1 block text-xs text-slate-500">Add its audience and grade levels to begin.</span></span></button> : null}
+              </div>
+            </section>
+            <div className="min-w-0 p-4 sm:p-6 lg:p-7">
               {selected ? <CourseWorkspace course={selected} lessons={lessons} saving={saving} access={access.subjects.find((item) => item.courseId === selected.id)} settings={access.settings} onEdit={() => editCourse(selected)} onStatus={() => void changeStatus(selected)} onPublication={(action) => void changePublication(selected, action)} onRefresh={refresh} setMessage={setMessage} /> : <EmptyCourse />}
             </div>
           </div>
