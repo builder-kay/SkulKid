@@ -25,8 +25,8 @@ const navItems: TeacherNavItem[] = [
 
 const guideItem: TeacherNavItem = {
   href: "/teacher/tutorial",
-  label: "Teacher Guide",
-  shortLabel: "Help",
+  label: "Video Tutorials",
+  shortLabel: "Tutorials",
   icon: CircleHelp,
   match: "prefix"
 };

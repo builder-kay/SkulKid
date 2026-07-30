@@ -14,6 +14,7 @@ import {
   LogOut,
   Menu,
   MessageSquareWarning,
+  Film,
   RadioTower,
   Search,
   Settings2,
@@ -33,6 +34,7 @@ const navItems: NavItem[] = [
   { href: "/admin", label: "Overview", shortLabel: "Home", icon: LayoutDashboard, match: "exact" },
   { href: "/admin/users", label: "People", shortLabel: "People", icon: Users, match: "prefix" },
   { href: "/admin/courses", label: "Learning & classes", shortLabel: "Learning", icon: GraduationCap, match: "prefix" },
+  { href: "/admin/tutorial-videos", label: "Teacher tutorials", shortLabel: "Tutorials", icon: Film, match: "prefix" },
   { href: "/admin/moderation", label: "Content moderation", shortLabel: "Review", icon: BookOpenCheck, match: "prefix" },
   { href: "/admin/point-disputes", label: "Point disputes", shortLabel: "Disputes", icon: MessageSquareWarning, match: "prefix" },
   { href: "/admin/child-safety", label: "Child safety", shortLabel: "Safety", icon: ShieldCheck, match: "prefix" },
@@ -46,9 +48,9 @@ const navItems: NavItem[] = [
 ];
 
 const navGroups = [
-  { label: "Workspace", items: navItems.slice(0, 7) },
-  { label: "Monitor", items: navItems.slice(7, 12) },
-  { label: "Configure", items: navItems.slice(12) }
+  { label: "Workspace", items: navItems.slice(0, 8) },
+  { label: "Monitor", items: navItems.slice(8, 13) },
+  { label: "Configure", items: navItems.slice(13) }
 ];
 
 export function PlatformAdminShell({ children }: { children: React.ReactNode }) {

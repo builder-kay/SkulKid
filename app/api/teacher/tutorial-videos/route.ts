@@ -1,0 +1,4 @@
+import { NextResponse } from "next/server";
+import { requireTeacher } from "@/lib/classes/classroom-server";
+import { createAdminClient } from "@/lib/supabase/admin";
+export async function GET(){try{await requireTeacher();const admin=createAdminClient();const{data,error}=await admin.from("TeacherTutorialVideo").select("id,title,description,category,storagePath,durationMinutes,position,createdAt").eq("status","published").order("position").order("createdAt");if(error)throw new Error(error.message);const videos=await Promise.all((data??[]).map(async item=>{const{data:signed}=await admin.storage.from("teacher-tutorials").createSignedUrl(String(item.storagePath),7200);const{storagePath,...safe}=item;return{...safe,playbackUrl:signed?.signedUrl??null}}));return NextResponse.json({videos})}catch(e){return NextResponse.json({error:e instanceof Error?e.message:"Could not load tutorials."},{status:400})}}
