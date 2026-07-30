@@ -5,6 +5,7 @@ import { resolveAppRole } from "@/lib/auth/roles";
 import { calculateStars } from "@/lib/gamification/calculate-stars";
 import { calculateLevel } from "@/lib/gamification/calculate-level";
 import { classJoinPath, generateJoinCode, normalizeJoinCode } from "@/lib/classes/join-code";
+import { analyseClassChatMessage, childFriendlyChatRules } from "@/lib/classes/class-chat-safety";
 import type {
   AdviceSuggestionType,
   ClassAdviceView,
@@ -752,14 +753,145 @@ export async function createStudentTeacherMessage(input: {
     .maybeSingle();
   if (error) throw new Error(error.message);
   if (!classroom) throw new Error("Class not found.");
-  const { error: insertError } = await admin.from("ClassMessage").insert({
+  const { data: setting } = await admin.from("ClassChatSetting")
+    .select("enabled,locked,postingStartsAt,postingEndsAt,timezone,guardianConsentRequired,rulesVersion")
+    .eq("classId", input.classId)
+    .maybeSingle();
+  if (setting?.enabled === false) throw new Error("Class discussion is not enabled.");
+  if (setting?.locked) throw new Error("Your teacher has paused this class discussion.");
+  if (setting?.postingStartsAt && setting?.postingEndsAt) {
+    const localTime = new Intl.DateTimeFormat("en-GB", {
+      timeZone: (setting.timezone as string) || "Africa/Accra",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false
+    }).format(new Date());
+    if (localTime < setting.postingStartsAt || localTime > setting.postingEndsAt) {
+      throw new Error(`Messages can be sent between ${setting.postingStartsAt} and ${setting.postingEndsAt}.`);
+    }
+  }
+  if (setting?.guardianConsentRequired !== false) {
+    const { data: consent } = await admin.from("ClassChatConsent")
+      .select("active,guardianConfirmedAt,rulesAcceptedAt,rulesVersion")
+      .eq("classId", input.classId)
+      .eq("studentId", input.studentId)
+      .maybeSingle();
+    if (!consent?.active || !consent.guardianConfirmedAt || !consent.rulesAcceptedAt || consent.rulesVersion !== setting?.rulesVersion) {
+      throw new Error("Guardian consent and acceptance of the class-chat rules are required before posting.");
+    }
+  }
+  const safety = analyseClassChatMessage(input.body);
+  const { data: inserted, error: insertError } = await admin.from("ClassMessage").insert({
     classId: input.classId,
     teacherId: classroom.teacherId,
     studentId: input.studentId,
     senderId: input.studentId,
-    body: input.body.trim()
-  });
+    senderRole: "student",
+    scope: "class_room",
+    kind: "discussion",
+    body: input.body.trim(),
+    moderationStatus: safety.allowed ? "allowed" : "blocked",
+    moderationCategories: safety.categories,
+    moderationReason: safety.reason
+  }).select("id").single();
   if (insertError) throw new Error(insertError.message);
+  await admin.from("ClassMessageAudit").insert({
+    messageId: inserted.id,
+    classId: input.classId,
+    actorId: input.studentId,
+    action: safety.allowed ? "created" : "blocked",
+    bodySnapshot: input.body.trim(),
+    metadata: { categories: safety.categories, severity: safety.severity }
+  });
+  if (!safety.allowed) {
+    await Promise.all([
+      admin.from("ChildSafetyCase").insert({
+        classId: input.classId,
+        messageId: inserted.id,
+        studentId: input.studentId,
+        source: "automatic",
+        categories: safety.categories,
+        severity: safety.severity,
+        summary: safety.reason ?? "A class-chat message was held for safety review."
+      }),
+      admin.from("TeacherNotification").insert({
+        teacherId: classroom.teacherId,
+        classId: input.classId,
+        title: "Class-chat safety review",
+        body: `A learner message was held automatically (${safety.categories.join(", ")}).`,
+        audience: "class"
+      })
+    ]);
+    throw new Error(safety.reason ?? "This message was held for safety review.");
+  }
+}
+
+export async function reportClassMessage(input: {
+  studentId: string;
+  classId: string;
+  messageId: string;
+  reason: "bullying" | "threat" | "sexual_content" | "personal_information" | "spam" | "other";
+  details?: string;
+  muteSender?: boolean;
+}) {
+  await assertActiveMember(input.studentId, input.classId);
+  const admin = createAdminClient();
+  const { data: message, error } = await admin.from("ClassMessage")
+    .select("id,senderId,teacherId,moderationCategories")
+    .eq("id", input.messageId)
+    .eq("classId", input.classId)
+    .eq("scope", "class_room")
+    .is("deletedAt", null)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!message || message.senderId === input.studentId) throw new Error("That message cannot be reported.");
+
+  const { error: reportError } = await admin.from("ClassMessageReport").upsert({
+    messageId: input.messageId,
+    classId: input.classId,
+    reportedBy: input.studentId,
+    reason: input.reason,
+    details: input.details?.trim() ?? "",
+    status: "open"
+  }, { onConflict: "messageId,reportedBy" });
+  if (reportError) throw new Error(reportError.message);
+  const { count: senderReportCount } = await admin.from("ClassMessageReport")
+    .select("id", { count: "exact", head: true })
+    .eq("messageId", input.messageId);
+
+  const categories = [...new Set([input.reason, ...((message.moderationCategories as string[] | null) ?? [])])];
+  await Promise.all([
+    admin.from("ClassMessageAudit").insert({
+      messageId: input.messageId,
+      classId: input.classId,
+      actorId: input.studentId,
+      action: "reported",
+      metadata: { reason: input.reason }
+    }),
+    admin.from("ChildSafetyCase").insert({
+      classId: input.classId,
+      messageId: input.messageId,
+      studentId: message.senderId,
+      source: "student_report",
+      categories,
+      severity: ["threat", "sexual_content"].includes(input.reason) ? "high" : "medium",
+      summary: `A learner reported a class-room message for ${input.reason.replaceAll("_", " ")}.`
+    }),
+    admin.from("TeacherNotification").insert({
+      teacherId: message.teacherId,
+      classId: input.classId,
+      title: (senderReportCount ?? 0) >= 2 ? "Repeated class-chat reports" : "Class-chat message reported",
+      body: `A learner reported a message for ${input.reason.replaceAll("_", " ")}. Review it in Class chat safety.`,
+      audience: "class"
+    }),
+    input.muteSender
+      ? admin.from("ClassChatMute").upsert({
+        classId: input.classId,
+        studentId: input.studentId,
+        mutedStudentId: message.senderId
+      }, { onConflict: "classId,studentId,mutedStudentId" })
+      : Promise.resolve()
+  ]);
 }
 
 export async function getTeacherMessagingData(teacherId: string) {
@@ -1074,15 +1206,37 @@ export async function getStudentClassDetail(studentId: string, classId: string) 
   if (!classroom) throw new Error("Class not found.");
 
   const { data: teacher } = await admin.auth.admin.getUserById(classroom.teacherId as string);
-  const [{ data: courses }, { data: quizzes }, { data: attempts }, { data: adviceRows }, { data: deductionRows }, { data: messageRows }, leaderboard] = await Promise.all([
+  const [{ data: courses }, { data: quizzes }, { data: attempts }, { data: adviceRows }, { data: deductionRows }, { data: messageRows }, { data: chatSetting }, { data: chatConsent }, { data: mutedRows }, leaderboard] = await Promise.all([
     admin.from("ClassCourseAssignment").select("id,courseId,note,assignedAt").eq("classId", classId),
     admin.from("ClassQuiz").select("id,classId,title,description,questions,startAt,deadline,offPlatformReward,baseXpReward,passingScore,maxAttempts,status,createdAt").eq("classId", classId).in("status", ["published", "closed"]).order("createdAt", { ascending: false }),
     admin.from("ClassQuizAttempt").select("quizId,attemptNumber,scorePercentage,passed,starsAwarded,xpAwarded,submittedAt").eq("studentId", studentId).order("attemptNumber", { ascending: true }),
     admin.from("ClassAdvice").select("id,classId,message,suggestionType,createdAt,readAt,teacherId").eq("classId", classId).eq("studentId", studentId).order("createdAt", { ascending: false }),
     admin.from("PointDeduction").select("id,classId,amount,reason,balanceBefore,balanceAfter,status,createdAt,teacherId").eq("classId", classId).eq("studentId", studentId).order("createdAt", { ascending: false }),
-    admin.from("ClassMessage").select("id,body,createdAt,senderId,readAt").eq("classId", classId).eq("studentId", studentId).order("createdAt", { ascending: false }),
+    admin.from("ClassMessage").select("id,body,createdAt,senderId,senderRole,kind,editedAt").eq("classId", classId).eq("scope", "class_room").eq("moderationStatus", "allowed").is("deletedAt", null).order("createdAt", { ascending: true }).limit(500),
+    admin.from("ClassChatSetting").select("enabled,locked,postingStartsAt,postingEndsAt,timezone,guardianConsentRequired,rulesVersion").eq("classId", classId).maybeSingle(),
+    admin.from("ClassChatConsent").select("active,guardianConfirmedAt,rulesAcceptedAt,rulesVersion").eq("classId", classId).eq("studentId", studentId).maybeSingle(),
+    admin.from("ClassChatMute").select("mutedStudentId").eq("classId", classId).eq("studentId", studentId),
     getClassLeaderboard(classId, studentId)
   ]);
+  const mutedIds = new Set((mutedRows ?? []).map((row) => row.mutedStudentId as string));
+  const visibleMessageRows = (messageRows ?? []).filter((row) => !mutedIds.has(row.senderId as string));
+  const senderIds = [...new Set(visibleMessageRows.map((row) => row.senderId as string))];
+  const senderUsers = await Promise.all(senderIds.map(async (id) => (await admin.auth.admin.getUserById(id)).data.user));
+  const senderNameById = new Map(senderUsers.filter(Boolean).map((user) => [user!.id, displayNameFrom(user!, "Learner")]));
+  const consentReady = chatSetting?.guardianConsentRequired === false || Boolean(
+    chatConsent?.active
+    && chatConsent.guardianConfirmedAt
+    && chatConsent.rulesAcceptedAt
+    && chatConsent.rulesVersion === chatSetting?.rulesVersion
+  );
+  const localTime = new Intl.DateTimeFormat("en-GB", {
+    timeZone: (chatSetting?.timezone as string) || "Africa/Accra",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false
+  }).format(new Date());
+  const withinHours = !chatSetting?.postingStartsAt || !chatSetting?.postingEndsAt
+    || (localTime >= chatSetting.postingStartsAt && localTime <= chatSetting.postingEndsAt);
   const { data: receiptRows } = await admin
     .from("TeacherNotificationRecipient")
     .select("notificationId,readAt")
@@ -1238,12 +1392,29 @@ export async function getStudentClassDetail(studentId: string, classId: string) 
         } : null
       };
     }),
-    messages: (messageRows ?? []).map((row) => ({
+    messages: visibleMessageRows.map((row) => ({
       id: row.id as string,
       body: row.body as string,
       createdAt: row.createdAt as string,
-      fromStudent: row.senderId === studentId
+      fromStudent: row.senderId === studentId,
+      senderId: row.senderId as string,
+      senderName: row.senderId === studentId ? "You" : (senderNameById.get(row.senderId as string) ?? (row.senderRole === "teacher" ? "Teacher" : "Learner")),
+      senderRole: row.senderRole as "student" | "teacher" | "admin",
+      kind: row.kind as "discussion" | "announcement",
+      editedAt: (row.editedAt as string | null) ?? null
     })),
+    chat: {
+      enabled: chatSetting?.enabled !== false,
+      locked: Boolean(chatSetting?.locked),
+      postingStartsAt: (chatSetting?.postingStartsAt as string | null) ?? null,
+      postingEndsAt: (chatSetting?.postingEndsAt as string | null) ?? null,
+      timezone: (chatSetting?.timezone as string) || "Africa/Accra",
+      guardianConsentRequired: chatSetting?.guardianConsentRequired !== false,
+      consentReady,
+      withinHours,
+      canPost: chatSetting?.enabled !== false && !chatSetting?.locked && consentReady && withinHours,
+      rules: childFriendlyChatRules
+    },
     notifications: (notificationRows ?? [])
       .filter((row) => row.classId == null || row.classId === classId)
       .map((row) => ({

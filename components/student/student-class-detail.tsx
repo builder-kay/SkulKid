@@ -71,7 +71,12 @@ type Detail = {
     teacherName: string;
   }>;
   deductions: PointDeductionView[];
-  messages: Array<{ id: string; body: string; createdAt: string; fromStudent: boolean }>;
+  messages: Array<{ id: string; body: string; createdAt: string; fromStudent: boolean; senderId: string; senderName: string; senderRole: "student" | "teacher" | "admin"; kind: "discussion" | "announcement"; editedAt: string | null }>;
+  chat: {
+    enabled: boolean; locked: boolean; postingStartsAt: string | null; postingEndsAt: string | null;
+    timezone: string; guardianConsentRequired: boolean; consentReady: boolean; withinHours: boolean;
+    canPost: boolean; rules: string[];
+  };
   notifications: Array<{ id: string; title: string; body: string; audience: string; createdAt: string }>;
   leaderboard: ClassLeaderboardEntry[];
 };
@@ -459,11 +464,14 @@ export function StudentClassDetail({ classId }: { classId: string }) {
               <section className="grid gap-4">
                 <StudentClassChat
                   advice={detail.advice}
+                  chat={detail.chat}
+                  classId={classId}
                   className={detail.classroom.name}
                   messages={detail.messages}
                   notifications={detail.notifications}
                   onChange={setTeacherMessage}
                   onReadAdvice={(adviceId) => void markRead(adviceId)}
+                  onReported={() => void load()}
                   onSubmit={sendTeacherMessage}
                   sending={sendingMessage}
                   teacherName={detail.classroom.teacherName}

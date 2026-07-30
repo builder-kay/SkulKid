@@ -34,6 +34,7 @@ const navItems: NavItem[] = [
   { href: "/admin/courses", label: "Learning & classes", shortLabel: "Learning", icon: GraduationCap, match: "prefix" },
   { href: "/admin/moderation", label: "Content moderation", shortLabel: "Review", icon: BookOpenCheck, match: "prefix" },
   { href: "/admin/point-disputes", label: "Point disputes", shortLabel: "Disputes", icon: MessageSquareWarning, match: "prefix" },
+  { href: "/admin/child-safety", label: "Child safety", shortLabel: "Safety", icon: ShieldCheck, match: "prefix" },
   { href: "/admin/security", label: "Security & audit", shortLabel: "Security", icon: ShieldCheck, match: "prefix" },
   { href: "/admin/operations", label: "Operations", shortLabel: "Ops", icon: Wrench, match: "prefix" },
   { href: "/admin/system", label: "System control", shortLabel: "System", icon: Gauge, match: "prefix" },
@@ -43,9 +44,9 @@ const navItems: NavItem[] = [
 ];
 
 const navGroups = [
-  { label: "Workspace", items: navItems.slice(0, 5) },
-  { label: "Monitor", items: navItems.slice(5, 10) },
-  { label: "Configure", items: navItems.slice(10) }
+  { label: "Workspace", items: navItems.slice(0, 6) },
+  { label: "Monitor", items: navItems.slice(6, 11) },
+  { label: "Configure", items: navItems.slice(11) }
 ];
 
 export function PlatformAdminShell({ children }: { children: React.ReactNode }) {
