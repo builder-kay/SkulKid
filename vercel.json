@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/break-zone-moderation",
-      "schedule": "* * * * *"
+      "schedule": "0 0 * * *"
     }
   ]
 }
