@@ -38,8 +38,9 @@ export type BreakZoneVideo = {
 
 export async function searchYouTube(query: string, studentId: string) {
   const admin = createAdminClient();
-  const { data: config } = await admin.from("BreakZoneConfig").select("enabled").eq("id", true).maybeSingle();
+  const { data: config } = await admin.from("BreakZoneConfig").select("enabled,autoApproveAll").eq("id", true).maybeSingle();
   if (config?.enabled === false) throw new Error("Break Zone is temporarily unavailable.");
+  const autoApproveAll = config?.autoApproveAll === true;
   const apiKey = process.env.YOUTUBE_DATA_API_KEY;
   if (!apiKey) throw new Error("Break Zone search is not configured.");
   const searchUrl = new URL("https://www.googleapis.com/youtube/v3/search");
@@ -72,13 +73,21 @@ export async function searchYouTube(query: string, studentId: string) {
     const metadataHash = hash(candidate);
     let row = existing.get(candidate.id);
     if (!row || row.metadataHash !== metadataHash || row.metadataStatus !== "approved") {
-      const screening = await screenMetadata(candidate).catch(() => null);
+      const screening = autoApproveAll ? {
+        appropriate: true, severity: "none" as const, categories: [] as string[],
+        reasons: ["Automatically approved in testing mode."],
+        summary: "Automatically approved while Break Zone testing mode is enabled.",
+        interests: [] as string[]
+      } : await screenMetadata(candidate).catch(() => null);
       const metadataStatus = screening?.appropriate ? "approved" : screening ? "rejected" : "error";
       const result = await admin.from("BreakZoneVideo").upsert({
         ...candidate, metadataHash, metadataStatus,
-        moderationStatus: row?.moderationStatus === "approved" && row?.metadataHash === metadataHash ? "approved" : "pending",
+        moderationStatus: autoApproveAll ? "approved" : row?.moderationStatus === "approved" && row?.metadataHash === metadataHash ? "approved" : "pending",
         severity: screening?.severity ?? "unknown", categories: screening?.categories ?? [],
-        summary: screening?.summary ?? "", policyVersion: BREAK_ZONE_POLICY_VERSION, updatedAt: new Date().toISOString()
+        summary: screening?.summary ?? "", policyVersion: BREAK_ZONE_POLICY_VERSION,
+        lastCheckedAt: autoApproveAll ? new Date().toISOString() : row?.lastCheckedAt,
+        nextReviewAt: autoApproveAll ? null : row?.nextReviewAt,
+        updatedAt: new Date().toISOString()
       }, { onConflict: "id" }).select("*").single();
       row = result.data ?? undefined;
       await admin.from("BreakZoneAssessment").insert({
@@ -89,7 +98,7 @@ export async function searchYouTube(query: string, studentId: string) {
       });
     }
     if (row?.metadataStatus === "approved") visible.push(mapVideo(row));
-    if (row?.moderationStatus === "approved" && row?.nextReviewAt && new Date(String(row.nextReviewAt)) <= new Date()) {
+    if (!autoApproveAll && row?.moderationStatus === "approved" && row?.nextReviewAt && new Date(String(row.nextReviewAt)) <= new Date()) {
       await enqueueModerationJob(candidate.id);
     }
   }
@@ -125,12 +134,12 @@ async function enqueueModerationJob(videoId: string, requestedBy?: string) {
 
 export async function resolvePlaybackApproval(studentId: string, videoId: string) {
   const admin = createAdminClient();
-  const { data: config } = await admin.from("BreakZoneConfig").select("enabled").eq("id", true).maybeSingle();
+  const { data: config } = await admin.from("BreakZoneConfig").select("enabled,autoApproveAll").eq("id", true).maybeSingle();
   if (config?.enabled === false) return { allowed: false, reason: "Break Zone is temporarily unavailable." };
   const { data: video } = await admin.from("BreakZoneVideo").select("moderationStatus,nextReviewAt").eq("id", videoId).maybeSingle();
   if (!video || video.moderationStatus === "suspended") return { allowed: false, reason: "This video is unavailable." };
   const now = new Date();
-  const globallyApproved = video.moderationStatus === "approved" && (!video.nextReviewAt || new Date(video.nextReviewAt) > now);
+  const globallyApproved = config?.autoApproveAll === true || video.moderationStatus === "approved" && (!video.nextReviewAt || new Date(video.nextReviewAt) > now);
   const { data: memberships } = await admin.from("ClassMembership").select("classId").eq("studentId", studentId).eq("status", "active");
   const classIds = (memberships ?? []).map((item) => String(item.classId));
   const { data: approvals } = await admin.from("BreakZoneApproval").select("scope,classId,decision,createdAt").eq("videoId", videoId).order("createdAt", { ascending: false });
