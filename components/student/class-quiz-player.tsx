@@ -57,14 +57,7 @@ export function ClassQuizPlayer({ classId, quizId }: { classId: string; quizId: 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [questionIndex, setQuestionIndex] = useState(0);
-  const [headerCompact, setHeaderCompact] = useState(false);
-
-  useEffect(() => {
-    const updateHeader = () => setHeaderCompact(window.scrollY > 88);
-    updateHeader();
-    window.addEventListener("scroll", updateHeader, { passive: true });
-    return () => window.removeEventListener("scroll", updateHeader);
-  }, []);
+  const headerCompact = false;
 
   useEffect(() => {
     void (async () => {
@@ -205,7 +198,7 @@ export function ClassQuizPlayer({ classId, quizId }: { classId: string; quizId: 
     <StudentShell activeItem="classes">
       <main className="mx-auto grid w-full max-w-3xl gap-5">
         <header
-          className={`sticky top-[4.25rem] z-20 overflow-hidden border border-slate-200 bg-white/95 shadow-sm backdrop-blur transition-[padding,border-radius,box-shadow] duration-200 motion-reduce:transition-none lg:top-0 ${headerCompact ? "rounded-2xl px-4 py-3 shadow-[0_12px_30px_rgba(15,23,42,.14)]" : "rounded-[1.75rem] p-5"}`}
+          className={`overflow-hidden border border-slate-200 bg-white shadow-sm transition-[padding,border-radius,box-shadow] duration-200 motion-reduce:transition-none ${headerCompact ? "rounded-2xl px-4 py-3" : "rounded-[1.75rem] p-5"}`}
           data-compact={headerCompact}
         >
           <div className={`grid transition-[grid-template-rows,opacity] duration-200 motion-reduce:transition-none ${headerCompact ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`} aria-hidden={!headerCompact}>

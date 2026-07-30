@@ -213,18 +213,18 @@ export function QuizEditorDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm sm:p-4"
+      className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/75 backdrop-blur-sm sm:p-4"
       onMouseDown={(event) => { if (event.target === event.currentTarget) requestClose(); }}
     >
       <div
         aria-describedby="quiz-builder-progress"
         aria-labelledby="quiz-builder-title"
         aria-modal="true"
-        className="flex h-full w-full flex-col overflow-hidden bg-slate-50 shadow-2xl sm:mx-auto sm:max-w-6xl sm:rounded-[2rem]"
+        className="w-full bg-slate-50 shadow-2xl sm:mx-auto sm:max-w-6xl sm:rounded-[2rem]"
         ref={dialogRef}
         role="dialog"
       >
-        <header className="shrink-0 border-b border-slate-200 bg-white px-4 py-4 sm:px-6">
+        <header className="border-b border-slate-200 bg-white px-4 py-4 sm:rounded-t-[2rem] sm:px-6">
           <div className="flex items-start gap-4">
             <span className="hidden size-11 shrink-0 place-items-center rounded-2xl bg-violet-100 text-violet-700 sm:grid"><Sparkles className="size-5" /></span>
             <div className="min-w-0 flex-1">
@@ -240,7 +240,7 @@ export function QuizEditorDialog({
         </header>
 
         <div aria-live="polite" className="sr-only">Step {step} of 3: {stepLabel(step)}</div>
-        <main className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
+        <main className="p-4 sm:p-6">
           <div className="mx-auto max-w-5xl">
             {step === 1 ? <BasicsStep draft={draft} errors={errors} onUpdate={update} /> : null}
             {step === 2 && active ? (
