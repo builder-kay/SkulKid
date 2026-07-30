@@ -171,9 +171,9 @@ export default function TeacherCommunicationsPage() {
         </div>
       ) : null}
 
-      <section className="grid min-h-[calc(100vh-8rem)] overflow-hidden rounded-[1.75rem] border border-slate-300 bg-white shadow-xl lg:grid-cols-[23rem_minmax(0,1fr)]">
-        <aside className={cn("min-w-0 border-r border-slate-200 bg-white", active && "hidden lg:block")}>
-          <div className="flex h-16 items-center justify-between bg-slate-100 px-4">
+      <section className="grid h-[calc(100dvh-7rem)] min-h-[30rem] max-h-[52rem] overflow-hidden rounded-[1.75rem] border border-slate-300 bg-white shadow-xl lg:grid-cols-[23rem_minmax(0,1fr)]">
+        <aside className={cn("min-h-0 min-w-0 flex-col border-r border-slate-200 bg-white", active ? "hidden lg:flex" : "flex")}>
+          <div className="flex h-16 shrink-0 items-center justify-between bg-slate-100 px-4">
             <div className="flex items-center gap-3">
               <span className="grid size-10 place-items-center rounded-full bg-blue-700 text-white"><MessageCircle className="size-5" /></span>
               <div><h1 className="font-black text-slate-950">Messages</h1><p className="text-xs font-semibold text-slate-500">{contacts.length} learners</p></div>
@@ -189,7 +189,7 @@ export default function TeacherCommunicationsPage() {
             </button>
           </div>
 
-          <div className="border-b border-slate-200 p-3">
+          <div className="shrink-0 border-b border-slate-200 p-3">
             <label className="relative block">
               <span className="sr-only">Search conversations</span>
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-500" />
@@ -202,7 +202,7 @@ export default function TeacherCommunicationsPage() {
             </label>
           </div>
 
-          <div className="h-[calc(100vh-16rem)] min-h-[28rem] overflow-y-auto">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
             {loading ? <LoadingState /> : visibleContacts.length ? visibleContacts.map((contact) => (
               <button
                 className={cn(
@@ -234,9 +234,9 @@ export default function TeacherCommunicationsPage() {
           </div>
         </aside>
 
-        <section className={cn("min-w-0 bg-slate-100", !active && "hidden lg:grid lg:place-items-center")}>
+        <section className={cn("min-h-0 min-w-0 bg-slate-100", !active && "hidden lg:grid lg:place-items-center")}>
           {active ? (
-            <div className="grid h-full min-h-[calc(100vh-8rem)] grid-rows-[4rem_minmax(0,1fr)_auto]">
+            <div className="grid h-full min-h-0 grid-rows-[4rem_minmax(0,1fr)_auto]">
               <header className="flex items-center gap-3 border-b border-slate-200 bg-slate-100 px-3 sm:px-5">
                 <button aria-label="Back to conversations" className="grid size-10 place-items-center rounded-full hover:bg-slate-200 lg:hidden" onClick={() => setActiveId("")} type="button"><ArrowLeft className="size-5" /></button>
                 <Avatar name={active.name} small />
@@ -247,7 +247,7 @@ export default function TeacherCommunicationsPage() {
                 <button aria-label="Conversation options" className="grid size-10 place-items-center rounded-full text-slate-600 hover:bg-slate-200" type="button"><MoreVertical className="size-5" /></button>
               </header>
 
-              <div className="overflow-y-auto bg-[radial-gradient(circle_at_center,rgba(255,255,255,.55)_1px,transparent_1px)] bg-[length:18px_18px] px-3 py-5 sm:px-8">
+              <div className="min-h-0 overflow-y-auto overscroll-contain bg-[radial-gradient(circle_at_center,rgba(255,255,255,.55)_1px,transparent_1px)] bg-[length:18px_18px] px-3 py-5 sm:px-8">
                 <div className="mx-auto grid max-w-4xl gap-1.5">
                   {active.messages.length ? active.messages.map((message, index) => {
                     const previous = active.messages[index - 1];
