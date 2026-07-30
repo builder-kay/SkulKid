@@ -160,7 +160,7 @@ export default function TeacherCommunicationsPage() {
         <aside className={cn("min-w-0 border-r border-slate-200 bg-white", active && "hidden lg:block")}>
           <div className="flex h-16 items-center justify-between bg-slate-100 px-4">
             <div className="flex items-center gap-3">
-              <span className="grid size-10 place-items-center rounded-full bg-emerald-700 text-white"><MessageCircle className="size-5" /></span>
+              <span className="grid size-10 place-items-center rounded-full bg-blue-700 text-white"><MessageCircle className="size-5" /></span>
               <div><h1 className="font-black text-slate-950">Messages</h1><p className="text-xs font-semibold text-slate-500">{contacts.length} learners</p></div>
             </div>
             <button
@@ -179,7 +179,7 @@ export default function TeacherCommunicationsPage() {
               <span className="sr-only">Search conversations</span>
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-500" />
               <input
-                className="min-h-10 w-full rounded-lg bg-slate-100 pl-10 pr-3 text-sm outline-none focus:ring-2 focus:ring-emerald-600"
+                className="min-h-10 w-full rounded-lg bg-slate-100 pl-10 pr-3 text-sm outline-none focus:ring-2 focus:ring-blue-600"
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Search or start a new chat"
                 value={query}
@@ -202,7 +202,7 @@ export default function TeacherCommunicationsPage() {
                 <span className="min-w-0">
                   <span className="flex items-center justify-between gap-2">
                     <b className="truncate text-sm text-slate-950">{contact.name}</b>
-                    <time className={cn("shrink-0 text-[11px]", contact.unread ? "font-black text-emerald-700" : "text-slate-500")}>
+                    <time className={cn("shrink-0 text-[11px]", contact.unread ? "font-black text-blue-700" : "text-slate-500")}>
                       {contact.latest ? shortTime(contact.latest.createdAt) : ""}
                     </time>
                   </span>
@@ -211,7 +211,7 @@ export default function TeacherCommunicationsPage() {
                       {contact.latest?.direction === "outgoing" ? <CheckCheck className="size-4 shrink-0 text-sky-600" /> : null}
                       <span className="truncate">{contact.latest?.body ?? contact.classes.map((item) => item.name).join(", ")}</span>
                     </span>
-                    {contact.unread ? <span className="grid size-5 shrink-0 place-items-center rounded-full bg-emerald-600 text-[10px] font-black text-white">{contact.unread}</span> : null}
+                    {contact.unread ? <span className="grid size-5 shrink-0 place-items-center rounded-full bg-blue-600 text-[10px] font-black text-white">{contact.unread}</span> : null}
                   </span>
                 </span>
               </button>
@@ -219,7 +219,7 @@ export default function TeacherCommunicationsPage() {
           </div>
         </aside>
 
-        <section className={cn("min-w-0 bg-[#efeae2]", !active && "hidden lg:grid lg:place-items-center")}>
+        <section className={cn("min-w-0 bg-slate-100", !active && "hidden lg:grid lg:place-items-center")}>
           {active ? (
             <div className="grid h-full min-h-[calc(100vh-8rem)] grid-rows-[4rem_minmax(0,1fr)_auto]">
               <header className="flex items-center gap-3 border-b border-slate-200 bg-slate-100 px-3 sm:px-5">
@@ -255,7 +255,7 @@ export default function TeacherCommunicationsPage() {
               <form className="flex items-end gap-2 border-t border-slate-200 bg-slate-100 p-3" onSubmit={sendPrivateMessage}>
                 <textarea
                   aria-label={`Message ${active.name}`}
-                  className="max-h-32 min-h-11 flex-1 resize-none rounded-xl border-0 bg-white px-4 py-3 text-sm leading-5 shadow-sm outline-none focus:ring-2 focus:ring-emerald-600"
+                  className="max-h-32 min-h-11 flex-1 resize-none rounded-xl border-0 bg-white px-4 py-3 text-sm leading-5 shadow-sm outline-none focus:ring-2 focus:ring-blue-600"
                   maxLength={1000}
                   onChange={(event) => setDraft(event.target.value)}
                   onKeyDown={(event) => {
@@ -270,7 +270,7 @@ export default function TeacherCommunicationsPage() {
                 />
                 <button
                   aria-label="Send message"
-                  className="grid size-11 shrink-0 place-items-center rounded-full bg-emerald-700 text-white transition hover:bg-emerald-800 disabled:opacity-50"
+                  className="grid size-11 shrink-0 place-items-center rounded-full bg-blue-700 text-white transition hover:bg-blue-800 disabled:opacity-50"
                   disabled={busy || !draft.trim()}
                   type="submit"
                 >
@@ -280,7 +280,7 @@ export default function TeacherCommunicationsPage() {
             </div>
           ) : (
             <div className="max-w-md p-8 text-center">
-              <span className="mx-auto grid size-20 place-items-center rounded-full bg-emerald-100 text-emerald-700"><MessageCircle className="size-10" /></span>
+              <span className="mx-auto grid size-20 place-items-center rounded-full bg-blue-100 text-blue-700"><MessageCircle className="size-10" /></span>
               <h2 className="mt-5 text-3xl font-black text-slate-900">SkulKid Messages</h2>
               <p className="mt-3 leading-7 text-slate-600">Select a learner to read messages and continue the conversation. Use broadcasts for class-wide announcements.</p>
             </div>
@@ -309,13 +309,13 @@ function MessageBubble({ message }: { message: Message }) {
     <div className={cn("flex", outgoing ? "justify-end" : "justify-start")}>
       <article className={cn(
         "relative max-w-[85%] rounded-lg px-3 py-2 shadow-sm sm:max-w-[70%]",
-        outgoing ? "rounded-tr-none bg-[#d9fdd3]" : "rounded-tl-none bg-white"
+        outgoing ? "rounded-tr-none bg-blue-700 text-white" : "rounded-tl-none bg-white"
       )}>
-        {message.title && message.title !== "Message from your teacher" ? <p className="mb-1 text-xs font-black text-emerald-800">{message.title}</p> : null}
-        <p className="whitespace-pre-wrap break-words text-sm leading-5 text-slate-900">{message.body}</p>
+        {message.title && message.title !== "Message from your teacher" ? <p className={cn("mb-1 text-xs font-black", outgoing ? "text-blue-100" : "text-blue-800")}>{message.title}</p> : null}
+        <p className={cn("whitespace-pre-wrap break-words text-sm leading-5", outgoing ? "text-white" : "text-slate-900")}>{message.body}</p>
         <div className="mt-1 flex items-center justify-end gap-1 pl-8">
-          <time className="text-[10px] text-slate-500">{messageTime(message.createdAt)}</time>
-          {outgoing ? <CheckCheck className="size-4 text-sky-600" /> : null}
+          <time className={cn("text-[10px]", outgoing ? "text-blue-100" : "text-slate-500")}>{messageTime(message.createdAt)}</time>
+          {outgoing ? <CheckCheck className="size-4 text-sky-200" /> : null}
         </div>
       </article>
     </div>
@@ -370,8 +370,8 @@ function BroadcastDialog({ classes, contacts, onClose, onSent }: {
   return (
     <div className="fixed inset-0 z-[90] grid place-items-center bg-slate-950/60 p-3 backdrop-blur-sm" onClick={onClose}>
       <form className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl" onClick={(event) => event.stopPropagation()} onSubmit={submit}>
-        <header className="sticky top-0 z-10 flex items-center justify-between bg-emerald-800 p-5 text-white">
-          <div className="flex items-center gap-3"><Megaphone className="size-6" /><div><h2 className="text-xl font-black">New broadcast</h2><p className="text-xs text-emerald-100">Send one announcement to several learners</p></div></div>
+        <header className="sticky top-0 z-10 flex items-center justify-between bg-gradient-to-r from-blue-700 to-indigo-700 p-5 text-white">
+          <div className="flex items-center gap-3"><Megaphone className="size-6" /><div><h2 className="text-xl font-black">New broadcast</h2><p className="text-xs text-blue-100">Send one announcement to several learners</p></div></div>
           <button aria-label="Close broadcast" className="grid size-10 place-items-center rounded-full hover:bg-white/10" onClick={onClose} type="button"><X /></button>
         </header>
         <div className="grid gap-4 p-5">
@@ -382,14 +382,14 @@ function BroadcastDialog({ classes, contacts, onClose, onSent }: {
               ["all", "All learners", BellRing],
               ["selected", "Choose people", UserRound]
             ] as const).map(([value, label, Icon]) => (
-              <button className={cn("rounded-xl border p-3 text-sm font-black", audience === value ? "border-emerald-700 bg-emerald-50 text-emerald-900" : "border-slate-200")} key={value} onClick={() => setAudience(value)} type="button"><Icon className="mx-auto mb-2 size-5" />{label}</button>
+              <button className={cn("rounded-xl border p-3 text-sm font-black", audience === value ? "border-blue-700 bg-blue-50 text-blue-900" : "border-slate-200")} key={value} onClick={() => setAudience(value)} type="button"><Icon className="mx-auto mb-2 size-5" />{label}</button>
             ))}
           </div>
           {audience === "class" ? <select className="min-h-12 rounded-xl border border-slate-300 px-3 font-bold" onChange={(event) => setClassId(event.target.value)} value={classId}>{classes.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.students.length} learners</option>)}</select> : null}
           {audience === "selected" ? <div className="max-h-48 overflow-y-auto rounded-xl border border-slate-200 p-2">{contacts.map((contact) => <label className="flex min-h-11 items-center gap-3 rounded-lg px-2 hover:bg-slate-50" key={contact.id}><input checked={selected.includes(contact.id)} onChange={() => setSelected((current) => current.includes(contact.id) ? current.filter((id) => id !== contact.id) : [...current, contact.id])} type="checkbox" /><span className="text-sm font-bold">{contact.name}</span></label>)}</div> : null}
           <input className="min-h-12 rounded-xl border border-slate-300 px-3" maxLength={120} minLength={2} onChange={(event) => setTitle(event.target.value)} placeholder="Announcement title" required value={title} />
           <textarea className="min-h-36 rounded-xl border border-slate-300 p-3" maxLength={1000} minLength={2} onChange={(event) => setBody(event.target.value)} placeholder="Write your message" required value={body} />
-          <button className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-emerald-700 px-5 font-black text-white disabled:opacity-50" disabled={busy || recipientCount === 0} type="submit">{busy ? <Loader2 className="size-5 animate-spin" /> : <Send className="size-5" />}Send to {recipientCount} learner{recipientCount === 1 ? "" : "s"}</button>
+          <button className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-blue-700 px-5 font-black text-white hover:bg-blue-800 disabled:opacity-50" disabled={busy || recipientCount === 0} type="submit">{busy ? <Loader2 className="size-5 animate-spin" /> : <Send className="size-5" />}Send to {recipientCount} learner{recipientCount === 1 ? "" : "s"}</button>
         </div>
       </form>
     </div>
@@ -397,7 +397,7 @@ function BroadcastDialog({ classes, contacts, onClose, onSent }: {
 }
 
 function Avatar({ name, small = false }: { name: string; small?: boolean }) {
-  return <span className={cn("grid shrink-0 place-items-center rounded-full bg-gradient-to-br from-emerald-600 to-teal-800 font-black text-white", small ? "size-10 text-xs" : "size-12 text-sm")}>{initials(name)}</span>;
+  return <span className={cn("grid shrink-0 place-items-center rounded-full bg-gradient-to-br from-blue-600 to-indigo-800 font-black text-white", small ? "size-10 text-xs" : "size-12 text-sm")}>{initials(name)}</span>;
 }
 
 function DateDivider({ value }: { value: string }) {
@@ -413,7 +413,7 @@ function DateDivider({ value }: { value: string }) {
 }
 
 function LoadingState() {
-  return <div className="grid min-h-64 place-items-center text-sm font-bold text-slate-500"><span><Loader2 className="mx-auto mb-3 size-6 animate-spin text-emerald-700" />Loading chats…</span></div>;
+  return <div className="grid min-h-64 place-items-center text-sm font-bold text-slate-500"><span><Loader2 className="mx-auto mb-3 size-6 animate-spin text-blue-700" />Loading chats…</span></div>;
 }
 
 function EmptyContacts({ hasQuery }: { hasQuery: boolean }) {

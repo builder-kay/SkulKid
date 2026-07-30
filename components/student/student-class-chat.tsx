@@ -112,36 +112,36 @@ export function StudentClassChat({
           : "";
 
   return (
-    <section className="overflow-hidden rounded-[1.5rem] border border-slate-300 bg-white shadow-xl">
-      <header className="flex h-16 items-center gap-3 border-b border-slate-200 bg-slate-100 px-4 sm:px-5">
-        <span className="grid size-11 shrink-0 place-items-center rounded-full bg-gradient-to-br from-emerald-600 to-teal-800 text-white"><Users className="size-5" /></span>
+    <section className="flex min-h-[34rem] max-h-[calc(100dvh-7rem)] flex-col overflow-hidden rounded-[1.25rem] border border-blue-100 bg-white shadow-[0_20px_60px_-28px_rgba(30,64,175,0.45)] sm:min-h-[40rem] sm:rounded-[1.75rem] lg:max-h-[52rem]">
+      <header className="flex min-h-16 shrink-0 items-center gap-3 border-b border-blue-800/40 bg-gradient-to-r from-blue-700 via-blue-700 to-indigo-700 px-3 py-2.5 text-white sm:px-5">
+        <span className="grid size-11 shrink-0 place-items-center rounded-full border border-white/25 bg-white/15 shadow-inner"><Users className="size-5" /></span>
         <div className="min-w-0 flex-1">
-          <h2 className="truncate font-black text-slate-950">{className} discussion</h2>
-          <p className="truncate text-xs font-semibold text-slate-500">Supervised by {teacherName} · active classmates only</p>
+          <h2 className="truncate font-black">{className}</h2>
+          <p className="truncate text-xs font-semibold text-blue-100">Supervised by {teacherName} · active classmates only</p>
         </div>
-        <ShieldCheck className="size-5 text-emerald-700" />
+        <span className="grid size-10 shrink-0 place-items-center rounded-full bg-white/10" title="Teacher-supervised class chat"><ShieldCheck className="size-5 text-blue-100" /></span>
       </header>
-      <div className="border-b border-emerald-200 bg-emerald-50 px-4 py-3">
+      <div className="shrink-0 border-b border-blue-100 bg-blue-50 px-3 py-2.5 sm:px-5">
         <details>
-          <summary className="cursor-pointer text-xs font-black text-emerald-900"><ShieldCheck className="mr-1.5 inline size-4" />Read the safe-chat rules</summary>
-          <ul className="mt-2 grid gap-1 pl-5 text-xs leading-5 text-emerald-950">{chat.rules.map((rule) => <li className="list-disc" key={rule}>{rule}</li>)}</ul>
+          <summary className="cursor-pointer select-none text-xs font-black text-blue-900"><ShieldCheck className="mr-1.5 inline size-4" />Safe class chat · tap to read the rules</summary>
+          <ul className="mt-2 grid gap-1 pl-5 text-xs leading-5 text-blue-950">{chat.rules.map((rule) => <li className="list-disc" key={rule}>{rule}</li>)}</ul>
         </details>
       </div>
-      <div className="h-[32rem] overflow-y-auto bg-[#efeae2] bg-[radial-gradient(circle_at_center,rgba(255,255,255,.55)_1px,transparent_1px)] bg-[length:18px_18px] px-3 py-5 sm:px-7">
-        <div className="mx-auto grid max-w-4xl gap-1.5">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-slate-100 bg-[radial-gradient(circle_at_center,rgba(59,130,246,.10)_1px,transparent_1px)] bg-[length:18px_18px] px-2.5 py-4 sm:px-6 sm:py-5">
+        <div className="mx-auto grid max-w-4xl gap-2">
           {timeline.length ? timeline.map((item, index) => {
             const previous = timeline[index - 1];
             const showDate = !previous || new Date(previous.createdAt).toDateString() !== new Date(item.createdAt).toDateString();
             return <div key={item.id}>{showDate ? <DateDivider value={item.createdAt} /> : null}<Bubble item={item} onReport={report} reporting={reporting} /></div>;
-          }) : <div className="mx-auto mt-20 max-w-md rounded-xl bg-amber-50 p-4 text-center text-sm leading-6 text-amber-950 shadow-sm">This is the beginning of your supervised class discussion. Your teacher and active classmates can read messages here.</div>}
+          }) : <div className="mx-auto mt-12 max-w-sm rounded-2xl border border-blue-100 bg-white/95 p-5 text-center text-sm leading-6 text-slate-700 shadow-sm"><span className="mx-auto mb-3 grid size-11 place-items-center rounded-full bg-blue-100 text-xl text-blue-700">💬</span><b className="block text-slate-950">Your class conversation starts here</b>Your teacher supervises this room, and only active classmates can participate.</div>}
           <div ref={endRef} />
         </div>
       </div>
       {notice ? <p className="border-t border-slate-200 bg-amber-50 px-4 py-2 text-xs font-bold text-amber-900">{notice}</p> : null}
       {unavailableReason ? <p className="flex items-center gap-2 border-t border-slate-200 bg-slate-100 px-4 py-3 text-sm font-bold text-slate-700">{chat.locked ? <LockKeyhole className="size-4" /> : <Clock3 className="size-4" />}{unavailableReason}</p> : null}
-      <form className="flex items-end gap-2 border-t border-slate-200 bg-slate-100 p-3" onSubmit={onSubmit}>
-        <textarea aria-label={`Message ${className} discussion`} className="max-h-32 min-h-11 flex-1 resize-none rounded-xl border-0 bg-white px-4 py-3 text-sm leading-5 shadow-sm outline-none focus:ring-2 focus:ring-emerald-600 disabled:bg-slate-200" disabled={!chat.canPost} maxLength={1000} onChange={(event) => onChange(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} placeholder={chat.canPost ? "Message your class" : "Posting is unavailable"} rows={1} value={value} />
-        <button aria-label="Send message" className="grid size-11 shrink-0 place-items-center rounded-full bg-emerald-700 text-white transition hover:bg-emerald-800 disabled:opacity-50" disabled={!chat.canPost || sending || !value.trim()} type="submit">{sending ? <Loader2 className="size-5 animate-spin" /> : <Send className="size-5" />}</button>
+      <form className="flex shrink-0 items-end gap-2 border-t border-blue-100 bg-white p-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] sm:p-3" onSubmit={onSubmit}>
+        <textarea aria-label={`Message ${className} discussion`} className="max-h-32 min-h-12 flex-1 resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-base leading-5 shadow-inner outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-200 disabled:bg-slate-200 sm:text-sm" disabled={!chat.canPost} maxLength={1000} onChange={(event) => onChange(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} placeholder={chat.canPost ? "Message your class…" : "Posting is unavailable"} rows={1} value={value} />
+        <button aria-label="Send message" className="grid size-12 shrink-0 place-items-center rounded-full bg-blue-700 text-white shadow-md shadow-blue-700/20 transition hover:bg-blue-800 active:scale-95 disabled:opacity-50" disabled={!chat.canPost || sending || !value.trim()} type="submit">{sending ? <Loader2 className="size-5 animate-spin" /> : <Send className="size-5" />}</button>
       </form>
     </section>
   );
@@ -150,13 +150,13 @@ export function StudentClassChat({
 function Bubble({ item, onReport, reporting }: { item: ChatItem; onReport: (id: string) => void; reporting: string | null }) {
   const outgoing = item.direction === "outgoing";
   return <div className={cn("flex", outgoing ? "justify-end" : "justify-start")}>
-    <article className={cn("max-w-[87%] rounded-lg px-3 py-2 shadow-sm sm:max-w-[72%]", outgoing ? "rounded-tr-none bg-[#d9fdd3]" : "rounded-tl-none bg-white")}>
-      {item.senderName && !outgoing ? <p className="mb-0.5 text-xs font-black text-emerald-700">{item.senderName}</p> : null}
-      {item.title ? <p className={cn("mb-1 text-xs font-black", item.kind === "announcement" ? "text-violet-700" : "text-emerald-700")}>{item.title}</p> : null}
-      <p className="whitespace-pre-wrap break-words text-sm leading-5 text-slate-900">{item.body}</p>
+    <article className={cn("max-w-[88%] rounded-2xl px-3.5 py-2.5 shadow-sm sm:max-w-[76%] lg:max-w-[68%]", outgoing ? "rounded-br-sm bg-blue-700 text-white" : "rounded-bl-sm border border-slate-200/80 bg-white")}>
+      {item.senderName && !outgoing ? <p className="mb-0.5 text-xs font-black text-blue-700">{item.senderName}</p> : null}
+      {item.title ? <p className={cn("mb-1 text-xs font-black", outgoing ? "text-blue-100" : item.kind === "announcement" ? "text-violet-700" : "text-blue-700")}>{item.title}</p> : null}
+      <p className={cn("whitespace-pre-wrap break-words text-sm leading-5", outgoing ? "text-white" : "text-slate-900")}>{item.body}</p>
       <div className="mt-1 flex items-center justify-end gap-1 pl-8">
-        <time className="text-[10px] text-slate-500">{new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(new Date(item.createdAt))}</time>
-        {outgoing ? <CheckCheck className="size-4 text-sky-600" /> : null}
+        <time className={cn("text-[10px]", outgoing ? "text-blue-100" : "text-slate-500")}>{new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(new Date(item.createdAt))}</time>
+        {outgoing ? <CheckCheck className="size-4 text-sky-200" /> : null}
         {item.canReport && item.messageId ? <button aria-label="Report and mute this learner" className="ml-1 text-slate-400 hover:text-rose-700" disabled={reporting === item.messageId} onClick={() => void onReport(item.messageId!)} type="button">{reporting === item.messageId ? <Loader2 className="size-3 animate-spin" /> : <Flag className="size-3" />}</button> : null}
       </div>
     </article>
