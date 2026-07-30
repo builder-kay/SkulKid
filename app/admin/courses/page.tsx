@@ -103,7 +103,7 @@ export default function AdminCoursesPage() {
               <h2 className="mt-4 text-xl font-black">{course.title}</h2>
               <p className="mt-1 line-clamp-2 text-sm text-slate-600">{course.description}</p>
               <p className="mt-3 text-xs font-black uppercase tracking-wider text-emerald-700">Created by {course.teacherName}</p>
-              <p className="mt-1 text-xs font-bold text-slate-500">Basic {course.gradeLevels.join(", Basic ") || "levels not set"}{course.classNames.length ? ` · ${course.classNames.join(", ")}` : ""}</p>
+              <p className="mt-1 text-xs font-bold text-slate-500">{course.gradeLevels.length === 6 ? "All grades" : `Basic ${course.gradeLevels.join(", Basic ") || "levels not set"}`}{course.classNames.length ? ` · ${course.classNames.join(", ")}` : ""}</p>
               <dl className="mt-4 grid grid-cols-3 gap-2 text-center">
                 <Metric label="Lessons" value={course.lessonCount} />
                 <Metric label="Ready" value={course.publishedLessonCount} />
