@@ -1,4 +1,4 @@
-const CACHE_VERSION = "skulkid-static-v2";
+const CACHE_VERSION = "skulkid-static-v3";
 const OFFLINE_PAGE = "/offline.html";
 const PRECACHE = [
   OFFLINE_PAGE,
@@ -77,6 +77,46 @@ self.addEventListener("fetch", (event) => {
         await cache.put(request, response.clone());
       }
       return response;
+    })
+  );
+});
+
+self.addEventListener("push", (event) => {
+  let payload = {};
+  try {
+    payload = event.data ? event.data.json() : {};
+  } catch {
+    payload = { title: "SkulKid update", body: "Open SkulKid to view your latest class update.", url: "/classes" };
+  }
+  const title = payload.title || "SkulKid class update";
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      if (clients.some((client) => client.visibilityState === "visible")) return undefined;
+      return self.registration.showNotification(title, {
+        body: payload.body || "Open SkulKid to view the update.",
+        icon: "/pwa/icon-192.png",
+        badge: "/pwa/icon-192.png",
+        tag: payload.tag || "skulkid-class-update",
+        renotify: true,
+        data: { url: payload.url || "/classes" },
+        vibrate: [120, 70, 120]
+      });
+    })
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const target = new URL(event.notification.data?.url || "/classes", self.location.origin).href;
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(async (clients) => {
+      for (const client of clients) {
+        if ("focus" in client) {
+          if ("navigate" in client) await client.navigate(target);
+          return client.focus();
+        }
+      }
+      return self.clients.openWindow ? self.clients.openWindow(target) : undefined;
     })
   );
 });

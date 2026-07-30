@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireTeacher } from "@/lib/classes/classroom-server";
 import { analyseClassChatMessage, childFriendlyChatRules } from "@/lib/classes/class-chat-safety";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { sendClassMessagePush } from "@/lib/notifications/web-push-server";
 
 async function owns(teacherId: string, classId: string) {
   const admin = createAdminClient();
@@ -44,6 +45,7 @@ export async function POST(request: Request) {
     const { data, error } = await admin.from("ClassMessage").insert({ classId: input.classId, teacherId: teacher.id, senderId: teacher.id, senderRole: "teacher", scope: "class_room", kind: input.kind, body: input.body, moderationStatus: "allowed" }).select("id").single();
     if (error) throw new Error(error.message);
     await admin.from("ClassMessageAudit").insert({ messageId: data.id, classId: input.classId, actorId: teacher.id, action: "created", bodySnapshot: input.body });
+    await sendClassMessagePush({ classId: input.classId, senderId: teacher.id, kind: input.kind }).catch(() => undefined);
     return NextResponse.json({ ok: true }, { status: 201 });
   } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to post." }, { status: 400 }); }
 }
