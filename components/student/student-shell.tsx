@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, type MutableRefObject } from "react";
-import { Award, BellRing, BookMarked, BookOpen, LayoutDashboard, LogOut, Menu, MessageCircle, Trophy, UserRound, Users, Volume2, VolumeX, X } from "lucide-react";
+import { Award, BookMarked, BookOpen, LayoutDashboard, LogOut, Menu, MessageCircle, Trophy, UserRound, Users, Volume2, VolumeX, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { GamificationArena } from "@/components/gamification/gamification-arena";
 import { CharacterAvatar } from "@/components/student/character-avatar";
@@ -49,11 +49,8 @@ export function StudentShell({ activeItem, children, mobileAside }: StudentShell
   const [moreOpen, setMoreOpen] = useState(false);
   const [unreadClassMessages, setUnreadClassMessages] = useState(0);
   const [chatAlert, setChatAlert] = useState<{ classId: string; body: string } | null>(null);
-  const [pushState, setPushState] = useState<"checking" | "available" | "enabled" | "denied" | "unsupported" | "unconfigured">("checking");
-  const [pushBusy, setPushBusy] = useState(false);
-  const [alertsPromptDismissed, setAlertsPromptDismissed] = useState(true);
-  const [soundEnabled, setSoundEnabled] = useState(false);
-  const soundEnabledRef = useRef(false);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const soundEnabledRef = useRef(true);
   const audioContextRef = useRef<AudioContext | null>(null);
   const morePanelRef = useRef<HTMLDivElement>(null);
   const moreButtonRef = useRef<HTMLButtonElement>(null);
@@ -62,22 +59,9 @@ export function StudentShell({ activeItem, children, mobileAside }: StudentShell
   const studentLevel = getStudentLevel(state.xp);
 
   useEffect(() => {
-    const sound = window.localStorage.getItem("skulkid:class-chat-sound") === "on";
+    const sound = window.localStorage.getItem("skulkid:class-chat-sound") !== "off";
     setSoundEnabled(sound);
     soundEnabledRef.current = sound;
-    setAlertsPromptDismissed(window.sessionStorage.getItem("skulkid:class-alerts-dismissed") === "yes");
-    if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
-      setPushState("unsupported");
-      return;
-    }
-    void fetch("/api/student/push-subscriptions", { cache: "no-store" }).then(async (response) => {
-      const payload = await response.json() as { configured?: boolean };
-      if (!response.ok || !payload.configured) { setPushState("unconfigured"); return; }
-      if (Notification.permission === "denied") { setPushState("denied"); return; }
-      const registration = await navigator.serviceWorker.getRegistration("/");
-      const subscription = await registration?.pushManager.getSubscription();
-      setPushState(Notification.permission === "granted" && subscription ? "enabled" : "available");
-    }).catch(() => setPushState("available"));
   }, []);
 
   useEffect(() => {
@@ -102,35 +86,6 @@ export function StudentShell({ activeItem, children, mobileAside }: StudentShell
       if (channel) void supabase.removeChannel(channel);
     };
   }, []);
-
-  async function enableClassAlerts() {
-    setPushBusy(true);
-    try {
-      const response = await fetch("/api/student/push-subscriptions", { cache: "no-store" });
-      const setup = await response.json() as { configured?: boolean; publicKey?: string; error?: string };
-      if (!response.ok || !setup.configured || !setup.publicKey) { setPushState("unconfigured"); return; }
-      const permission = await Notification.requestPermission();
-      if (permission !== "granted") { setPushState("denied"); return; }
-      const registration = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
-      await navigator.serviceWorker.ready;
-      const existing = await registration.pushManager.getSubscription();
-      const subscription = existing ?? await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(setup.publicKey)
-      });
-      const save = await fetch("/api/student/push-subscriptions", {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(subscription.toJSON())
-      });
-      if (!save.ok) throw new Error("The device subscription could not be saved.");
-      setPushState("enabled");
-      setAlertsPromptDismissed(true);
-      window.sessionStorage.setItem("skulkid:class-alerts-dismissed", "yes");
-      setSound(true);
-      playClassChatSound(audioContextRef);
-    } catch {
-      setPushState(Notification.permission === "denied" ? "denied" : "available");
-    } finally { setPushBusy(false); }
-  }
 
   function setSound(enabled: boolean) {
     setSoundEnabled(enabled);
@@ -307,8 +262,7 @@ export function StudentShell({ activeItem, children, mobileAside }: StudentShell
       </div>
 
       {chatAlert ? <aside aria-live="polite" className="fixed inset-x-3 top-20 z-[60] mx-auto max-w-md rounded-2xl border border-blue-200 bg-white p-3 shadow-2xl sm:right-5 sm:left-auto sm:top-5 sm:w-[25rem]"><div className="flex items-start gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-blue-100 text-blue-700"><MessageCircle className="size-5" /></span><div className="min-w-0 flex-1"><p className="font-black text-slate-950">Class discussion is active</p><p className="mt-1 line-clamp-2 text-sm text-slate-600">{chatAlert.body}</p><Link className="mt-2 inline-flex min-h-9 items-center rounded-lg bg-blue-700 px-3 text-xs font-black text-white" href={`/classes/${chatAlert.classId}`} onClick={() => { setChatAlert(null); setUnreadClassMessages(0); }}>Open class chat</Link></div><button aria-label="Dismiss class message notification" className="grid size-9 shrink-0 place-items-center rounded-lg text-slate-500 hover:bg-slate-100" onClick={() => setChatAlert(null)} type="button"><X className="size-4" /></button></div></aside> : null}
-      {pushState === "available" && !alertsPromptDismissed ? <aside className="fixed bottom-[calc(6.75rem+env(safe-area-inset-bottom))] left-3 z-[55] w-[min(calc(100vw-1.5rem),23rem)] overflow-hidden rounded-2xl border border-blue-200 bg-white shadow-2xl lg:bottom-5"><div className="bg-gradient-to-r from-blue-700 to-indigo-700 p-4 text-white"><BellRing className="size-5" /><h2 className="mt-2 font-black">Never miss a class discussion</h2><p className="mt-1 text-xs leading-5 text-blue-100">Enable private device alerts and a gentle sound. Message text stays hidden on the lock screen.</p></div><div className="grid grid-cols-[1fr_auto] gap-2 p-3"><button className="min-h-11 rounded-xl bg-blue-700 px-4 text-sm font-black text-white disabled:opacity-60" disabled={pushBusy} onClick={() => void enableClassAlerts()} type="button">{pushBusy ? "Enabling…" : "Enable class alerts"}</button><button className="min-h-11 rounded-xl px-3 text-sm font-black text-slate-500 hover:bg-slate-100" onClick={() => { setAlertsPromptDismissed(true); window.sessionStorage.setItem("skulkid:class-alerts-dismissed", "yes"); }} type="button">Not now</button></div></aside> : null}
-      {pushState === "enabled" ? <button aria-label={soundEnabled ? "Mute class message sounds" : "Enable class message sounds"} className="fixed bottom-[calc(6.9rem+env(safe-area-inset-bottom))] right-4 z-30 grid size-11 place-items-center rounded-full border border-blue-200 bg-white text-blue-700 shadow-lg lg:bottom-5" onClick={() => setSound(!soundEnabled)} title={soundEnabled ? "Class message sound on" : "Class message sound off"} type="button">{soundEnabled ? <Volume2 className="size-5" /> : <VolumeX className="size-5" />}</button> : null}
+      <button aria-label={soundEnabled ? "Mute class message sounds" : "Enable class message sounds"} className="fixed bottom-[calc(6.9rem+env(safe-area-inset-bottom))] right-4 z-30 grid size-11 place-items-center rounded-full border border-blue-200 bg-white text-blue-700 shadow-lg lg:bottom-5" onClick={() => setSound(!soundEnabled)} title={soundEnabled ? "Class message sound on" : "Class message sound off"} type="button">{soundEnabled ? <Volume2 className="size-5" /> : <VolumeX className="size-5" />}</button>
 
       <div aria-hidden={!moreOpen} className={cn("fixed inset-0 z-40 bg-slate-950/45 backdrop-blur-[2px] transition lg:hidden", moreOpen ? "opacity-100" : "pointer-events-none opacity-0")} onClick={() => setMoreOpen(false)} />
       <div aria-hidden={!moreOpen} aria-labelledby="student-more-title" aria-modal="true" className={cn("fixed inset-x-3 bottom-[calc(5.7rem+env(safe-area-inset-bottom))] z-50 max-h-[75dvh] overflow-y-auto rounded-[1.75rem] bg-white p-4 shadow-2xl transition duration-200 lg:hidden", moreOpen ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-5 opacity-0")} ref={morePanelRef} role="dialog">
@@ -446,11 +400,4 @@ function playClassChatSound(audioContextRef: MutableRefObject<AudioContext | nul
   } catch {
     // Browsers may block audio until interaction; chat remains usable without it.
   }
-}
-
-function urlBase64ToUint8Array(value: string) {
-  const padding = "=".repeat((4 - (value.length % 4)) % 4);
-  const base64 = `${value}${padding}`.replace(/-/g, "+").replace(/_/g, "/");
-  const decoded = window.atob(base64);
-  return Uint8Array.from(decoded, (character) => character.charCodeAt(0));
 }

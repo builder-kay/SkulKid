@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
+import Script from "next/script";
 import { PwaExperience } from "@/components/pwa/pwa-experience";
 import "./globals.css";
 
@@ -52,6 +53,11 @@ export default function RootLayout({
       <body className={plusJakarta.variable}>
         {children}
         <PwaExperience />
+        <Script
+          id="pushalert-unified"
+          src="https://cdn.pushalert.co/unified_e34bec8a86a6ffbe16e5ff6e395375d5.js"
+          strategy="afterInteractive"
+        />
       </body>
     </html>
   );

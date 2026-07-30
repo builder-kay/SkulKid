@@ -1,6 +1,5 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { sendClassMessagePush } from "@/lib/notifications/web-push-server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { resolveAppRole } from "@/lib/auth/roles";
 import { calculateStars } from "@/lib/gamification/calculate-stars";
@@ -818,9 +817,6 @@ export async function createStudentTeacherMessage(input: {
     bodySnapshot: input.body.trim(),
     metadata: { categories: safety.categories, severity: safety.severity }
   });
-  if (safety.allowed) {
-    await sendClassMessagePush({ classId: input.classId, senderId: input.studentId, kind: "discussion" }).catch(() => undefined);
-  }
   if (!safety.allowed) {
     await Promise.all([
       admin.from("ChildSafetyCase").insert({
