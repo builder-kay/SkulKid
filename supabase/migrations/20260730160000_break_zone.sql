@@ -180,17 +180,21 @@ BEGIN
   FROM "BreakZoneConfig" WHERE "id" = true;
   cutoff := coalesce(cutoff, (now() - interval '90 days')::date);
   INSERT INTO "BreakZoneDailyAggregate" ("day","searches","views","completedViews","watchSeconds","reports")
-  SELECT day, sum(searches), sum(views), sum(completed), sum(seconds), sum(reports)
+  SELECT "aggregateDay", sum("searchCount"), sum("viewCount"), sum("completionCount"), sum("watchedSeconds"), sum("reportCount")
   FROM (
-    SELECT "createdAt"::date day, count(*)::int searches, 0 views, 0 completed, 0::bigint seconds, 0 reports
+    SELECT "createdAt"::date AS "aggregateDay", count(*)::int AS "searchCount",
+      0 AS "viewCount", 0 AS "completionCount", 0::bigint AS "watchedSeconds", 0 AS "reportCount"
       FROM "BreakZoneSearchEvent" WHERE "createdAt" < cutoff GROUP BY 1
     UNION ALL
-    SELECT "startedAt"::date, 0, count(*)::int, count(*) FILTER (WHERE "completed")::int,
-      coalesce(sum("watchedSeconds"),0)::bigint, 0 FROM "BreakZoneViewSession" WHERE "startedAt" < cutoff GROUP BY 1
+    SELECT "startedAt"::date AS "aggregateDay", 0 AS "searchCount", count(*)::int AS "viewCount",
+      count(*) FILTER (WHERE "completed")::int AS "completionCount",
+      coalesce(sum("watchedSeconds"),0)::bigint AS "watchedSeconds", 0 AS "reportCount"
+      FROM "BreakZoneViewSession" WHERE "startedAt" < cutoff GROUP BY 1
     UNION ALL
-    SELECT "createdAt"::date, 0, 0, 0, 0::bigint, count(*)::int
+    SELECT "createdAt"::date AS "aggregateDay", 0 AS "searchCount", 0 AS "viewCount",
+      0 AS "completionCount", 0::bigint AS "watchedSeconds", count(*)::int AS "reportCount"
       FROM "BreakZoneReport" WHERE "createdAt" < cutoff GROUP BY 1
-  ) daily GROUP BY day
+  ) AS "dailyTotals" GROUP BY "aggregateDay"
   ON CONFLICT ("day") DO UPDATE SET
     "searches"=EXCLUDED."searches","views"=EXCLUDED."views","completedViews"=EXCLUDED."completedViews",
     "watchSeconds"=EXCLUDED."watchSeconds","reports"=EXCLUDED."reports","updatedAt"=now();
