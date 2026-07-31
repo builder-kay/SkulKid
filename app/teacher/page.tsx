@@ -70,19 +70,25 @@ export default function AdminDashboardPage() {
         </SkulKidCard>
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-[minmax(20rem,0.65fr)_minmax(0,1.35fr)]">
-        <SkulKidCard className="p-5 sm:p-6">
-          <p className="text-xs font-black uppercase tracking-wider text-violet-700">Quick actions</p>
-          <h2 className="mt-1 text-2xl font-black">What would you like to do?</h2>
-          <div className="mt-5 grid gap-3">
-            <QuickAction href="/teacher/tutorial" icon={CircleHelp} title="Open the Teacher Guide" text="Follow clear guides for classes, courses, lessons, quizzes and learner support." />
-            <QuickAction href="/teacher/classes?create=1" icon={Users} title="Create a class" text="Share a join link, assign courses and quizzes, then coach students." />
-            <QuickAction href="/teacher/lessons/new" icon={SquarePen} title="Write a lesson" text="Add teaching material, quizzes and rewards manually." />
-            <QuickAction href="/teacher/lessons/new" icon={Bot} title="Extract a lesson with AI" text="Upload a lesson note and receive an editable lesson and quiz draft." />
-            <QuickAction href="/teacher/curriculum" icon={FileText} title="Browse official curricula" text="Filter NaCCA sources by grade and subject." />
+      <section className="grid gap-6">
+        <section className="relative overflow-hidden rounded-[2rem] border border-blue-200 bg-gradient-to-br from-blue-50 via-white to-violet-50 p-5 shadow-[var(--shadow-card)] sm:p-7">
+          <div className="pointer-events-none absolute -right-16 -top-20 size-64 rounded-full bg-blue-300/20 blur-3xl" />
+          <div className="relative flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[.16em] text-blue-700"><Sparkles className="size-4" />Quick actions</p>
+              <h2 className="mt-2 text-2xl font-black text-slate-950 sm:text-3xl">Where would you like to begin?</h2>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">Jump straight into your most common teaching tasks. Each tool keeps your work saved in the teacher workspace.</p>
+            </div>
+            <span className="hidden rounded-full border border-blue-200 bg-white/80 px-3 py-1.5 text-xs font-black text-blue-800 sm:inline-flex">5 teaching tools</span>
           </div>
-        </SkulKidCard>
-
+          <div className="relative mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            <QuickAction eyebrow="Learn the platform" href="/teacher/tutorial" icon={CircleHelp} title="Teacher Guide" text="Watch clear tutorials for classes, subjects, lessons, quizzes and learner support." tone="violet" />
+            <QuickAction eyebrow="Organise learners" href="/teacher/classes?create=1" icon={Users} title="Create a class" text="Invite learners, assign subjects and quizzes, and begin coaching." tone="blue" />
+            <QuickAction eyebrow="Build manually" href="/teacher/lessons/new" icon={SquarePen} title="Write a lesson" text="Create teaching material, assessments and rewards step by step." tone="amber" />
+            <QuickAction eyebrow="Save preparation time" href="/teacher/lessons/new#ai-extraction" icon={Bot} title="Extract with AI" text="Turn an uploaded lesson note into an editable lesson and quiz draft." tone="indigo" />
+            <QuickAction eyebrow="Plan with standards" href="/teacher/nacca-curriculum" icon={FileText} title="NaCCA curricula" text="Find official curriculum sources by primary level and subject." tone="emerald" />
+          </div>
+        </section>
         <LiveRecentLessons />
       </section>
 
@@ -95,6 +101,13 @@ function StatusRow({ ready, label, detail }: { ready: boolean; label: string; de
   return <div className="flex items-center gap-3 rounded-xl bg-slate-50 p-3"><span className={`grid size-8 shrink-0 place-items-center rounded-full ${ready ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-900"}`}>{ready ? <CheckCircle2 className="size-4" /> : <CircleAlert className="size-4" />}</span><div className="min-w-0"><p className="text-sm font-bold">{label}</p><p className="truncate text-xs text-muted">{detail}</p></div></div>;
 }
 
-function QuickAction({ href, icon: Icon, title, text }: { href: string; icon: LucideIcon; title: string; text: string }) {
-  return <Link href={href} className="group flex min-h-20 items-center gap-4 rounded-2xl border border-slate-200 p-4 transition hover:border-violet-300 hover:bg-violet-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-600"><span className="grid size-11 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-700 transition group-hover:bg-violet-100 group-hover:text-violet-800"><Icon className="size-5" /></span><span className="min-w-0 flex-1"><span className="block font-black">{title}</span><span className="mt-1 block text-sm leading-5 text-muted">{text}</span></span><ArrowRight className="size-4 shrink-0 text-slate-400 group-hover:text-violet-700" /></Link>;
+function QuickAction({ eyebrow, href, icon: Icon, title, text, tone }: { eyebrow: string; href: string; icon: LucideIcon; title: string; text: string; tone: "violet" | "blue" | "amber" | "indigo" | "emerald" }) {
+  const tones = {
+    violet: "bg-violet-100 text-violet-700 group-hover:bg-violet-700",
+    blue: "bg-blue-100 text-blue-700 group-hover:bg-blue-700",
+    amber: "bg-amber-100 text-amber-700 group-hover:bg-amber-600",
+    indigo: "bg-indigo-100 text-indigo-700 group-hover:bg-indigo-700",
+    emerald: "bg-emerald-100 text-emerald-700 group-hover:bg-emerald-700"
+  };
+  return <Link href={href} className="group flex min-h-52 flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition duration-300 hover:-translate-y-1 hover:border-blue-200 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"><span className={`grid size-11 place-items-center rounded-xl transition group-hover:text-white ${tones[tone]}`}><Icon className="size-5" /></span><span className="mt-5 block text-[10px] font-black uppercase tracking-[.13em] text-slate-500">{eyebrow}</span><span className="mt-1 block text-lg font-black text-slate-950">{title}</span><span className="mt-2 block text-sm leading-5 text-slate-600">{text}</span><span className="mt-auto flex items-center justify-between pt-5 text-xs font-black text-blue-700"><span>Open tool</span><ArrowRight className="size-4 transition-transform group-hover:translate-x-1" /></span></Link>;
 }
