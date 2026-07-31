@@ -64,6 +64,33 @@ export async function findSupabaseUserByUsername(usernameInput: string) {
   return users.find((user) => sameUsername(user, username)) ?? null;
 }
 
+export async function findTeacherByUsernameOrName(queryInput: string) {
+  const query = queryInput.trim();
+  if (query.length < 3) throw new Error("Enter at least three characters.");
+  const users = (await listAuthUsers()).filter((user) => userRole(user) === "teacher");
+  let usernameMatch: User | undefined;
+  try {
+    usernameMatch = users.find((user) => sameUsername(user, query));
+  } catch {
+    // Names may contain spaces and punctuation, so they are not valid usernames.
+  }
+  if (usernameMatch) return usernameMatch;
+
+  const normalizedName = query.toLocaleLowerCase().replace(/\s+/g, " ");
+  const nameMatches = users.filter((user) => {
+    const metadata = user.user_metadata ?? {};
+    const candidates = [metadata.display_name, metadata.full_name, metadata.name];
+    return candidates.some((value) =>
+      typeof value === "string"
+      && value.trim().toLocaleLowerCase().replace(/\s+/g, " ") === normalizedName
+    );
+  });
+  if (nameMatches.length > 1) {
+    throw new Error("More than one teacher uses that name. Ask the teacher for their exact username.");
+  }
+  return nameMatches[0] ?? null;
+}
+
 export async function listStudentsByPhone(phoneInput: string) {
   const phone = normalizeGhanaPhone(phoneInput);
   const users = await listAuthUsers();

@@ -2,7 +2,7 @@ import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveAppRole } from "@/lib/auth/roles";
-import { findSupabaseUserByUsername } from "@/lib/auth/student-identity";
+import { findTeacherByUsernameOrName } from "@/lib/auth/student-identity";
 import { requireClassTeacher } from "@/lib/classes/classroom-server";
 import type { ClassTeacherInvitation, ClassTeachingTeamMember } from "@/lib/classes/types";
 
@@ -56,13 +56,13 @@ export async function listClassTeachingTeam(teacherId: string, classId: string):
 export async function inviteSubjectTeacher(input: {
   classTeacherId: string;
   classId: string;
-  username: string;
+  teacherQuery: string;
   courseIds: string[];
 }) {
   await requireClassTeacher(input.classTeacherId, input.classId);
-  const user = await findSupabaseUserByUsername(input.username);
+  const user = await findTeacherByUsernameOrName(input.teacherQuery);
   if (!user || resolveAppRole(user.app_metadata?.role) !== "teacher") {
-    throw new Error("No teacher account matches that exact username.");
+    throw new Error("No teacher account matches that username or name.");
   }
   if (user.id === input.classTeacherId) throw new Error("You are already the class teacher.");
   const admin = createAdminClient();

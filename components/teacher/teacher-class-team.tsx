@@ -6,7 +6,7 @@ import type { ClassCourseAssignmentView, ClassTeachingTeamMember } from "@/lib/c
 
 export function TeacherClassTeam({ classId, subjects }: { classId: string; subjects: ClassCourseAssignmentView[] }) {
   const [team, setTeam] = useState<ClassTeachingTeamMember[]>([]);
-  const [username, setUsername] = useState("");
+  const [teacherQuery, setTeacherQuery] = useState("");
   const [courseIds, setCourseIds] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -39,8 +39,8 @@ export function TeacherClassTeam({ classId, subjects }: { classId: string; subje
 
   async function invite(event: React.FormEvent) {
     event.preventDefault();
-    const saved = await mutate("POST", { username, courseIds }, "Invitation sent. Access begins after the teacher accepts.");
-    if (saved) { setUsername(""); setCourseIds([]); }
+    const saved = await mutate("POST", { teacherQuery, courseIds }, "Invitation sent. Access begins after the teacher accepts.");
+    if (saved) { setTeacherQuery(""); setCourseIds([]); }
   }
 
   async function revoke(assignmentId: string) {
@@ -56,10 +56,10 @@ export function TeacherClassTeam({ classId, subjects }: { classId: string; subje
     {error ? <p className="rounded-xl bg-rose-50 p-3 font-bold text-rose-900">{error}</p> : null}
     {notice ? <p className="rounded-xl bg-emerald-50 p-3 font-bold text-emerald-900">{notice}</p> : null}
     <form className="rounded-[1.5rem] border border-blue-200 bg-white p-5 shadow-sm sm:p-6" onSubmit={invite}>
-      <div className="flex items-center gap-3"><span className="grid size-10 place-items-center rounded-xl bg-blue-100 text-blue-700"><UserPlus className="size-5" /></span><div><h3 className="text-xl font-black">Invite a subject teacher</h3><p className="text-sm text-slate-600">Exact matching keeps teacher accounts private.</p></div></div>
-      <label className="mt-5 grid gap-2 text-sm font-black">Teacher username<input className="min-h-11 rounded-xl border border-slate-300 px-3 font-medium" onChange={(event) => setUsername(event.target.value)} placeholder="e.g. teacher_kay" required value={username} /></label>
+      <div className="flex items-center gap-3"><span className="grid size-10 place-items-center rounded-xl bg-blue-100 text-blue-700"><UserPlus className="size-5" /></span><div><h3 className="text-xl font-black">Invite a subject teacher</h3><p className="text-sm text-slate-600">Find a registered teacher using their exact username or full name.</p></div></div>
+      <label className="mt-5 grid gap-2 text-sm font-black">Teacher username or name<input className="min-h-11 rounded-xl border border-slate-300 px-3 font-medium" onChange={(event) => setTeacherQuery(event.target.value)} placeholder="e.g. teacher_kay or Joyce Mensah" required value={teacherQuery} /><span className="text-xs font-medium text-slate-500">If several teachers share a name, use the exact username.</span></label>
       <SubjectPicker selected={courseIds} subjects={subjects} onChange={setCourseIds} />
-      <button className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl bg-blue-700 px-5 font-black text-white disabled:opacity-50" disabled={busy || username.trim().length < 3 || !courseIds.length}>{busy ? <Loader2 className="size-4 animate-spin" /> : <UserPlus className="size-4" />}Send invitation</button>
+      <button className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl bg-blue-700 px-5 font-black text-white disabled:opacity-50" disabled={busy || teacherQuery.trim().length < 3 || !courseIds.length}>{busy ? <Loader2 className="size-4 animate-spin" /> : <UserPlus className="size-4" />}Send invitation</button>
     </form>
     <div><h3 className="text-xl font-black">Subject teachers</h3><div className="mt-3 grid gap-3 md:grid-cols-2">
       {subjectTeachers.length ? subjectTeachers.map((member) => <TeamCard busy={busy} key={member.assignmentId} member={member} subjects={subjects} onRevoke={revoke} onSave={(assignmentId, selected) => mutate("PATCH", { assignmentId, courseIds: selected }, "Assigned subjects updated.")} />) : <div className="rounded-2xl border border-dashed border-slate-300 p-6 text-center text-slate-600 md:col-span-2"><ShieldCheck className="mx-auto size-8 text-slate-300" /><p className="mt-2 font-black">No subject teachers yet</p></div>}

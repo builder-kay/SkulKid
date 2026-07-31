@@ -10,7 +10,7 @@ import {
 import { allowUsernameAvailabilityCheck } from "@/lib/auth/rate-limit";
 
 const inviteSchema = z.object({
-  username: z.string().trim().min(3).max(32),
+  teacherQuery: z.string().trim().min(3).max(80),
   courseIds: z.array(z.string().min(1)).min(1).max(20)
 });
 const updateSchema = z.object({
