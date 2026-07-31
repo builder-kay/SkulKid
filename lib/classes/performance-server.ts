@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { listClassRoster } from "@/lib/classes/classroom-server";
+import { getTeacherClassAccess, listClassRoster } from "@/lib/classes/classroom-server";
 import type {
   ClassAdviceView,
   ClassPerformanceData,
@@ -39,14 +39,17 @@ export async function getTeacherClassPerformance(input: {
   strandId?: string;
 }): Promise<ClassPerformanceData> {
   const admin = createAdminClient();
+  const access = await getTeacherClassAccess(input.teacherId, input.classId);
   const { data: classroom, error: classError } = await admin
     .from("TeacherClass")
     .select("id,name,teacherId,createdAt")
     .eq("id", input.classId)
-    .eq("teacherId", input.teacherId)
     .maybeSingle();
   if (classError) throw new Error(classError.message);
-  if (!classroom) throw new Error("Class not found or you do not own it.");
+  if (!classroom) throw new Error("Class not found.");
+  if (access.role === "subject_teacher" && input.subjectId && !access.assignedCourseIds.includes(input.subjectId)) {
+    throw new Error("You are not assigned to this subject.");
+  }
 
   const roster = await listClassRoster(input.teacherId, input.classId);
   const studentIds = roster.map((item) => item.studentId);
@@ -60,13 +63,17 @@ export async function getTeacherClassPerformance(input: {
 
   const [{ data: assignments }, { data: quizRows }, { data: gameRows }] = await Promise.all([
     admin.from("ClassCourseAssignment").select("courseId").eq("classId", input.classId),
-    admin.from("ClassQuiz").select("id,title,passingScore").eq("classId", input.classId),
+    admin.from("ClassQuiz").select("id,title,passingScore,courseId").eq("classId", input.classId),
     studentIds.length
       ? admin.from("StudentGameState").select("userId,state").in("userId", studentIds)
       : Promise.resolve({ data: [] })
   ]);
-  const courseIds = (assignments ?? []).map((row) => String(row.courseId));
-  const quizIds = (quizRows ?? []).map((row) => String(row.id));
+  const courseIds = (assignments ?? []).map((row) => String(row.courseId))
+    .filter((id) => access.role === "class_teacher" || access.assignedCourseIds.includes(id));
+  const visibleQuizRows = access.role === "class_teacher"
+    ? (quizRows ?? [])
+    : (quizRows ?? []).filter((row) => row.courseId && access.assignedCourseIds.includes(String(row.courseId)));
+  const quizIds = visibleQuizRows.map((row) => String(row.id));
 
   const [{ data: subjectRows }, { data: unitRows }, { data: topicRows }, { data: lessonRows }] = courseIds.length
     ? await Promise.all([
@@ -114,7 +121,7 @@ export async function getTeacherClassPerformance(input: {
     if (error) throw new Error(error.message);
   }
 
-  const quizById = new Map((quizRows ?? []).map((row) => [String(row.id), row]));
+  const quizById = new Map(visibleQuizRows.map((row) => [String(row.id), row]));
   const gameByStudent = new Map((gameRows ?? []).map((row) => [String(row.userId), (row.state ?? {}) as {
     xp?: number;
     streak?: number;

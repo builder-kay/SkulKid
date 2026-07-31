@@ -31,7 +31,7 @@ type Message = {
 };
 
 type MessagingData = {
-  classes: Array<{ id: string; name: string; students: Array<{ id: string; name: string }> }>;
+  classes: Array<{ id: string; name: string; teacherRole: "class_teacher" | "subject_teacher"; assignedSubjects: Array<{ id: string; name: string }>; students: Array<{ id: string; name: string }> }>;
   messages: Message[];
 };
 
@@ -345,6 +345,7 @@ function BroadcastDialog({ classes, contacts, onClose, onSent }: {
 }) {
   const [audience, setAudience] = useState<"all" | "class" | "selected">("class");
   const [classId, setClassId] = useState(classes[0]?.id ?? "");
+  const [courseId, setCourseId] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
@@ -362,11 +363,12 @@ function BroadcastDialog({ classes, contacts, onClose, onSent }: {
     setError("");
     try {
       const isClassAnnouncement = audience === "class";
+      const selectedClass = classes.find((item) => item.id === classId);
       const response = await fetch(isClassAnnouncement ? "/api/teacher/class-safety" : "/api/teacher/communications", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(isClassAnnouncement
-          ? { classId, body: `${title}\n\n${body}`.slice(0, 1000), kind: "announcement" }
+          ? { classId, courseId: selectedClass?.teacherRole === "subject_teacher" ? courseId : null, body: `${title}\n\n${body}`.slice(0, 1000), kind: "announcement" }
           : {
               audience,
               studentIds: audience === "selected" ? selected : undefined,
@@ -402,11 +404,11 @@ function BroadcastDialog({ classes, contacts, onClose, onSent }: {
               <button className={cn("rounded-xl border p-3 text-sm font-black", audience === value ? "border-blue-700 bg-blue-50 text-blue-900" : "border-slate-200")} key={value} onClick={() => setAudience(value)} type="button"><Icon className="mx-auto mb-2 size-5" />{label}</button>
             ))}
           </div>
-          {audience === "class" ? <div className="grid gap-2"><select className="min-h-12 rounded-xl border border-slate-300 px-3 font-bold" onChange={(event) => setClassId(event.target.value)} value={classId}>{classes.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.students.length} learners</option>)}</select><p className="rounded-xl bg-blue-50 p-3 text-xs font-bold leading-5 text-blue-900">This announcement will appear inside the selected class group chat.</p></div> : null}
+          {audience === "class" ? <div className="grid gap-2"><select className="min-h-12 rounded-xl border border-slate-300 px-3 font-bold" onChange={(event) => { setClassId(event.target.value); setCourseId(""); }} value={classId}>{classes.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.students.length} learners</option>)}</select>{classes.find((item) => item.id === classId)?.teacherRole === "subject_teacher" ? <select className="min-h-12 rounded-xl border border-slate-300 px-3 font-bold" onChange={(event) => setCourseId(event.target.value)} required value={courseId}><option value="">Choose the announcement subject</option>{classes.find((item) => item.id === classId)?.assignedSubjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}</select> : null}<p className="rounded-xl bg-blue-50 p-3 text-xs font-bold leading-5 text-blue-900">This announcement will appear inside the selected class group chat.</p></div> : null}
           {audience === "selected" ? <div className="max-h-48 overflow-y-auto rounded-xl border border-slate-200 p-2">{contacts.map((contact) => <label className="flex min-h-11 items-center gap-3 rounded-lg px-2 hover:bg-slate-50" key={contact.id}><input checked={selected.includes(contact.id)} onChange={() => setSelected((current) => current.includes(contact.id) ? current.filter((id) => id !== contact.id) : [...current, contact.id])} type="checkbox" /><span className="text-sm font-bold">{contact.name}</span></label>)}</div> : null}
           <input className="min-h-12 rounded-xl border border-slate-300 px-3" maxLength={120} minLength={2} onChange={(event) => setTitle(event.target.value)} placeholder="Announcement title" required value={title} />
           <textarea className="min-h-36 rounded-xl border border-slate-300 p-3" maxLength={1000} minLength={2} onChange={(event) => setBody(event.target.value)} placeholder="Write your message" required value={body} />
-          <button className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-blue-700 px-5 font-black text-white hover:bg-blue-800 disabled:opacity-50" disabled={busy || recipientCount === 0} type="submit">{busy ? <Loader2 className="size-5 animate-spin" /> : <Send className="size-5" />}Send to {recipientCount} learner{recipientCount === 1 ? "" : "s"}</button>
+          <button className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-blue-700 px-5 font-black text-white hover:bg-blue-800 disabled:opacity-50" disabled={busy || recipientCount === 0 || (audience === "class" && classes.find((item) => item.id === classId)?.teacherRole === "subject_teacher" && !courseId)} type="submit">{busy ? <Loader2 className="size-5 animate-spin" /> : <Send className="size-5" />}Send to {recipientCount} learner{recipientCount === 1 ? "" : "s"}</button>
         </div>
       </form>
     </div>

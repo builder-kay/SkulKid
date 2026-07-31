@@ -1,6 +1,6 @@
 import { after, NextResponse } from "next/server";
 import { z } from "zod";
-import { requireTeacher } from "@/lib/classes/classroom-server";
+import { requireClassSubjectAccess, requireTeacher } from "@/lib/classes/classroom-server";
 import type { AdminLessonRecord } from "@/lib/admin/lesson-library";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveAppRole } from "@/lib/auth/roles";
@@ -58,16 +58,12 @@ export async function POST(request: Request) {
     ]);
     const error = courseError ?? existingError;
     if (error) throw new Error(error.message);
-    if (!course || course.createdBy !== teacher.id) throw new Error("You can only add lessons to courses you created.");
+    if (!course) throw new Error("Subject not found.");
+    if (!record.classId && course.createdBy !== teacher.id) throw new Error("You can only add lessons to subjects you created.");
     if (existing && existing.createdBy !== teacher.id) throw new Error("You can only edit lessons you created.");
 
     if (record.classId) {
-      const { data: classroom } = await admin.from("TeacherClass")
-        .select("id")
-        .eq("id", record.classId)
-        .eq("teacherId", teacher.id)
-        .maybeSingle();
-      if (!classroom) throw new Error("You can only place lessons in your own classes.");
+      await requireClassSubjectAccess(teacher.id, record.classId, record.courseId!);
     }
     const { count } = existing
       ? { count: null }

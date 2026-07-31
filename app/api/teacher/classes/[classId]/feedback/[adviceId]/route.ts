@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireTeacher } from "@/lib/classes/classroom-server";
+import { getTeacherClassAccess, requireTeacher } from "@/lib/classes/classroom-server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const schema = z.object({ resolutionNote: z.string().trim().min(3).max(600) });
@@ -10,9 +10,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ class
     const teacher = await requireTeacher();
     const { classId, adviceId } = await context.params;
     const input = schema.parse(await request.json());
+    await getTeacherClassAccess(teacher.id, classId);
     const admin = createAdminClient();
-    const { data: classroom } = await admin.from("TeacherClass").select("id").eq("id", classId).eq("teacherId", teacher.id).maybeSingle();
-    if (!classroom) return NextResponse.json({ error: "Class not found or you do not own it." }, { status: 404 });
     const { data, error } = await admin.from("ClassAdvice").update({
       followUpStatus: "resolved", resolvedAt: new Date().toISOString(), resolutionNote: input.resolutionNote
     }).eq("id", adviceId).eq("classId", classId).eq("teacherId", teacher.id).in("followUpStatus", ["open", "acknowledged"]).select("id").maybeSingle();

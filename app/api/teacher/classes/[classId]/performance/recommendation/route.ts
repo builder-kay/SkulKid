@@ -7,7 +7,7 @@ import { getTeacherClassPerformance } from "@/lib/classes/performance-server";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const requestSchema = z.object({ studentId: z.string().uuid(), range: z.enum(["30d", "90d", "term"]).default("30d") });
+const requestSchema = z.object({ studentId: z.string().uuid(), range: z.enum(["30d", "90d", "term"]).default("30d"), subjectId: z.string().trim().max(160).optional() });
 const draftSchema = z.object({
   title: z.string().trim().min(3).max(120),
   message: z.string().trim().min(10).max(600),
@@ -33,7 +33,7 @@ export async function POST(request: Request, context: { params: Promise<{ classI
     const teacher = await requireTeacher();
     const { classId } = await context.params;
     const input = requestSchema.parse(await request.json());
-    const performance = await getTeacherClassPerformance({ teacherId: teacher.id, classId, range: input.range, metric: "academic" });
+    const performance = await getTeacherClassPerformance({ teacherId: teacher.id, classId, range: input.range, metric: "academic", subjectId: input.subjectId });
     const learner = performance.learners.find((item) => item.studentId === input.studentId);
     const detail = performance.details[input.studentId];
     if (!learner || !detail) return NextResponse.json({ error: "Learner not found in this class." }, { status: 404 });

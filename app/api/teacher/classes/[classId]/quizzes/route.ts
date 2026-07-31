@@ -14,6 +14,7 @@ const questionSchema = z.object({
 });
 
 const quizFieldsSchema = z.object({
+  courseId: z.string().min(1).nullable().optional(),
   title: z.string().trim().min(2).max(120),
   description: z.string().trim().max(500).optional(),
   questions: z.array(questionSchema).min(1).max(30),
@@ -65,6 +66,7 @@ export async function POST(request: Request, context: { params: Promise<{ classI
       id: quizId,
       teacherId: teacher.id,
       classId,
+      courseId: input.courseId,
       title: input.title,
       description: input.description,
       questions: input.questions.map((question, index) => ({

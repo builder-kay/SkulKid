@@ -43,6 +43,7 @@ type Detail = {
     note: string;
     visibility: CourseVisibility;
     isClassOnly: boolean;
+    teachers: string[];
   }>;
   quizzes: Array<{
     id: string;
@@ -143,6 +144,7 @@ function ClassSubjectCard({ classId, course }: { classId: string; course: Detail
           <p className="line-clamp-2 min-h-12 text-sm leading-6 text-slate-600">
             {course.note || course.description || "A learning adventure selected by your teacher for this class."}
           </p>
+          <p className="mt-3 text-xs font-bold text-slate-500">Taught by <span className="text-slate-800">{course.teachers.join(", ")}</span></p>
 
           {empty ? (
             <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">

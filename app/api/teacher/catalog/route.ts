@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireTeacher } from "@/lib/classes/classroom-server";
+import { requireClassSubjectAccess, requireTeacher } from "@/lib/classes/classroom-server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveAppRole } from "@/lib/auth/roles";
 
@@ -70,20 +70,40 @@ async function assertOwnedCourse(courseId: string, teacherId: string) {
   if (!data || data.createdBy !== teacherId) throw new Error("You can only change courses you created.");
 }
 
+async function assertCanContributeToCourse(courseId: string, teacherId: string) {
+  const admin = createAdminClient();
+  const { data, error } = await admin.from("Subject").select("id,createdBy,ownerClassId").eq("id", courseId).maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("Subject not found.");
+  if (data.createdBy === teacherId) return;
+  if (!data.ownerClassId) throw new Error("Only the subject owner can change its shared structure.");
+  await requireClassSubjectAccess(teacherId, String(data.ownerClassId), courseId);
+}
+
+async function assertStructureOwner(table: "Unit" | "Topic", id: string, teacherId: string) {
+  const admin = createAdminClient();
+  const { data, error } = await admin.from(table).select("createdBy").eq("id", id).maybeSingle();
+  if (error) throw new Error(error.message);
+  if (data?.createdBy && data.createdBy !== teacherId) throw new Error("You can rename only structures you created.");
+}
+
 export async function GET() {
   try {
     const teacher = await requireTeacher();
     const admin = createAdminClient();
-    const [coursesResult, unitsResult, topicsResult, lessonsResult, classesResult] = await Promise.all([
+    const [coursesResult, unitsResult, topicsResult, lessonsResult, classesResult, staffingResult] = await Promise.all([
       admin.from("Subject").select("id,name,slug,description,icon,colourToken,coverUrl,gradeLevels,order,status,visibility,ownerClassId,createdBy,currentPublicRevisionId").order("order"),
-      admin.from("Unit").select("id,subjectId,name,slug,description,order,requiresPrevious").order("order"),
-      admin.from("Topic").select("id,unitId,name,slug,description,order").order("order"),
+      admin.from("Unit").select("id,subjectId,name,slug,description,order,requiresPrevious,createdBy").order("order"),
+      admin.from("Topic").select("id,unitId,name,slug,description,order,createdBy").order("order"),
       admin.from("AdminLessonRecord").select("id,courseId,unitId,topicId,status").eq("status", "published").order("position"),
       resolveAppRole(teacher.app_metadata?.role) === "admin"
         ? Promise.resolve({ data: [] as Array<{ id: string }>, error: null })
-        : admin.from("TeacherClass").select("id").eq("teacherId", teacher.id)
+        : admin.from("TeacherClass").select("id").eq("teacherId", teacher.id),
+      resolveAppRole(teacher.app_metadata?.role) === "admin"
+        ? Promise.resolve({ data: [] as Array<{ id: string; classId: string }>, error: null })
+        : admin.from("ClassTeacherAssignment").select("id,classId").eq("teacherId", teacher.id).eq("status", "active")
     ]);
-    const error = coursesResult.error ?? unitsResult.error ?? topicsResult.error ?? lessonsResult.error ?? classesResult.error;
+    const error = coursesResult.error ?? unitsResult.error ?? topicsResult.error ?? lessonsResult.error ?? classesResult.error ?? staffingResult.error;
     if (error) throw new Error(error.message);
 
     const lessons = lessonsResult.data ?? [];
@@ -104,6 +124,7 @@ export async function GET() {
         title: String(topic.name),
         slug: String(topic.slug),
         description: String(topic.description),
+        createdBy: topic.createdBy ? String(topic.createdBy) : null,
         order: Number(topic.order),
         lessonIds: lessons.filter((lesson) => lesson.topicId === topic.id).map((lesson) => String(lesson.id))
       };
@@ -129,12 +150,21 @@ export async function GET() {
         description: String(unit.description),
         order: Number(unit.order),
         requiresPrevious: Boolean(unit.requiresPrevious),
+        createdBy: unit.createdBy ? String(unit.createdBy) : null,
         topics: topicsByUnit.get(String(unit.id)) ?? []
       };
       unitsByCourse.set(subjectId, [...(unitsByCourse.get(subjectId) ?? []), mapped]);
     }
 
-    const ownedClassIds = new Set((classesResult.data ?? []).map((item) => String(item.id)));
+    const activeAssignments = staffingResult.data ?? [];
+    const { data: teachingScopes } = activeAssignments.length
+      ? await admin.from("ClassTeacherSubject").select("assignmentId,courseId").in("assignmentId", activeAssignments.map((item) => item.id))
+      : { data: [] as Array<{ assignmentId: string; courseId: string }> };
+    const assignedCourseIds = new Set((teachingScopes ?? []).map((item) => String(item.courseId)));
+    const ownedClassIds = new Set([
+      ...(classesResult.data ?? []).map((item) => String(item.id)),
+      ...activeAssignments.map((item) => String(item.classId))
+    ]);
     const isAdmin = resolveAppRole(teacher.app_metadata?.role) === "admin";
     const visible = (coursesResult.data ?? []).filter((course) =>
       course.visibility !== "class" || isAdmin || ownedClassIds.has(String(course.ownerClassId))
@@ -156,7 +186,7 @@ export async function GET() {
         visibility: course.visibility === "class" ? "class" : "platform",
         ownerClassId: course.ownerClassId ? String(course.ownerClassId) : null
         ,createdBy: course.createdBy ? String(course.createdBy) : null
-        ,canManage: course.createdBy === teacher.id || isAdmin
+        ,canManage: course.createdBy === teacher.id || assignedCourseIds.has(String(course.id)) || isAdmin
         ,currentPublicRevisionId: course.currentPublicRevisionId ? String(course.currentPublicRevisionId) : null
       }))
     });
@@ -246,7 +276,8 @@ export async function POST(request: Request) {
     }
 
     if (input.action === "save_unit") {
-      await assertOwnedCourse(input.courseId, teacher.id);
+      await assertCanContributeToCourse(input.courseId, teacher.id);
+      if (input.id) await assertStructureOwner("Unit", input.id, teacher.id);
       const { count } = input.id ? { count: null } : await admin.from("Unit").select("id", { count: "exact", head: true }).eq("subjectId", input.courseId);
       const id = input.id ?? `unit-${crypto.randomUUID()}`;
       const { error } = await admin.from("Unit").upsert({
@@ -256,6 +287,7 @@ export async function POST(request: Request) {
         slug: safeSlug(input.title),
         description: input.description,
         requiresPrevious: input.requiresPrevious,
+        ...(!input.id ? { createdBy: teacher.id } : {}),
         order: count ?? 0,
         updatedAt: new Date().toISOString()
       }, { onConflict: "id" });
@@ -267,7 +299,8 @@ export async function POST(request: Request) {
       const { data: unit, error: unitError } = await admin.from("Unit").select("subjectId").eq("id", input.unitId).maybeSingle();
       if (unitError) throw new Error(unitError.message);
       if (!unit) throw new Error("Module not found.");
-      await assertOwnedCourse(String(unit.subjectId), teacher.id);
+      await assertCanContributeToCourse(String(unit.subjectId), teacher.id);
+      if (input.id) await assertStructureOwner("Topic", input.id, teacher.id);
       const { count } = input.id ? { count: null } : await admin.from("Topic").select("id", { count: "exact", head: true }).eq("unitId", input.unitId);
       const id = input.id ?? `topic-${crypto.randomUUID()}`;
       const { error } = await admin.from("Topic").upsert({
@@ -276,6 +309,7 @@ export async function POST(request: Request) {
         name: input.title,
         slug: safeSlug(input.title),
         description: input.description,
+        ...(!input.id ? { createdBy: teacher.id } : {}),
         order: count ?? 0,
         updatedAt: new Date().toISOString()
       }, { onConflict: "id" });
@@ -284,7 +318,7 @@ export async function POST(request: Request) {
     }
 
     if (input.action === "reorder_strands") {
-      await assertOwnedCourse(input.courseId, teacher.id);
+      await assertCanContributeToCourse(input.courseId, teacher.id);
       const uniqueIds = [...new Set(input.strandIds)];
       if (uniqueIds.length !== input.strandIds.length) throw new Error("Each strand may appear only once.");
       const { data: strands, error } = await admin.from("Unit").select("id").eq("subjectId", input.courseId).in("id", uniqueIds);
@@ -300,7 +334,7 @@ export async function POST(request: Request) {
       const { data: strand, error: strandError } = await admin.from("Unit").select("subjectId").eq("id", input.strandId).maybeSingle();
       if (strandError) throw new Error(strandError.message);
       if (!strand) throw new Error("Strand not found.");
-      await assertOwnedCourse(String(strand.subjectId), teacher.id);
+      await assertCanContributeToCourse(String(strand.subjectId), teacher.id);
       const uniqueIds = [...new Set(input.subStrandIds)];
       if (uniqueIds.length !== input.subStrandIds.length) throw new Error("Each sub-strand may appear only once.");
       const { data: subStrands, error } = await admin.from("Topic").select("id").eq("unitId", input.strandId).in("id", uniqueIds);

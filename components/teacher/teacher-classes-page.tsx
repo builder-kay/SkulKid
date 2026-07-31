@@ -10,14 +10,16 @@ import {
   Copy,
   Link2,
   Loader2,
+  MailCheck,
   Plus,
   Sparkles,
   Users,
   UsersRound
 } from "lucide-react";
-import type { TeacherClassSummary } from "@/lib/classes/types";
+import type { ClassTeacherInvitation, TeacherClassSummary } from "@/lib/classes/types";
 import { TeacherGuideLink } from "@/components/teacher/teacher-guide-link";
 import { cn } from "@/lib/utils";
+import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 
 const gradeTones = [
   { band: "from-teal-700 via-teal-600 to-cyan-700", soft: "bg-teal-50 text-teal-800", accent: "text-teal-700" },
@@ -28,6 +30,7 @@ const gradeTones = [
 
 export function TeacherClassesPage({ initialCreate = false }: { initialCreate?: boolean }) {
   const [classes, setClasses] = useState<TeacherClassSummary[]>([]);
+  const [invitations, setInvitations] = useState<ClassTeacherInvitation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [creating, setCreating] = useState(false);
@@ -48,10 +51,15 @@ export function TeacherClassesPage({ initialCreate = false }: { initialCreate?: 
     setLoading(true);
     setError("");
     try {
-      const response = await fetch("/api/teacher/classes", { cache: "no-store" });
+      const [response, invitationResponse] = await Promise.all([
+        fetch("/api/teacher/classes", { cache: "no-store" }),
+        fetch("/api/teacher/class-invitations", { cache: "no-store" })
+      ]);
       const payload = await response.json() as { classes?: TeacherClassSummary[]; error?: string };
+      const invitationPayload = await invitationResponse.json() as { invitations?: ClassTeacherInvitation[] };
       if (!response.ok) throw new Error(payload.error || "Unable to load classes.");
       setClasses(payload.classes ?? []);
+      setInvitations(invitationPayload.invitations ?? []);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to load classes.");
     } finally {
@@ -59,7 +67,31 @@ export function TeacherClassesPage({ initialCreate = false }: { initialCreate?: 
     }
   }
 
+  async function respondToInvitation(assignmentId: string, response: "accepted" | "declined") {
+    setError("");
+    const result = await fetch("/api/teacher/class-invitations", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ assignmentId, response })
+    });
+    const payload = await result.json() as { error?: string };
+    if (!result.ok) return setError(payload.error || "Unable to respond to the invitation.");
+    await load();
+  }
+
   useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    const supabase = createBrowserSupabaseClient();
+    const channel = supabase.channel("teacher-class-invitations")
+      .on("postgres_changes", { event: "*", schema: "public", table: "ClassTeacherAssignment" }, () => {
+        void load();
+        if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+          new Notification("SkulKid teaching invitation", { body: "Your class teaching assignments have been updated." });
+        }
+      })
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, []);
   useEffect(() => {
     if (!initialCreate || createDeepLinkHandled.current) return;
     createDeepLinkHandled.current = true;
@@ -164,6 +196,13 @@ export function TeacherClassesPage({ initialCreate = false }: { initialCreate?: 
         </section>
       ) : null}
 
+      {!loading && invitations.length ? (
+        <section className="rounded-[1.75rem] border border-blue-200 bg-blue-50 p-4 sm:p-5" aria-labelledby="class-invitations-heading">
+          <div className="flex items-center gap-3"><span className="grid size-10 place-items-center rounded-xl bg-blue-700 text-white"><MailCheck className="size-5" /></span><div><p className="text-xs font-black uppercase tracking-wider text-blue-700">Pending invitations</p><h2 className="text-xl font-black" id="class-invitations-heading">Classes inviting you to teach</h2></div></div>
+          <div className="mt-4 grid gap-3 lg:grid-cols-2">{invitations.map((invitation) => <article className="rounded-2xl border border-blue-100 bg-white p-4 shadow-sm" key={invitation.assignmentId}><h3 className="font-black">{invitation.className}</h3><p className="mt-1 text-sm text-slate-600">Invited by {invitation.classTeacherName}</p><div className="mt-3 flex flex-wrap gap-1.5">{invitation.subjects.map((subject) => <span className="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-black text-blue-800" key={subject.id}>{subject.name}</span>)}</div><div className="mt-4 flex gap-2"><button className="min-h-10 rounded-xl bg-blue-700 px-4 text-sm font-black text-white" onClick={() => void respondToInvitation(invitation.assignmentId, "accepted")}>Accept</button><button className="min-h-10 rounded-xl border border-slate-300 px-4 text-sm font-black" onClick={() => void respondToInvitation(invitation.assignmentId, "declined")}>Decline</button></div></article>)}</div>
+        </section>
+      ) : null}
+
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_23rem]">
         <section aria-labelledby="active-classes-heading" className="min-w-0 space-y-4">
           <div className="flex flex-wrap items-end justify-between gap-3 px-1">
@@ -190,8 +229,12 @@ export function TeacherClassesPage({ initialCreate = false }: { initialCreate?: 
           ) : classes.length === 0 ? (
             <EmptyTeacherClasses onCreate={() => setShowCreate(true)} />
           ) : (
-            <div className="grid gap-4 md:grid-cols-2">
-              {classes.map((classroom, index) => (
+            <div className="grid gap-7">
+              {(["class_teacher", "subject_teacher"] as const).map((role) => {
+                const roleClasses = classes.filter((item) => item.teacherRole === role);
+                if (!roleClasses.length) return null;
+                return <section key={role}><div className="mb-3"><p className="text-xs font-black uppercase tracking-wider text-teal-700">{role === "class_teacher" ? "Classes I manage" : "Classes I teach"}</p><h3 className="mt-1 text-xl font-black">{role === "class_teacher" ? "Your class-teacher rooms" : "Your subject-teaching assignments"}</h3></div><div className="grid gap-4 md:grid-cols-2">
+              {roleClasses.map((classroom, index) => (
                 <TeacherClassCard
                   classroom={classroom}
                   copiedId={copiedId}
@@ -201,6 +244,8 @@ export function TeacherClassesPage({ initialCreate = false }: { initialCreate?: 
                   tone={gradeTones[index % gradeTones.length]}
                 />
               ))}
+                </div></section>;
+              })}
             </div>
           )}
         </section>
@@ -333,11 +378,12 @@ function TeacherClassCard({
       </div>
 
       <div className="flex flex-1 flex-col p-5">
+        <div className="mb-3 flex flex-wrap gap-2"><span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-slate-700">{classroom.teacherRole === "class_teacher" ? "Class teacher" : "Subject teacher"}</span>{classroom.assignedSubjects.slice(0,3).map((subject) => <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-black text-blue-700" key={subject.id}>{subject.name}</span>)}</div>
         <p className="line-clamp-2 text-sm leading-6 text-slate-600">
           {classroom.description || "Assign subjects, set quizzes and coach your learners from this room."}
         </p>
 
-        <button
+        {classroom.capabilities.manageStudents ? <button
           className="mt-4 flex w-full items-center justify-between gap-3 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-3 py-2.5 text-left transition hover:border-teal-300 hover:bg-teal-50/60"
           onClick={onCopyCode}
           type="button"
@@ -350,7 +396,7 @@ function TeacherClassCard({
             {codeCopied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
             {codeCopied ? "Copied" : "Copy"}
           </span>
-        </button>
+        </button> : <div className="mt-4 rounded-xl bg-blue-50 p-3 text-xs font-bold leading-5 text-blue-900">Class Teacher: {classroom.classTeacher.name}<br />Teaching: {classroom.assignedSubjects.map((item) => item.name).join(", ") || "Subjects pending"}</div>}
 
         <div className="mt-4 grid grid-cols-3 gap-2">
           <MiniStat icon={Users} label="Students" value={classroom.memberCount} tone={tone.soft} />
@@ -358,15 +404,15 @@ function TeacherClassCard({
           <MiniStat icon={ClipboardList} label="Quizzes" value={classroom.quizCount} tone={tone.soft} />
         </div>
 
-        <div className="mt-auto grid grid-cols-2 gap-2 pt-5">
-          <button
+        <div className={`mt-auto grid gap-2 pt-5 ${classroom.capabilities.manageStudents ? "grid-cols-2" : "grid-cols-1"}`}>
+          {classroom.capabilities.manageStudents ? <button
             className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white text-sm font-black text-slate-700 transition hover:bg-slate-50"
             onClick={onCopyLink}
             type="button"
           >
             {linkCopied ? <Check className="size-4 text-teal-700" /> : <Link2 className="size-4" />}
             {linkCopied ? "Copied" : "Copy link"}
-          </button>
+          </button> : null}
           <Link
             className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-3 text-sm font-black text-white transition hover:bg-slate-800"
             href={`/teacher/classes/${classroom.id}`}

@@ -130,7 +130,7 @@ export function TeacherPerformanceWorkspace({ classId, pointReports = [] }: { cl
         </section>
       </> : null}
 
-      {selected && data ? <LearnerPanel classId={classId} data={data} learner={selected} onClose={() => setSelectedId("")} onRefresh={load} range={range} /> : null}
+      {selected && data ? <LearnerPanel classId={classId} data={data} learner={selected} onClose={() => setSelectedId("")} onRefresh={load} range={range} subjectId={subjectId} /> : null}
     </section>
   );
 }
@@ -163,7 +163,7 @@ function PerformanceChart({ data, highlighted, onToggle }: { data: ClassPerforma
   </section>;
 }
 
-function LearnerPanel({ classId, data, learner, range, onClose, onRefresh }: { classId: string; data: ClassPerformanceData; learner: PerformanceLearner; range: PerformanceRange; onClose: () => void; onRefresh: () => Promise<void> }) {
+function LearnerPanel({ classId, data, learner, range, subjectId, onClose, onRefresh }: { classId: string; data: ClassPerformanceData; learner: PerformanceLearner; range: PerformanceRange; subjectId: string; onClose: () => void; onRefresh: () => Promise<void> }) {
   const detail = data.details[learner.studentId];
   const [title, setTitle] = useState("Your next learning step");
   const [message, setMessage] = useState("");
@@ -179,7 +179,7 @@ function LearnerPanel({ classId, data, learner, range, onClose, onRefresh }: { c
   async function draft() {
     setBusy(true); setError(""); setNotice("");
     try {
-      const response = await fetch(`/api/teacher/classes/${classId}/performance/recommendation`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ studentId: learner.studentId, range }) });
+      const response = await fetch(`/api/teacher/classes/${classId}/performance/recommendation`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ studentId: learner.studentId, range, subjectId: subjectId || undefined }) });
       const payload = await response.json() as { draft?: { title: string; message: string; category: typeof category; priority: typeof priority; actions: Array<{ label: string }> }; source?: string; error?: string };
       if (!response.ok || !payload.draft) throw new Error(payload.error || "Could not draft feedback.");
       setTitle(payload.draft.title); setMessage(payload.draft.message); setCategory(payload.draft.category); setPriority(payload.draft.priority); setActions(payload.draft.actions.map((item) => item.label));
@@ -191,7 +191,7 @@ function LearnerPanel({ classId, data, learner, range, onClose, onRefresh }: { c
     event.preventDefault(); setBusy(true); setError(""); setNotice("");
     try {
       const response = await fetch(`/api/teacher/classes/${classId}/advice`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
-        studentId: learner.studentId, title, message, suggestionType: category === "celebration" ? "general" : "class_adventure",
+        studentId: learner.studentId, courseId: subjectId || null, title, message, suggestionType: category === "celebration" ? "general" : "class_adventure",
         feedbackCategory: category, priority, recommendedActions: actions.filter(Boolean).map((label) => ({ label })),
         evidenceSnapshot: { academicAverage: learner.academicAverage, trend: learner.trend, completionPercent: learner.completionPercent, activityMinutes: learner.activityMinutes },
         followUpStatus: track ? "open" : "not_required", dueAt: dueAt ? new Date(`${dueAt}T23:59:59`).toISOString() : null

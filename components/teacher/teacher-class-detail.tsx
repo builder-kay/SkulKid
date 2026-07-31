@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, ArrowRight, BarChart3, BookOpen, ClipboardList, Copy, Layers3, Loader2, MinusCircle, Plus, ShieldCheck, Trophy, Trash2, Users } from "lucide-react";
+import { ArrowLeft, ArrowRight, BarChart3, BookOpen, ClipboardList, Copy, Layers3, Loader2, MinusCircle, Plus, ShieldCheck, Trophy, Trash2, UserRoundCheck, Users } from "lucide-react";
 import type {
   ClassCourseAssignmentView,
   ClassLeaderboardEntry,
@@ -12,8 +12,9 @@ import type {
   TeacherClassSummary
 } from "@/lib/classes/types";
 import { TeacherPerformanceWorkspace } from "@/components/teacher/teacher-performance-workspace";
+import { TeacherClassTeam } from "@/components/teacher/teacher-class-team";
 
-type Tab = "roster" | "courses" | "quizzes" | "leaderboard" | "performance";
+type Tab = "roster" | "courses" | "quizzes" | "leaderboard" | "performance" | "team";
 type PointReport = { id: string; deductionId: string; studentName: string; amount: number; reason: string; message: string; status: string; createdAt: string; resolutionNote: string | null };
 
 export function TeacherClassDetail({ classId }: { classId: string }) {
@@ -33,6 +34,7 @@ export function TeacherClassDetail({ classId }: { classId: string }) {
   const [classOnlyName, setClassOnlyName] = useState("");
   const [classOnlyDescription, setClassOnlyDescription] = useState("");
   const [quizTitle, setQuizTitle] = useState("");
+  const [quizCourseId, setQuizCourseId] = useState("");
   const [quizDescription, setQuizDescription] = useState("");
   const [quizStartAt, setQuizStartAt] = useState("");
   const [quizDeadline, setQuizDeadline] = useState("");
@@ -70,6 +72,7 @@ export function TeacherClassDetail({ classId }: { classId: string }) {
       setClassroom(payload.classroom ?? null);
       setRoster(payload.roster ?? []);
       setCourseAssignments(payload.courseAssignments ?? []);
+      setQuizCourseId((current) => current || payload.courseAssignments?.[0]?.courseId || "");
       setQuizzes(payload.quizzes ?? []);
       setLeaderboard(payload.leaderboard ?? []);
       setPointReports(payload.pointReports ?? []);
@@ -175,6 +178,7 @@ export function TeacherClassDetail({ classId }: { classId: string }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: quizTitle,
+          courseId: quizCourseId || null,
           description: quizDescription,
           questions,
           startAt: quizStartAt ? new Date(quizStartAt).toISOString() : null,
@@ -308,7 +312,7 @@ export function TeacherClassDetail({ classId }: { classId: string }) {
               </span>
             </div>
           </div>
-          <div className="grid gap-2 sm:min-w-[16rem]">
+          {classroom.capabilities.manageStudents ? <div className="grid gap-2 sm:min-w-[16rem]">
             <button
               className="inline-flex min-h-11 items-center justify-between gap-3 rounded-xl bg-teal-300 px-4 font-black text-slate-950 hover:bg-teal-200"
               onClick={() => void copyJoinLink()}
@@ -320,7 +324,7 @@ export function TeacherClassDetail({ classId }: { classId: string }) {
               <p className="text-[10px] font-black uppercase tracking-wider text-teal-100">Join code</p>
               <p className="mt-1 font-black tracking-[0.2em]">{classroom.joinCode}</p>
             </div>
-          </div>
+          </div> : <div className="rounded-2xl bg-white/10 p-4 ring-1 ring-white/15"><p className="text-xs font-black uppercase tracking-wider text-teal-100">Your role</p><p className="mt-1 font-black">Subject Teacher</p><p className="mt-1 text-sm text-slate-300">{classroom.assignedSubjects.map((item) => item.name).join(" · ")}</p></div>}
         </div>
       </header>
 
@@ -329,8 +333,9 @@ export function TeacherClassDetail({ classId }: { classId: string }) {
           ["roster", "Roster", Users],
           ["courses", "Subjects", BookOpen],
           ["quizzes", "Quizzes", ClipboardList],
-          ["leaderboard", "Leaderboard", Trophy],
-          ["performance", "Performance", BarChart3]
+          ...(classroom.capabilities.viewWholeClassPerformance ? [["leaderboard", "Leaderboard", Trophy] as const] : []),
+          ["performance", "Performance", BarChart3],
+          ...(classroom.capabilities.manageTeachingTeam ? [["team", "Teaching team", UserRoundCheck] as const] : [])
         ] as const).map(([id, label, Icon]) => (
           <button
             aria-selected={tab === id}
@@ -372,6 +377,7 @@ export function TeacherClassDetail({ classId }: { classId: string }) {
                 <thead className="border-b border-slate-200 text-xs font-black uppercase tracking-wider text-slate-500">
                   <tr>
                     <th className="px-3 py-2">Student</th>
+                    {classroom.capabilities.viewWholeClassPerformance ? <>
                     <th className="px-3 py-2">Class XP</th>
                     <th className="px-3 py-2">XP</th>
                     <th className="px-3 py-2">Stars</th>
@@ -379,13 +385,15 @@ export function TeacherClassDetail({ classId }: { classId: string }) {
                     <th className="px-3 py-2">Lessons</th>
                     <th className="px-3 py-2">Quizzes</th>
                     <th className="px-3 py-2">Avg score</th>
+                    </> : <th className="px-3 py-2">Membership</th>}
                     <th className="px-3 py-2">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {roster.map((member) => (
+              {roster.map((member) => (
                     <tr className="border-b border-slate-100" key={member.studentId}>
                       <td className="px-3 py-3 font-bold text-slate-900">{member.displayName}<div className="text-xs font-medium text-slate-500">{member.grade}</div></td>
+                      {classroom.capabilities.viewWholeClassPerformance ? <>
                       <td className="px-3 py-3">{member.classXp}</td>
                       <td className="px-3 py-3">{member.xp}</td>
                       <td className="px-3 py-3">{member.stars}</td>
@@ -393,7 +401,8 @@ export function TeacherClassDetail({ classId }: { classId: string }) {
                       <td className="px-3 py-3">{member.completedLessons}</td>
                       <td className="px-3 py-3">{member.quizzesPassed}/{member.quizzesTaken}</td>
                       <td className="px-3 py-3">{member.averageQuizScore == null ? "—" : `${member.averageQuizScore}%`}</td>
-                      <td className="px-3 py-3"><button className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-amber-300 px-3 text-xs font-black text-amber-800 disabled:opacity-50" disabled={member.xp < 1} onClick={() => { setDeductionStudent(member); setDeductionAmount(1); setError(""); setMessage(""); }} type="button"><MinusCircle className="size-3.5" /> Deduct</button></td>
+                      </> : <td className="px-3 py-3 text-slate-500">Active class member</td>}
+                      <td className="px-3 py-3">{classroom.capabilities.managePoints ? <button className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-amber-300 px-3 text-xs font-black text-amber-800 disabled:opacity-50" disabled={member.xp < 1} onClick={() => { setDeductionStudent(member); setDeductionAmount(1); setError(""); setMessage(""); }} type="button"><MinusCircle className="size-3.5" /> Deduct</button> : <span className="text-xs text-slate-400">Subject view</span>}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -409,14 +418,14 @@ export function TeacherClassDetail({ classId }: { classId: string }) {
             <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between"><div><p className="text-xs font-black uppercase tracking-[.2em] text-violet-200">Class subject studio</p><h2 className="mt-2 text-3xl font-black">Subjects made for {classroom.name}</h2><p className="mt-2 max-w-2xl text-violet-100">Create a private subject, organise it into modules, and build lessons directly inside it. Students in this class see the finished learning path.</p></div><div className="grid grid-cols-3 gap-2 text-center"><div className="rounded-xl bg-white/10 p-3"><b className="block text-2xl">{createdSubjects.length}</b><span className="text-xs text-violet-100">Created</span></div><div className="rounded-xl bg-white/10 p-3"><b className="block text-2xl">{createdSubjects.reduce((sum, item) => sum + item.moduleCount, 0)}</b><span className="text-xs text-violet-100">Modules</span></div><div className="rounded-xl bg-white/10 p-3"><b className="block text-2xl">{createdSubjects.reduce((sum, item) => sum + item.lessonCount, 0)}</b><span className="text-xs text-violet-100">Lessons</span></div></div></div>
           </div>
 
-          <form className="rounded-[1.5rem] border border-violet-200 bg-white p-5 shadow-sm sm:p-6" onSubmit={createClassOnly}>
+          {classroom.capabilities.manageClass ? <form className="rounded-[1.5rem] border border-violet-200 bg-white p-5 shadow-sm sm:p-6" onSubmit={createClassOnly}>
             <div className="flex items-start gap-3"><span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-violet-100 text-violet-700"><Plus className="size-5" /></span><div><h2 className="text-xl font-black">Create a new class subject</h2><p className="mt-1 text-sm text-slate-600">It will immediately become available in Create Lesson, where you can add a module or place a lesson.</p></div></div>
             <div className="mt-5 grid gap-3 sm:grid-cols-[1fr_1.4fr_auto]">
               <label className="grid gap-1.5 text-sm font-bold">Subject name<input className="min-h-11 rounded-xl border border-slate-300 px-3" onChange={(event) => setClassOnlyName(event.target.value)} placeholder="e.g. Creative Arts" required value={classOnlyName} /></label>
               <label className="grid gap-1.5 text-sm font-bold">Description<input className="min-h-11 rounded-xl border border-slate-300 px-3" onChange={(event) => setClassOnlyDescription(event.target.value)} placeholder="What will students learn?" value={classOnlyDescription} /></label>
               <button className="mt-6 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-violet-700 px-5 font-black text-white disabled:opacity-60" disabled={busy || !classOnlyName.trim()} type="submit"><Plus className="size-4" /> Create subject</button>
             </div>
-          </form>
+          </form> : null}
 
           <div>
             <div className="flex items-end justify-between gap-3"><div><h2 className="text-xl font-black">Your class subjects</h2><p className="mt-1 text-sm text-slate-600">Subjects created specifically for this class.</p></div></div>
@@ -430,12 +439,12 @@ export function TeacherClassDetail({ classId }: { classId: string }) {
             ))}</div> : <div className="mt-4 rounded-[1.5rem] border border-dashed border-violet-300 bg-violet-50 p-8 text-center"><BookOpen className="mx-auto size-10 text-violet-500" /><h3 className="mt-3 text-lg font-black">No class subjects yet</h3><p className="mt-1 text-sm text-slate-600">Use the form above to create the first subject for this class.</p></div>}
           </div>
 
-          <details className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm">
+          {classroom.capabilities.manageClass ? <details className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm">
             <summary className="cursor-pointer font-black">Assign an existing platform subject ({assignedPlatformSubjects.length} assigned)</summary>
             <p className="mt-2 text-sm text-slate-600">Add an existing published subject without making a new class-only subject.</p>
             <form className="mt-4 grid gap-3 sm:grid-cols-[1.2fr_1fr_auto]" onSubmit={assignCourse}><select className="min-h-11 rounded-xl border border-slate-300 px-3" onChange={(event) => setSelectedCourseId(event.target.value)} required value={selectedCourseId}><option value="">Choose a published subject</option>{availableCourses.map((course) => <option key={course.id} value={course.id}>{course.name}</option>)}</select><input className="min-h-11 rounded-xl border border-slate-300 px-3" onChange={(event) => setCourseNote(event.target.value)} placeholder="Optional class note" value={courseNote} /><button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-teal-700 px-4 font-black text-white disabled:opacity-60" disabled={busy || !selectedCourseId} type="submit"><Plus className="size-4" /> Assign</button></form>
             {assignedPlatformSubjects.length ? <div className="mt-4 grid gap-2">{assignedPlatformSubjects.map((assignment) => <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-slate-50 p-3" key={assignment.id}><div><p className="font-black">{assignment.courseName}</p><p className="text-xs text-slate-500">{assignment.note || "Platform subject"}</p></div><button className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold text-rose-700" onClick={() => void removeCourse(assignment.id)} type="button"><Trash2 className="size-4" />Remove</button></div>)}</div> : null}
-          </details>
+          </details> : null}
         </section>
       ) : null}
 
@@ -449,6 +458,7 @@ export function TeacherClassDetail({ classId }: { classId: string }) {
             <h2 className="text-xl font-black">Create a class quiz</h2>
             <p className="mt-1 text-sm text-slate-600">Choose an optional schedule, platform rewards and a real-world class reward. Publishing sends learners an SMS with the direct link.</p>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <label className="grid gap-1.5 text-sm font-bold">Subject<select className="min-h-11 rounded-xl border border-slate-300 px-3" onChange={(event) => setQuizCourseId(event.target.value)} required={classroom.teacherRole === "subject_teacher"} value={quizCourseId}><option value="">General class quiz</option>{courseAssignments.map((subject) => <option key={subject.courseId} value={subject.courseId}>{subject.courseName}</option>)}</select></label>
               <label className="grid gap-1.5 text-sm font-bold">Title<input className="min-h-11 rounded-xl border border-slate-300 px-3" onChange={(event) => setQuizTitle(event.target.value)} required value={quizTitle} /></label>
               <label className="grid gap-1.5 text-sm font-bold">Starts at (optional)<input className="min-h-11 rounded-xl border border-slate-300 px-3" onChange={(event) => setQuizStartAt(event.target.value)} type="datetime-local" value={quizStartAt} /></label>
               <label className="grid gap-1.5 text-sm font-bold">Ends / take by (optional)<input className="min-h-11 rounded-xl border border-slate-300 px-3" onChange={(event) => setQuizDeadline(event.target.value)} type="datetime-local" value={quizDeadline} /></label>
@@ -584,6 +594,7 @@ export function TeacherClassDetail({ classId }: { classId: string }) {
       ) : null}
 
       {tab === "performance" ? <TeacherPerformanceWorkspace classId={classId} pointReports={pointReports} /> : null}
+      {tab === "team" && classroom.capabilities.manageTeachingTeam ? <TeacherClassTeam classId={classId} subjects={courseAssignments} /> : null}
     </main>
   );
 }

@@ -6,6 +6,38 @@ export type MembershipStatus = "active" | "left";
 export type QuizStatus = "draft" | "published" | "closed";
 export type AdviceSuggestionType = "class_adventure" | "platform_adventure" | "general";
 export type CourseVisibility = "platform" | "class";
+export type ClassTeacherRole = "class_teacher" | "subject_teacher";
+export type ClassTeacherAssignmentStatus = "pending" | "active" | "declined" | "revoked";
+
+export type ClassCapability = {
+  manageClass: boolean;
+  manageStudents: boolean;
+  manageTeachingTeam: boolean;
+  manageSafety: boolean;
+  managePoints: boolean;
+  viewWholeClassPerformance: boolean;
+  postChat: boolean;
+};
+
+export type ClassTeachingTeamMember = {
+  assignmentId: string;
+  teacherId: string;
+  teacherName: string;
+  username: string;
+  role: ClassTeacherRole;
+  status: ClassTeacherAssignmentStatus;
+  subjects: Array<{ id: string; name: string }>;
+  invitedAt: string;
+};
+
+export type ClassTeacherInvitation = {
+  assignmentId: string;
+  classId: string;
+  className: string;
+  classTeacherName: string;
+  subjects: Array<{ id: string; name: string }>;
+  invitedAt: string;
+};
 
 export type ClassQuizQuestion = {
   id: string;
@@ -28,6 +60,10 @@ export type TeacherClassSummary = {
   quizCount: number;
   courseCount: number;
   createdAt: string;
+  teacherRole: ClassTeacherRole;
+  assignedSubjects: Array<{ id: string; name: string }>;
+  classTeacher: { id: string; name: string };
+  capabilities: ClassCapability;
 };
 
 export type ClassRosterMember = {
@@ -89,6 +125,7 @@ export type ClassQuizAttemptSummary = {
 
 export type ClassQuizView = {
   id: string;
+  courseId?: string | null;
   classId: string;
   title: string;
   description: string;

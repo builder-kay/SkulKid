@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createClassAdvice, requireTeacher } from "@/lib/classes/classroom-server";
 
 const schema = z.object({
+  courseId: z.string().min(1).nullable().optional(),
   studentId: z.string().uuid(),
   message: z.string().trim().min(4).max(600),
   suggestionType: z.enum(["class_adventure", "platform_adventure", "general"]).default("general"),
@@ -23,6 +24,7 @@ export async function POST(request: Request, context: { params: Promise<{ classI
     await createClassAdvice({
       teacherId: teacher.id,
       classId,
+      courseId: input.courseId,
       studentId: input.studentId,
       message: input.message,
       suggestionType: input.suggestionType,

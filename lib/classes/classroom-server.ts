@@ -16,6 +16,7 @@ import type {
   ClassQuizView,
   ClassRosterMember,
   ClassStatus,
+  ClassTeacherRole,
   CourseVisibility,
   PointDeductionView,
   QuizStatus,
@@ -129,6 +130,89 @@ async function assertOwnsClass(teacherId: string, classId: string) {
   return data as { id: string; teacherId: string; status: ClassStatus };
 }
 
+export type TeacherClassAccess = {
+  classId: string;
+  classTeacherId: string;
+  role: ClassTeacherRole;
+  assignedCourseIds: string[];
+  capabilities: {
+    manageClass: boolean;
+    manageStudents: boolean;
+    manageTeachingTeam: boolean;
+    manageSafety: boolean;
+    managePoints: boolean;
+    viewWholeClassPerformance: boolean;
+    postChat: boolean;
+  };
+};
+
+function capabilitiesFor(role: ClassTeacherRole) {
+  const owns = role === "class_teacher";
+  return {
+    manageClass: owns,
+    manageStudents: owns,
+    manageTeachingTeam: owns,
+    manageSafety: owns,
+    managePoints: owns,
+    viewWholeClassPerformance: owns,
+    postChat: true
+  };
+}
+
+export async function getTeacherClassAccess(teacherId: string, classId: string): Promise<TeacherClassAccess> {
+  const admin = createAdminClient();
+  const { data: classroom, error } = await admin.from("TeacherClass")
+    .select("id,teacherId,status")
+    .eq("id", classId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!classroom || classroom.status !== "active") throw new Error("Class not found.");
+  if (classroom.teacherId === teacherId) {
+    const { data: courses } = await admin.from("ClassCourseAssignment").select("courseId").eq("classId", classId);
+    return {
+      classId,
+      classTeacherId: String(classroom.teacherId),
+      role: "class_teacher",
+      assignedCourseIds: (courses ?? []).map((item) => String(item.courseId)),
+      capabilities: capabilitiesFor("class_teacher")
+    };
+  }
+  const { data: assignment, error: assignmentError } = await admin.from("ClassTeacherAssignment")
+    .select("id,role,status")
+    .eq("classId", classId)
+    .eq("teacherId", teacherId)
+    .eq("status", "active")
+    .maybeSingle();
+  if (assignmentError) throw new Error(assignmentError.message);
+  if (!assignment) throw new Error("You are not assigned to this class.");
+  const { data: scopes, error: scopeError } = await admin.from("ClassTeacherSubject")
+    .select("courseId")
+    .eq("assignmentId", assignment.id);
+  if (scopeError) throw new Error(scopeError.message);
+  const role = assignment.role as ClassTeacherRole;
+  return {
+    classId,
+    classTeacherId: String(classroom.teacherId),
+    role,
+    assignedCourseIds: (scopes ?? []).map((item) => String(item.courseId)),
+    capabilities: capabilitiesFor(role)
+  };
+}
+
+export async function requireClassTeacher(teacherId: string, classId: string) {
+  const access = await getTeacherClassAccess(teacherId, classId);
+  if (!access.capabilities.manageClass) throw new Error("Only the class teacher can manage this class.");
+  return access;
+}
+
+export async function requireClassSubjectAccess(teacherId: string, classId: string, courseId: string) {
+  const access = await getTeacherClassAccess(teacherId, classId);
+  if (access.role !== "class_teacher" && !access.assignedCourseIds.includes(courseId)) {
+    throw new Error("You are not assigned to teach this subject in this class.");
+  }
+  return access;
+}
+
 async function assertActiveMember(studentId: string, classId: string) {
   const admin = createAdminClient();
   const { data, error } = await admin
@@ -145,19 +229,35 @@ async function assertActiveMember(studentId: string, classId: string) {
 
 export async function listTeacherClasses(teacherId: string): Promise<TeacherClassSummary[]> {
   const admin = createAdminClient();
+  const { data: assignments, error: assignmentError } = await admin.from("ClassTeacherAssignment")
+    .select("id,classId,role,status")
+    .eq("teacherId", teacherId)
+    .eq("status", "active");
+  if (assignmentError) throw new Error(assignmentError.message);
+  const assignedClassIds = (assignments ?? []).map((item) => String(item.classId));
+  const { data: ownedClasses, error: ownedError } = await admin.from("TeacherClass")
+    .select("id")
+    .eq("teacherId", teacherId);
+  if (ownedError) throw new Error(ownedError.message);
+  const classIds = [...new Set([...(ownedClasses ?? []).map((item) => String(item.id)), ...assignedClassIds])];
+  if (!classIds.length) return [];
   const { data: classes, error } = await admin
     .from("TeacherClass")
-    .select("id,name,description,joinCode,gradeLevel,status,createdAt")
-    .eq("teacherId", teacherId)
+    .select("id,name,description,joinCode,gradeLevel,status,createdAt,teacherId")
+    .in("id", classIds)
     .order("createdAt", { ascending: false });
   if (error) throw new Error(error.message);
   if (!classes?.length) return [];
 
   const ids = classes.map((item) => item.id as string);
-  const [members, quizzes, courses] = await Promise.all([
+  const [members, quizzes, courses, scopes, subjects] = await Promise.all([
     admin.from("ClassMembership").select("classId").in("classId", ids).eq("status", "active"),
     admin.from("ClassQuiz").select("classId").in("classId", ids),
-    admin.from("ClassCourseAssignment").select("classId").in("classId", ids)
+    admin.from("ClassCourseAssignment").select("classId,courseId").in("classId", ids),
+    (assignments?.length ?? 0)
+      ? admin.from("ClassTeacherSubject").select("assignmentId,courseId").in("assignmentId", (assignments ?? []).map((item) => item.id))
+      : Promise.resolve({ data: [] as Array<{ assignmentId: string; courseId: string }> }),
+    admin.from("Subject").select("id,name")
   ]);
 
   const countBy = (rows: Array<{ classId: string }> | null) => {
@@ -168,6 +268,19 @@ export async function listTeacherClasses(teacherId: string): Promise<TeacherClas
   const memberCounts = countBy(members.data);
   const quizCounts = countBy(quizzes.data);
   const courseCounts = countBy(courses.data);
+  const subjectNameById = new Map((subjects.data ?? []).map((item) => [String(item.id), String(item.name)]));
+  const assignmentByClass = new Map((assignments ?? []).map((item) => [String(item.classId), item]));
+  const scopeIdsByAssignment = new Map<string, string[]>();
+  for (const item of scopes.data ?? []) {
+    const id = String(item.assignmentId);
+    scopeIdsByAssignment.set(id, [...(scopeIdsByAssignment.get(id) ?? []), String(item.courseId)]);
+  }
+  const teacherIds = [...new Set(classes.map((item) => String(item.teacherId)))];
+  const teacherNames = new Map<string, string>();
+  await Promise.all(teacherIds.map(async (id) => {
+    const { data } = await admin.auth.admin.getUserById(id);
+    teacherNames.set(id, displayNameFrom(data.user, "Class teacher"));
+  }));
 
   return classes.map((classroom) => ({
     id: classroom.id as string,
@@ -180,7 +293,13 @@ export async function listTeacherClasses(teacherId: string): Promise<TeacherClas
     memberCount: memberCounts.get(classroom.id as string) ?? 0,
     quizCount: quizCounts.get(classroom.id as string) ?? 0,
     courseCount: courseCounts.get(classroom.id as string) ?? 0,
-    createdAt: classroom.createdAt as string
+    createdAt: classroom.createdAt as string,
+    teacherRole: classroom.teacherId === teacherId ? "class_teacher" : "subject_teacher",
+    assignedSubjects: classroom.teacherId === teacherId
+      ? (courses.data ?? []).filter((item) => item.classId === classroom.id).map((item) => ({ id: String(item.courseId), name: subjectNameById.get(String(item.courseId)) ?? "Subject" }))
+      : (scopeIdsByAssignment.get(String(assignmentByClass.get(String(classroom.id))?.id)) ?? []).map((id) => ({ id, name: subjectNameById.get(id) ?? "Subject" })),
+    classTeacher: { id: String(classroom.teacherId), name: teacherNames.get(String(classroom.teacherId)) ?? "Class teacher" },
+    capabilities: capabilitiesFor(classroom.teacherId === teacherId ? "class_teacher" : "subject_teacher")
   }));
 }
 
@@ -217,6 +336,10 @@ export async function createTeacherClass(input: {
         quizCount: 0,
         courseCount: 0,
         createdAt: data.createdAt as string
+        ,teacherRole: "class_teacher",
+        assignedSubjects: [],
+        classTeacher: { id: input.teacherId, name: "You" },
+        capabilities: capabilitiesFor("class_teacher")
       };
     }
     if (error?.code !== "23505") throw new Error(error?.message || "Unable to create class.");
@@ -226,7 +349,7 @@ export async function createTeacherClass(input: {
 }
 
 export async function getTeacherClassDetail(teacherId: string, classId: string) {
-  await assertOwnsClass(teacherId, classId);
+  const access = await getTeacherClassAccess(teacherId, classId);
   const classes = await listTeacherClasses(teacherId);
   const classroom = classes.find((item) => item.id === classId);
   if (!classroom) throw new Error("Class not found.");
@@ -234,10 +357,10 @@ export async function getTeacherClassDetail(teacherId: string, classId: string) 
     listClassRoster(teacherId, classId),
     listClassCourses(teacherId, classId),
     listClassQuizzes(teacherId, classId),
-    getClassLeaderboard(classId),
-    listTeacherClassPointReports(teacherId, classId)
+    access.role === "class_teacher" ? getClassLeaderboard(classId) : Promise.resolve([]),
+    access.role === "class_teacher" ? listTeacherClassPointReports(teacherId, classId) : Promise.resolve([])
   ]);
-  return { classroom, roster, courseAssignments, quizzes, leaderboard, pointReports };
+  return { classroom, roster, courseAssignments, quizzes, leaderboard, pointReports, access };
 }
 
 async function listTeacherClassPointReports(teacherId: string, classId: string) {
@@ -295,7 +418,7 @@ export async function deductStudentPoints(input: {
 }
 
 export async function listClassRoster(teacherId: string, classId: string): Promise<ClassRosterMember[]> {
-  await assertOwnsClass(teacherId, classId);
+  await getTeacherClassAccess(teacherId, classId);
   const admin = createAdminClient();
   const { data: memberships, error } = await admin
     .from("ClassMembership")
@@ -368,7 +491,7 @@ export async function listClassRoster(teacherId: string, classId: string): Promi
 }
 
 export async function listClassCourses(teacherId: string, classId: string): Promise<ClassCourseAssignmentView[]> {
-  await assertOwnsClass(teacherId, classId);
+  const access = await getTeacherClassAccess(teacherId, classId);
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("ClassCourseAssignment")
@@ -382,10 +505,13 @@ export async function listClassCourses(teacherId: string, classId: string): Prom
     .eq("visibility", "class")
     .eq("ownerClassId", classId);
   if (ownedError) throw new Error(ownedError.message);
-  const courseIds = [...new Set([
+  let courseIds = [...new Set([
     ...(data ?? []).map((row) => row.courseId as string),
     ...(ownedSubjects ?? []).map((row) => row.id as string)
   ])];
+  if (access.role === "subject_teacher") {
+    courseIds = courseIds.filter((id) => access.assignedCourseIds.includes(id));
+  }
   if (!courseIds.length) return [];
   const { data: subjects } = await admin.from("Subject").select("id,name,slug,description,visibility,ownerClassId,createdAt").in("id", courseIds);
   const [{ data: units }, { data: lessons }] = await Promise.all([
@@ -520,24 +646,28 @@ function normalizeQuestions(questions: ClassQuizQuestion[]): ClassQuizQuestion[]
 }
 
 export async function listClassQuizzes(teacherId: string, classId: string): Promise<ClassQuizView[]> {
-  await assertOwnsClass(teacherId, classId);
+  const access = await getTeacherClassAccess(teacherId, classId);
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("ClassQuiz")
-    .select("id,classId,title,description,questions,startAt,deadline,offPlatformReward,baseXpReward,passingScore,maxAttempts,status,createdAt")
+    .select("id,classId,courseId,title,description,questions,startAt,deadline,offPlatformReward,baseXpReward,passingScore,maxAttempts,status,createdAt")
     .eq("classId", classId)
     .order("createdAt", { ascending: false });
   if (error) throw new Error(error.message);
-  if (!data?.length) return [];
-  const quizIds = data.map((row) => row.id as string);
+  const visibleData = access.role === "class_teacher"
+    ? data
+    : (data ?? []).filter((item) => item.courseId && access.assignedCourseIds.includes(String(item.courseId)));
+  if (!visibleData?.length) return [];
+  const quizIds = visibleData.map((row) => row.id as string);
   const { data: attempts } = await admin.from("ClassQuizAttempt").select("quizId").in("quizId", quizIds);
   const attemptCounts = new Map<string, number>();
   for (const attempt of attempts ?? []) {
     attemptCounts.set(attempt.quizId as string, (attemptCounts.get(attempt.quizId as string) ?? 0) + 1);
   }
-  return data.map((row) => ({
+  return visibleData.map((row) => ({
     id: row.id as string,
     classId: row.classId as string,
+    courseId: (row.courseId as string | null) ?? null,
     title: row.title as string,
     description: (row.description as string) ?? "",
     questions: (row.questions as ClassQuizQuestion[]) ?? [],
@@ -557,6 +687,7 @@ export async function createClassQuiz(input: {
   id?: string;
   teacherId: string;
   classId: string;
+  courseId?: string | null;
   title: string;
   description?: string;
   questions: ClassQuizQuestion[];
@@ -568,7 +699,10 @@ export async function createClassQuiz(input: {
   maxAttempts?: number;
   status?: QuizStatus;
 }) {
-  await assertOwnsClass(input.teacherId, input.classId);
+  const access = await getTeacherClassAccess(input.teacherId, input.classId);
+  if (access.role === "subject_teacher" && !input.courseId) throw new Error("Choose one of your assigned subjects.");
+  if (input.courseId && !access.assignedCourseIds.includes(input.courseId)) throw new Error("Choose a subject assigned to this class.");
+  if (input.courseId) await requireClassSubjectAccess(input.teacherId, input.classId, input.courseId);
   const questions = normalizeQuestions(input.questions);
   if (!questions.length) throw new Error("Add at least one quiz question.");
   const admin = createAdminClient();
@@ -577,6 +711,7 @@ export async function createClassQuiz(input: {
     .insert({
       ...(input.id ? { id: input.id } : {}),
       classId: input.classId,
+      courseId: input.courseId ?? null,
       createdBy: input.teacherId,
       title: input.title.trim(),
       description: (input.description ?? "").trim(),
@@ -612,7 +747,7 @@ export async function updateClassQuiz(
     status: QuizStatus;
   }>
 ) {
-  await assertOwnsClass(teacherId, classId);
+  await getTeacherClassAccess(teacherId, classId);
   const updates: Record<string, unknown> = {};
   if (patch.title !== undefined) updates.title = patch.title.trim();
   if (patch.description !== undefined) updates.description = patch.description.trim();
@@ -625,7 +760,11 @@ export async function updateClassQuiz(
   if (patch.maxAttempts !== undefined) updates.maxAttempts = patch.maxAttempts;
   if (patch.status !== undefined) updates.status = patch.status;
   const admin = createAdminClient();
-  const { error } = await admin.from("ClassQuiz").update(updates).eq("id", quizId).eq("classId", classId);
+  const { data: quiz, error: readError } = await admin.from("ClassQuiz").select("createdBy,courseId").eq("id", quizId).eq("classId", classId).maybeSingle();
+  if (readError) throw new Error(readError.message);
+  if (!quiz || quiz.createdBy !== teacherId) throw new Error("You can only edit quizzes you created.");
+  if (quiz.courseId) await requireClassSubjectAccess(teacherId, classId, String(quiz.courseId));
+  const { error } = await admin.from("ClassQuiz").update(updates).eq("id", quizId).eq("classId", classId).eq("createdBy", teacherId);
   if (error) throw new Error(error.message);
 }
 
@@ -725,8 +864,12 @@ export async function createClassAdvice(input: {
   evidenceSnapshot?: Record<string, unknown>;
   followUpStatus?: "not_required" | "open";
   dueAt?: string | null;
+  courseId?: string | null;
 }) {
-  await assertOwnsClass(input.teacherId, input.classId);
+  const access = await getTeacherClassAccess(input.teacherId, input.classId);
+  if (access.role === "subject_teacher" && !input.courseId) throw new Error("Subject feedback must identify an assigned subject.");
+  if (input.courseId && !access.assignedCourseIds.includes(input.courseId)) throw new Error("Choose a subject assigned to this class.");
+  if (input.courseId) await requireClassSubjectAccess(input.teacherId, input.classId, input.courseId);
   const admin = createAdminClient();
   const { data: membership } = await admin
     .from("ClassMembership")
@@ -738,6 +881,7 @@ export async function createClassAdvice(input: {
   if (!membership) throw new Error("That student is not in this class.");
   const { error } = await admin.from("ClassAdvice").insert({
     classId: input.classId,
+    courseId: input.courseId ?? null,
     teacherId: input.teacherId,
     studentId: input.studentId,
     message: input.message.trim(),
@@ -992,6 +1136,8 @@ export async function getTeacherMessagingData(teacherId: string) {
     classes: rosters.map((group) => ({
       id: group.classId,
       name: group.className,
+      teacherRole: classes.find((item) => item.id === group.classId)?.teacherRole ?? "class_teacher",
+      assignedSubjects: classes.find((item) => item.id === group.classId)?.assignedSubjects ?? [],
       students: group.students.map((student) => ({ id: student.studentId, name: student.displayName }))
     })),
     messages: [...incoming, ...outgoing].sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt))
@@ -1293,6 +1439,20 @@ export async function getStudentClassDetail(studentId: string, classId: string) 
     const courseId = String(lesson.courseId);
     lessonCountByCourse.set(courseId, (lessonCountByCourse.get(courseId) ?? 0) + 1);
   }
+  const { data: subjectTeacherAssignments } = await admin.from("ClassTeacherAssignment")
+    .select("id,teacherId")
+    .eq("classId", classId)
+    .eq("role", "subject_teacher")
+    .eq("status", "active");
+  const assignmentIds = (subjectTeacherAssignments ?? []).map((item) => String(item.id));
+  const { data: teacherScopes } = assignmentIds.length
+    ? await admin.from("ClassTeacherSubject").select("assignmentId,courseId").in("assignmentId", assignmentIds)
+    : { data: [] as Array<{ assignmentId: string; courseId: string }> };
+  const subjectTeacherNames = new Map<string, string>();
+  await Promise.all((subjectTeacherAssignments ?? []).map(async (assignment) => {
+    const { data } = await admin.auth.admin.getUserById(String(assignment.teacherId));
+    subjectTeacherNames.set(String(assignment.id), displayNameFrom(data.user, "Subject teacher"));
+  }));
 
   const attemptsByQuiz = new Map<string, ClassQuizAttemptSummary[]>();
   for (const attempt of attempts ?? []) {
@@ -1338,7 +1498,14 @@ export async function getStudentClassDetail(studentId: string, classId: string) 
         note: (row.note as string) ?? "",
         assignedAt: row.assignedAt as string,
         visibility,
-        isClassOnly: visibility === "class"
+        isClassOnly: visibility === "class",
+        teachers: (() => {
+          const assigned = (teacherScopes ?? [])
+            .filter((scope) => String(scope.courseId) === String(row.courseId))
+            .map((scope) => subjectTeacherNames.get(String(scope.assignmentId)) ?? "Subject teacher");
+          return (assigned.length ? assigned : [displayNameFrom(teacher.user, "Teacher")])
+            .filter((name, index, all) => all.indexOf(name) === index);
+        })()
       };
     }),
     quizzes: (quizzes ?? []).filter((row) =>
