@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { BellRing, BookOpenCheck, CircleHelp, ClipboardList, LayoutDashboard, LibraryBig, LogOut, Settings2, SquarePen, Users } from "lucide-react";
+import { BellRing, BookOpenCheck, CircleHelp, ClipboardList, LayoutDashboard, LibraryBig, LogOut, Settings2, SquarePen, UserRound, Users } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { SkulKidLogo } from "@/components/shared/skulkid-logo";
 import { SignOutConfirmation } from "@/components/shared/sign-out-confirmation";
@@ -19,6 +19,7 @@ const navItems: TeacherNavItem[] = [
   { href: "/teacher/curriculum", label: "Subjects & lessons", shortLabel: "Subjects", icon: BookOpenCheck, match: "exact" },
   { href: "/teacher/nacca-curriculum", label: "NaCCA Curriculum", shortLabel: "NaCCA", icon: LibraryBig, match: "prefix" },
   { href: "/teacher/lessons/new", label: "Create Lesson", shortLabel: "Create", icon: SquarePen, match: "exact" },
+  { href: "/teacher/profile", label: "My profile", shortLabel: "Profile", icon: UserRound, match: "prefix" },
   { href: "/teacher/settings", label: "Teacher settings", shortLabel: "Settings", icon: Settings2, match: "prefix" }
 ];
 
@@ -29,6 +30,7 @@ const guideItem: TeacherNavItem = {
   icon: CircleHelp,
   match: "prefix"
 };
+const mobileNavItems = navItems.filter((item) => item.href !== "/teacher/profile");
 
 export function TeacherShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -46,6 +48,18 @@ export function TeacherShell({ children }: { children: React.ReactNode }) {
             </span>
           </Link>
           <div className="flex items-center gap-2">
+            <Link
+              aria-label="Open teacher profile"
+              className={cn(
+                "grid size-11 place-items-center rounded-xl border text-white transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white",
+                pathname.startsWith("/teacher/profile")
+                  ? "border-blue-400 bg-blue-600"
+                  : "border-slate-700 bg-slate-900 hover:bg-slate-800"
+              )}
+              href="/teacher/profile"
+            >
+              <UserRound aria-hidden="true" className="size-5" strokeWidth={2.5} />
+            </Link>
             <Link
               aria-label="Open Teacher Guide"
               className={cn(
@@ -112,7 +126,7 @@ export function TeacherShell({ children }: { children: React.ReactNode }) {
 
       <nav aria-label="Mobile teacher navigation" className="fixed inset-x-3 bottom-3 z-40 rounded-[1.6rem] border border-slate-700 bg-slate-950/95 p-2 shadow-2xl backdrop-blur lg:hidden">
         <div className="grid grid-cols-4 gap-1 sm:grid-cols-8">
-          {navItems.map((item) => {
+          {mobileNavItems.map((item) => {
             const Icon = item.icon;
             const active = item.match === "exact" ? pathname === item.href : pathname.startsWith(item.href);
             return (
