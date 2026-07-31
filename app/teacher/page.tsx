@@ -14,7 +14,7 @@ import {
   Users
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { LiveAdminMetrics, LiveCurriculumCoverage, LiveRecentLessons } from "@/components/admin/live-admin-overview";
+import { LiveAdminMetrics, LiveRecentLessons } from "@/components/admin/live-admin-overview";
 import { SkulKidCard } from "@/components/shared/skulkid-card";
 import { TeacherTrustCard } from "@/components/teacher/teacher-trust-card";
 import { ghanaPrimaryCurriculum } from "@/data/ghana-primary-curriculum";
@@ -54,9 +54,7 @@ export default function AdminDashboardPage() {
       <LiveAdminMetrics />
       <TeacherTrustCard />
 
-      <section className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(20rem,0.55fr)]">
-        <LiveCurriculumCoverage />
-
+      <section>
         <SkulKidCard className="overflow-hidden p-0">
           <div className="bg-gradient-to-br from-blue-700 to-indigo-800 p-5 text-white sm:p-6">
             <div className="flex items-start gap-3">
@@ -65,7 +63,7 @@ export default function AdminDashboardPage() {
             </div>
           </div>
           <div className="p-4 sm:p-5">
-            <div className="grid gap-2">
+            <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
               <StatusRow ready label="Lesson quality checks" detail="Your lesson is checked for missing information before publishing." />
               <StatusRow ready label="NaCCA curriculum library" detail={`${ghanaPrimaryCurriculum.length} official curriculum documents are ready to browse.`} />
               <StatusRow ready={geminiConfigured} label="AI lesson assistant" detail={geminiConfigured ? "Ready to turn lesson notes into editable drafts." : "Temporarily unavailable. You can still create lessons manually."} />
