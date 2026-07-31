@@ -564,6 +564,15 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
                 </div>
               ) : null}
 
+              {isSignup && (step === "verify" || (isSteppedSignup && signupStep === 5)) ? (
+                <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950" role="note">
+                  <b className="block">You may receive more than one code</b>
+                  <span className="mt-1 block text-amber-900">
+                    We use three SMS providers to improve delivery, so you may receive up to three verification codes. You can enter any one of them.
+                  </span>
+                </div>
+              ) : null}
+
               {(step === "verify" || (isSteppedSignup && signupStep === 5)) && otpShortcode ? (
                 <div className="mt-3 rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950" role="note">
                   <b className="block">Still waiting for the SMS?</b>
