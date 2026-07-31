@@ -9,7 +9,6 @@ import {
   Megaphone,
   MessageCircle,
   Mic,
-  MoreVertical,
   Paperclip,
   Search,
   Send,
@@ -154,6 +153,7 @@ export default function TeacherCommunicationsPage() {
       const form = new FormData();
       form.set("payload", JSON.stringify({
           audience: "student",
+          classId: active.latest?.classId || active.classes[0]?.id,
           studentIds: [active.id],
           title: "Message from your teacher",
           body: draft.trim() || (attachments.some((file) => file.type.startsWith("audio/")) ? "Voice message" : "Attachment")
@@ -289,7 +289,6 @@ export default function TeacherCommunicationsPage() {
                   <h2 className="truncate text-sm font-black text-slate-950">{active.name}</h2>
                   <p className="truncate text-xs text-slate-500">{active.classes.map((item) => item.name).join(" · ")}</p>
                 </div>
-                <button aria-label="Conversation options" className="grid size-10 place-items-center rounded-full text-slate-600 hover:bg-slate-200" type="button"><MoreVertical className="size-5" /></button>
               </header>
 
               <div className="min-h-0 overflow-y-auto overscroll-contain bg-[radial-gradient(circle_at_center,rgba(255,255,255,.55)_1px,transparent_1px)] bg-[length:18px_18px] px-3 py-5 sm:px-8">
@@ -444,6 +443,7 @@ function BroadcastDialog({ classes, contacts, onClose, onSent }: {
           ? { classId, courseId: selectedClass?.teacherRole === "subject_teacher" ? courseId : null, body: `${title}\n\n${body}`.slice(0, 1000), kind: "announcement" }
           : {
               audience,
+              classId: audience === "selected" ? classId || undefined : undefined,
               studentIds: audience === "selected" ? selected : undefined,
               title,
               body: body.trim() || (attachments.some((file) => file.type.startsWith("audio/")) ? "Voice message" : "Attachment")

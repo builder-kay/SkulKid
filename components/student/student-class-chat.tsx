@@ -1,10 +1,21 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CheckCheck, Clock3, Flag, Loader2, LockKeyhole, Paperclip, Send, ShieldCheck, Users } from "lucide-react";
+import { Clock3, Flag, Loader2, LockKeyhole, MessageCircle, Paperclip, Send, ShieldCheck, Users, X } from "lucide-react";
 import { ChatMessageText } from "@/components/chat/chat-message-text";
 import type { AdviceSuggestionType } from "@/lib/classes/types";
 import { cn } from "@/lib/utils";
+
+const reportReasons = [
+  { id: "bullying", label: "Being unkind or bullying" },
+  { id: "threat", label: "Threatening or scary" },
+  { id: "sexual_content", label: "Inappropriate or private content" },
+  { id: "personal_information", label: "Sharing phone numbers or personal details" },
+  { id: "spam", label: "Spam or off-topic" },
+  { id: "other", label: "Something else that feels unsafe" }
+] as const;
+
+type ReportReason = (typeof reportReasons)[number]["id"];
 
 type ChatItem = {
   id: string;
@@ -33,6 +44,8 @@ type ChatState = {
   postingEndsAt: string | null;
   timezone: string;
   guardianConsentRequired: boolean;
+  guardianReady?: boolean;
+  rulesAccepted?: boolean;
   consentReady: boolean;
   withinHours: boolean;
   canPost: boolean;
@@ -61,6 +74,10 @@ export function StudentClassChat({
   const markedAdviceRef = useRef(new Set<string>());
   const [reporting, setReporting] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
+  const [reportTarget, setReportTarget] = useState<string | null>(null);
+  const [reportReason, setReportReason] = useState<ReportReason>("bullying");
+  const [reportDetails, setReportDetails] = useState("");
+  const [acceptingRules, setAcceptingRules] = useState(false);
   const timeline = useMemo<ChatItem[]>(() => [
     ...messages.map((item) => ({
       id: `message-${item.id}`, body: item.body, createdAt: item.createdAt,
@@ -97,22 +114,30 @@ export function StudentClassChat({
     }
   }, [advice, onReadAdvice]);
 
-  async function report(messageId: string) {
-    const reason = window.prompt("Reason: bullying, threat, sexual_content, personal_information, spam, or other", "bullying");
-    if (!reason) return;
-    if (!["bullying", "threat", "sexual_content", "personal_information", "spam", "other"].includes(reason)) {
-      setNotice("Please enter one of the listed report reasons.");
-      return;
-    }
-    setReporting(messageId);
+  function openReport(messageId: string) {
+    setReportTarget(messageId);
+    setReportReason("bullying");
+    setReportDetails("");
+    setNotice("");
+  }
+
+  async function submitReport() {
+    if (!reportTarget) return;
+    setReporting(reportTarget);
     try {
       const response = await fetch(`/api/student/classes/${classId}/messages/report`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messageId, reason, muteSender: true })
+        body: JSON.stringify({
+          messageId: reportTarget,
+          reason: reportReason,
+          details: reportDetails.trim() || undefined,
+          muteSender: true
+        })
       });
       const payload = await response.json() as { error?: string };
       if (!response.ok) throw new Error(payload.error || "Could not report the message.");
-      setNotice("Reported. The learner is now muted for you and the safety team can review it.");
+      setReportTarget(null);
+      setNotice("Thanks for telling a trusted adult. That learner is muted for you, and your teacher can review it.");
       onReported();
     } catch (cause) {
       setNotice(cause instanceof Error ? cause.message : "Could not report the message.");
@@ -136,11 +161,29 @@ export function StudentClassChat({
     }
   }
 
+  async function acceptRules() {
+    setAcceptingRules(true);
+    setNotice("");
+    try {
+      const response = await fetch(`/api/student/classes/${classId}/chat/accept-rules`, { method: "POST" });
+      const payload = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(payload.error || "Could not save your acceptance.");
+      setNotice("Thanks. You can message your class when discussion is open.");
+      onReported();
+    } catch (cause) {
+      setNotice(cause instanceof Error ? cause.message : "Could not save your acceptance.");
+    } finally {
+      setAcceptingRules(false);
+    }
+  }
+
+  const needsRulesAcceptance = Boolean(chat.guardianReady && !chat.rulesAccepted);
   const unavailableReason = !chat.enabled ? "Class discussion is not enabled."
     : chat.locked ? "Your teacher has paused this discussion."
-      : !chat.consentReady ? "Guardian consent and acceptance of the class rules are required before posting."
-        : !chat.withinHours ? `Messaging opens from ${chat.postingStartsAt} to ${chat.postingEndsAt} (${chat.timezone}).`
-          : "";
+      : !chat.guardianReady ? "Your teacher still needs to record guardian consent before you can post."
+        : needsRulesAcceptance ? "Read the safe class chat rules, then tap Accept to join the discussion."
+          : !chat.withinHours ? `Messaging opens from ${chat.postingStartsAt} to ${chat.postingEndsAt} (${chat.timezone}).`
+            : "";
 
   return (
     <section className="flex h-[min(42rem,calc(100dvh-6rem))] min-h-[28rem] flex-col overflow-hidden rounded-[1.25rem] border border-blue-100 bg-white shadow-[0_20px_60px_-28px_rgba(30,64,175,0.45)] sm:h-[min(46rem,calc(100dvh-8rem))] sm:min-h-[34rem] sm:rounded-[1.75rem] lg:h-[46rem]">
@@ -158,22 +201,65 @@ export function StudentClassChat({
           <ul className="mt-2 grid gap-1 pl-5 text-xs leading-5 text-blue-950">{chat.rules.map((rule) => <li className="list-disc" key={rule}>{rule}</li>)}</ul>
         </details>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-slate-100 bg-[radial-gradient(circle_at_center,rgba(59,130,246,.10)_1px,transparent_1px)] bg-[length:18px_18px] px-2.5 py-4 sm:px-6 sm:py-5">
+      <div aria-live="polite" className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-slate-100 bg-[radial-gradient(circle_at_center,rgba(59,130,246,.10)_1px,transparent_1px)] bg-[length:18px_18px] px-2.5 py-4 sm:px-6 sm:py-5" role="log">
         <div className="mx-auto grid max-w-4xl gap-2">
           {timeline.length ? timeline.map((item, index) => {
             const previous = timeline[index - 1];
             const showDate = !previous || new Date(previous.createdAt).toDateString() !== new Date(item.createdAt).toDateString();
-            return <div key={item.id}>{showDate ? <DateDivider value={item.createdAt} /> : null}<Bubble item={item} onAcknowledge={acknowledge} onReport={report} reporting={reporting} /></div>;
-          }) : <div className="mx-auto mt-12 max-w-sm rounded-2xl border border-blue-100 bg-white/95 p-5 text-center text-sm leading-6 text-slate-700 shadow-sm"><span className="mx-auto mb-3 grid size-11 place-items-center rounded-full bg-blue-100 text-xl text-blue-700">💬</span><b className="block text-slate-950">Your class conversation starts here</b>Your teacher supervises this room, and only active classmates can participate.</div>}
+            return <div key={item.id}>{showDate ? <DateDivider value={item.createdAt} /> : null}<Bubble item={item} onAcknowledge={acknowledge} onReport={openReport} reporting={reporting} /></div>;
+          }) : <div className="mx-auto mt-12 max-w-sm rounded-2xl border border-blue-100 bg-white/95 p-5 text-center text-sm leading-6 text-slate-700 shadow-sm"><span className="mx-auto mb-3 grid size-11 place-items-center rounded-full bg-blue-100 text-blue-700"><MessageCircle className="size-5" /></span><b className="block text-slate-950">Your class conversation starts here</b>Your teacher supervises this room, and only active classmates can participate.</div>}
           <div ref={endRef} />
         </div>
       </div>
-      {notice ? <p className="border-t border-slate-200 bg-amber-50 px-4 py-2 text-xs font-bold text-amber-900">{notice}</p> : null}
-      {unavailableReason ? <p className="flex items-center gap-2 border-t border-slate-200 bg-slate-100 px-4 py-3 text-sm font-bold text-slate-700">{chat.locked ? <LockKeyhole className="size-4" /> : <Clock3 className="size-4" />}{unavailableReason}</p> : null}
+      {notice ? <p className="border-t border-slate-200 bg-amber-50 px-4 py-2 text-xs font-bold text-amber-900" role="status">{notice}</p> : null}
+      {unavailableReason ? (
+        <div className="border-t border-slate-200 bg-slate-100 px-4 py-3">
+          <p className="flex items-center gap-2 text-sm font-bold text-slate-700">{chat.locked ? <LockKeyhole className="size-4" /> : <ShieldCheck className="size-4" />}{unavailableReason}</p>
+          {needsRulesAcceptance ? (
+            <button className="mt-3 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-blue-700 px-4 text-sm font-black text-white hover:bg-blue-800 disabled:opacity-60" disabled={acceptingRules} onClick={() => void acceptRules()} type="button">
+              {acceptingRules ? <Loader2 className="size-4 animate-spin" /> : <ShieldCheck className="size-4" />}
+              I accept the class chat rules
+            </button>
+          ) : null}
+        </div>
+      ) : null}
       <form className="flex shrink-0 items-end gap-2 border-t border-blue-100 bg-white p-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] sm:p-3" onSubmit={onSubmit}>
         <textarea aria-label={`Message ${className} discussion`} className="max-h-32 min-h-12 flex-1 resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-base leading-5 shadow-inner outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-200 disabled:bg-slate-200 sm:text-sm" disabled={!chat.canPost} maxLength={1000} onChange={(event) => onChange(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} placeholder={chat.canPost ? "Message your class…" : "Posting is unavailable"} rows={1} value={value} />
         <button aria-label="Send message" className="grid size-12 shrink-0 place-items-center rounded-full bg-blue-700 text-white shadow-md shadow-blue-700/20 transition hover:bg-blue-800 active:scale-95 disabled:opacity-50" disabled={!chat.canPost || sending || !value.trim()} type="submit">{sending ? <Loader2 className="size-5 animate-spin" /> : <Send className="size-5" />}</button>
       </form>
+      {reportTarget ? (
+        <div className="fixed inset-0 z-50 grid place-items-end bg-slate-950/55 p-3 backdrop-blur-sm sm:place-items-center" onMouseDown={(event) => { if (event.currentTarget === event.target) setReportTarget(null); }}>
+          <section aria-labelledby="report-message-title" aria-modal="true" className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-[1.5rem] bg-white p-5 shadow-2xl sm:p-6" role="dialog">
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-black uppercase tracking-wider text-rose-700">Stay safe</p>
+                <h2 className="mt-1 text-xl font-black text-slate-950" id="report-message-title">Tell a trusted adult</h2>
+                <p className="mt-1 text-sm text-slate-600">Choose what felt wrong. We will mute this learner for you and notify your teacher.</p>
+              </div>
+              <button aria-label="Close report form" className="grid size-10 place-items-center rounded-xl bg-slate-100" onClick={() => setReportTarget(null)} type="button"><X className="size-5" /></button>
+            </div>
+            <div className="grid gap-2" role="radiogroup" aria-label="Why are you reporting this message?">
+              {reportReasons.map((reason) => (
+                <label className={cn("flex cursor-pointer items-start gap-3 rounded-xl border px-3 py-3 text-sm font-bold transition", reportReason === reason.id ? "border-rose-300 bg-rose-50 text-rose-950" : "border-slate-200 hover:bg-slate-50")} key={reason.id}>
+                  <input checked={reportReason === reason.id} className="mt-1" name="report-reason" onChange={() => setReportReason(reason.id)} type="radio" value={reason.id} />
+                  <span>{reason.label}</span>
+                </label>
+              ))}
+            </div>
+            <label className="mt-4 grid gap-2 text-sm font-bold text-slate-700">
+              Anything else to add? (optional)
+              <textarea className="min-h-20 rounded-xl border border-slate-300 p-3 text-sm font-normal outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100" maxLength={500} onChange={(event) => setReportDetails(event.target.value)} placeholder="You can leave this blank" value={reportDetails} />
+            </label>
+            <div className="mt-5 grid gap-2 sm:grid-cols-2">
+              <button className="min-h-11 rounded-xl border border-slate-300 px-4 text-sm font-black" onClick={() => setReportTarget(null)} type="button">Cancel</button>
+              <button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-rose-700 px-4 text-sm font-black text-white hover:bg-rose-800 disabled:opacity-60" disabled={Boolean(reporting)} onClick={() => void submitReport()} type="button">
+                {reporting === reportTarget ? <Loader2 className="size-4 animate-spin" /> : <Flag className="size-4" />}
+                Report and mute
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -200,8 +286,7 @@ function Bubble({ item, onAcknowledge, onReport, reporting }: { item: ChatItem; 
       {item.resolutionNote ? <p className="mt-2 rounded-lg bg-emerald-50 p-2 text-xs font-bold text-emerald-900">Teacher follow-up: {item.resolutionNote}</p> : null}
       <div className="mt-1 flex items-center justify-end gap-1 pl-8">
         <time className={cn("text-[10px]", outgoing ? "text-blue-100" : "text-slate-500")}>{new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(new Date(item.createdAt))}</time>
-        {outgoing ? <CheckCheck className="size-4 text-sky-200" /> : null}
-        {item.canReport && item.messageId ? <button aria-label="Report and mute this learner" className="ml-1 text-slate-400 hover:text-rose-700" disabled={reporting === item.messageId} onClick={() => void onReport(item.messageId!)} type="button">{reporting === item.messageId ? <Loader2 className="size-3 animate-spin" /> : <Flag className="size-3" />}</button> : null}
+        {item.canReport && item.messageId ? <button aria-label="Report and mute this learner" className="ml-1 text-slate-400 hover:text-rose-700" disabled={reporting === item.messageId} onClick={() => onReport(item.messageId!)} type="button">{reporting === item.messageId ? <Loader2 className="size-3 animate-spin" /> : <Flag className="size-3" />}</button> : null}
       </div>
     </article>
   </div>;

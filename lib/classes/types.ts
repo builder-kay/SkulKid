@@ -256,6 +256,8 @@ export type StudentClassSummary = {
   courseCount: number;
   openQuizCount: number;
   unreadAdviceCount: number;
+  lastActivityAt: string | null;
+  lastMessagePreview: string | null;
 };
 
 export type StudentDashboardActivity = {

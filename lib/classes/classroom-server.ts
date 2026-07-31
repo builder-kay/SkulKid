@@ -1104,18 +1104,67 @@ export async function reportClassMessage(input: {
   ]);
 }
 
-export async function getTeacherMessagingData(teacherId: string) {
+export async function acceptClassChatRules(input: { studentId: string; classId: string }) {
+  await assertActiveMember(input.studentId, input.classId);
   const admin = createAdminClient();
+  const [{ data: setting }, { data: consent }] = await Promise.all([
+    admin.from("ClassChatSetting").select("guardianConsentRequired,rulesVersion").eq("classId", input.classId).maybeSingle(),
+    admin.from("ClassChatConsent").select("active,guardianConfirmedAt,guardianConfirmedBy,rulesVersion").eq("classId", input.classId).eq("studentId", input.studentId).maybeSingle()
+  ]);
+  const rulesVersion = (setting?.rulesVersion as string | null) ?? "class-chat-v1";
+  if (setting?.guardianConsentRequired !== false && (!consent?.active || !consent.guardianConfirmedAt)) {
+    throw new Error("Your teacher still needs to record guardian consent before you can join chat.");
+  }
+  const now = new Date().toISOString();
+  const { error } = await admin.from("ClassChatConsent").upsert({
+    classId: input.classId,
+    studentId: input.studentId,
+    guardianConfirmedBy: consent?.guardianConfirmedBy ?? null,
+    guardianConfirmedAt: consent?.guardianConfirmedAt ?? null,
+    rulesAcceptedAt: now,
+    rulesVersion,
+    active: setting?.guardianConsentRequired === false ? true : Boolean(consent?.active),
+    updatedAt: now
+  }, { onConflict: "classId,studentId" });
+  if (error) throw new Error(error.message);
+}
+
+async function getTeacherMessagingRoster(teacherId: string) {
   const classes = await listTeacherClasses(teacherId);
   const rosters = await Promise.all(classes.map(async (item) => ({
     classId: item.id,
     className: item.name,
+    teacherRole: item.teacherRole ?? "class_teacher" as const,
+    assignedSubjects: item.assignedSubjects ?? [],
     students: await listClassRoster(teacherId, item.id)
   })));
+  return {
+    classes: rosters.map((group) => ({
+      id: group.classId,
+      name: group.className,
+      teacherRole: group.teacherRole,
+      assignedSubjects: group.assignedSubjects,
+      students: group.students.map((student) => ({ id: student.studentId, name: student.displayName }))
+    })),
+    studentById: new Map(rosters.flatMap((group) => group.students.map((student) => [student.studentId, student]))),
+    classById: new Map(classes.map((item) => [item.id, item.name])),
+    firstClassByStudent: new Map(
+      rosters.flatMap((group) => group.students.map((student) => [
+        student.studentId,
+        { id: group.classId, name: group.className }
+      ]))
+    )
+  };
+}
+
+export async function getTeacherMessagingData(teacherId: string) {
+  const admin = createAdminClient();
+  const roster = await getTeacherMessagingRoster(teacherId);
   const [{ data: messages, error }, { data: notifications, error: notificationError }] = await Promise.all([
     admin.from("ClassMessage")
       .select("id,classId,studentId,body,attachments,createdAt,readAt")
       .eq("teacherId", teacherId)
+      .eq("scope", "legacy_direct")
       .order("createdAt", { ascending: false })
       .limit(300),
     admin.from("TeacherNotification")
@@ -1133,33 +1182,28 @@ export async function getTeacherMessagingData(teacherId: string) {
         .in("notificationId", notificationIds)
     : { data: [], error: null };
   if (recipientError) throw new Error(recipientError.message);
-  const studentById = new Map(rosters.flatMap((group) => group.students.map((student) => [student.studentId, student])));
-  const classById = new Map(classes.map((item) => [item.id, item.name]));
-  const firstClassByStudent = new Map(
-    rosters.flatMap((group) => group.students.map((student) => [
-      student.studentId,
-      { id: group.classId, name: group.className }
-    ]))
-  );
+  const { studentById, classById, firstClassByStudent } = roster;
   const notificationById = new Map((notifications ?? []).map((notification) => [notification.id as string, notification]));
   const attachmentEntries = await Promise.all([
     ...(messages ?? []).map(async (message) => [String(message.id), await signMessageAttachments(message.attachments)] as const),
     ...(notifications ?? []).map(async (notification) => [String(notification.id), await signMessageAttachments(notification.attachments)] as const)
   ]);
   const attachmentsById = new Map(attachmentEntries);
-  const incoming = (messages ?? []).map((message) => ({
-    id: message.id as string,
-    classId: message.classId as string,
-    className: classById.get(message.classId as string) ?? "Class",
-    studentId: message.studentId as string,
-    studentName: studentById.get(message.studentId as string)?.displayName ?? "Student",
-    title: null,
-    body: message.body as string,
-    attachments: attachmentsById.get(String(message.id)) ?? [],
-    direction: "incoming" as const,
-    createdAt: message.createdAt as string,
-    readAt: (message.readAt as string | null) ?? null
-  }));
+  const incoming = (messages ?? [])
+    .filter((message) => Boolean(message.studentId))
+    .map((message) => ({
+      id: message.id as string,
+      classId: message.classId as string,
+      className: classById.get(message.classId as string) ?? "Class",
+      studentId: message.studentId as string,
+      studentName: studentById.get(message.studentId as string)?.displayName ?? "Student",
+      title: null,
+      body: message.body as string,
+      attachments: attachmentsById.get(String(message.id)) ?? [],
+      direction: "incoming" as const,
+      createdAt: message.createdAt as string,
+      readAt: (message.readAt as string | null) ?? null
+    }));
   const outgoing = (notificationRecipients ?? []).flatMap((recipient) => {
     const notification = notificationById.get(recipient.notificationId as string);
     if (!notification) return [];
@@ -1183,17 +1227,12 @@ export async function getTeacherMessagingData(teacherId: string) {
   if (unreadIds.length) {
     const { error: readError } = await admin.from("ClassMessage")
       .update({ readAt: new Date().toISOString() })
-      .in("id", unreadIds);
+      .in("id", unreadIds)
+      .eq("scope", "legacy_direct");
     if (readError) throw new Error(readError.message);
   }
   return {
-    classes: rosters.map((group) => ({
-      id: group.classId,
-      name: group.className,
-      teacherRole: classes.find((item) => item.id === group.classId)?.teacherRole ?? "class_teacher",
-      assignedSubjects: classes.find((item) => item.id === group.classId)?.assignedSubjects ?? [],
-      students: group.students.map((student) => ({ id: student.studentId, name: student.displayName }))
-    })),
+    classes: roster.classes,
     messages: [...incoming, ...outgoing].sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt))
   };
 }
@@ -1207,13 +1246,13 @@ export async function createTeacherNotification(input: {
   body: string;
   attachments?: StoredMessageAttachment[];
 }) {
-  const data = await getTeacherMessagingData(input.teacherId);
-  const allowedAll = new Set(data.classes.flatMap((item) => item.students.map((student) => student.id)));
-  const allowedClass = new Set(data.classes.find((item) => item.id === input.classId)?.students.map((student) => student.id) ?? []);
+  const roster = await getTeacherMessagingRoster(input.teacherId);
+  const allowedAll = new Set(roster.classes.flatMap((item) => item.students.map((student) => student.id)));
+  const allowedClass = new Set(roster.classes.find((item) => item.id === input.classId)?.students.map((student) => student.id) ?? []);
   let recipients: string[] = [];
   if (input.audience === "all") recipients = [...allowedAll];
   else if (input.audience === "class") {
-    if (!input.classId || !data.classes.some((item) => item.id === input.classId)) throw new Error("Choose one of your classes.");
+    if (!input.classId || !roster.classes.some((item) => item.id === input.classId)) throw new Error("Choose one of your classes.");
     recipients = [...allowedClass];
   } else {
     recipients = [...new Set(input.studentIds ?? [])];
@@ -1222,10 +1261,14 @@ export async function createTeacherNotification(input: {
     if (input.audience === "student" && recipients.length !== 1) throw new Error("Choose one student.");
   }
   if (!recipients.length) throw new Error("There are no students in this audience.");
+  const resolvedClassId = input.classId
+    ?? (input.audience === "student" || input.audience === "selected"
+      ? roster.firstClassByStudent.get(recipients[0]!)?.id ?? null
+      : null);
   const admin = createAdminClient();
   const { data: notification, error } = await admin.from("TeacherNotification").insert({
     teacherId: input.teacherId,
-    classId: input.audience === "class" ? input.classId : null,
+    classId: resolvedClassId,
     title: input.title.trim(),
     body: input.body.trim(),
     attachments: input.attachments ?? [],
@@ -1287,11 +1330,19 @@ export async function listStudentClasses(studentId: string): Promise<StudentClas
   if (!memberships?.length) return [];
 
   const classIds = memberships.map((row) => row.classId as string);
-  const [{ data: classes }, { data: courses }, { data: quizzes }, { data: advice }] = await Promise.all([
+  const [{ data: classes }, { data: courses }, { data: quizzes }, { data: advice }, { data: latestMessages }] = await Promise.all([
     admin.from("TeacherClass").select("id,name,description,gradeLevel,teacherId,status").in("id", classIds).eq("status", "active"),
     admin.from("ClassCourseAssignment").select("classId").in("classId", classIds),
     admin.from("ClassQuiz").select("id,classId,status,deadline").in("classId", classIds).eq("status", "published"),
-    admin.from("ClassAdvice").select("classId,readAt").in("classId", classIds).eq("studentId", studentId)
+    admin.from("ClassAdvice").select("classId,readAt,createdAt,message").in("classId", classIds).eq("studentId", studentId),
+    admin.from("ClassMessage")
+      .select("classId,body,createdAt")
+      .in("classId", classIds)
+      .eq("scope", "class_room")
+      .eq("moderationStatus", "allowed")
+      .is("deletedAt", null)
+      .order("createdAt", { ascending: false })
+      .limit(Math.max(classIds.length * 3, 20))
   ]);
 
   const now = Date.now();
@@ -1304,9 +1355,20 @@ export async function listStudentClasses(studentId: string): Promise<StudentClas
   const courseCount = new Map<string, number>();
   for (const course of courses ?? []) courseCount.set(course.classId as string, (courseCount.get(course.classId as string) ?? 0) + 1);
   const unreadAdvice = new Map<string, number>();
+  const latestAdviceByClass = new Map<string, { at: string; preview: string }>();
   for (const item of advice ?? []) {
-    if (item.readAt) continue;
-    unreadAdvice.set(item.classId as string, (unreadAdvice.get(item.classId as string) ?? 0) + 1);
+    if (!item.readAt) unreadAdvice.set(item.classId as string, (unreadAdvice.get(item.classId as string) ?? 0) + 1);
+    const classId = item.classId as string;
+    const current = latestAdviceByClass.get(classId);
+    if (!current || Date.parse(item.createdAt as string) > Date.parse(current.at)) {
+      latestAdviceByClass.set(classId, { at: item.createdAt as string, preview: String(item.message ?? "") });
+    }
+  }
+  const latestMessageByClass = new Map<string, { at: string; preview: string }>();
+  for (const item of latestMessages ?? []) {
+    const classId = item.classId as string;
+    if (latestMessageByClass.has(classId)) continue;
+    latestMessageByClass.set(classId, { at: item.createdAt as string, preview: String(item.body ?? "") });
   }
 
   const teachers = await Promise.all((classes ?? []).map(async (classroom) => {
@@ -1317,6 +1379,11 @@ export async function listStudentClasses(studentId: string): Promise<StudentClas
 
   return (classes ?? []).map((classroom) => {
     const membership = memberships.find((row) => row.classId === classroom.id);
+    const message = latestMessageByClass.get(classroom.id as string);
+    const advicePreview = latestAdviceByClass.get(classroom.id as string);
+    const lastActivityAt = [message?.at, advicePreview?.at, membership?.joinedAt as string | undefined]
+      .filter(Boolean)
+      .sort((a, b) => Date.parse(b as string) - Date.parse(a as string))[0] ?? null;
     return {
       id: classroom.id as string,
       name: classroom.name as string,
@@ -1326,9 +1393,11 @@ export async function listStudentClasses(studentId: string): Promise<StudentClas
       joinedAt: (membership?.joinedAt as string) ?? new Date().toISOString(),
       courseCount: courseCount.get(classroom.id as string) ?? 0,
       openQuizCount: openQuizCount.get(classroom.id as string) ?? 0,
-      unreadAdviceCount: unreadAdvice.get(classroom.id as string) ?? 0
+      unreadAdviceCount: unreadAdvice.get(classroom.id as string) ?? 0,
+      lastActivityAt,
+      lastMessagePreview: message?.preview || advicePreview?.preview || null
     };
-  });
+  }).sort((a, b) => Date.parse(b.lastActivityAt ?? b.joinedAt) - Date.parse(a.lastActivityAt ?? a.joinedAt));
 }
 
 export async function getStudentDashboardActivity(studentId: string): Promise<StudentDashboardActivity> {
@@ -1444,12 +1513,13 @@ export async function getStudentClassDetail(studentId: string, classId: string) 
   const senderIds = [...new Set(visibleMessageRows.map((row) => row.senderId as string))];
   const senderUsers = await Promise.all(senderIds.map(async (id) => (await admin.auth.admin.getUserById(id)).data.user));
   const senderNameById = new Map(senderUsers.filter(Boolean).map((user) => [user!.id, displayNameFrom(user!, "Learner")]));
-  const consentReady = chatSetting?.guardianConsentRequired === false || Boolean(
-    chatConsent?.active
-    && chatConsent.guardianConfirmedAt
-    && chatConsent.rulesAcceptedAt
-    && chatConsent.rulesVersion === chatSetting?.rulesVersion
+  const guardianReady = chatSetting?.guardianConsentRequired === false || Boolean(
+    chatConsent?.active && chatConsent.guardianConfirmedAt
   );
+  const rulesAccepted = chatSetting?.guardianConsentRequired === false || Boolean(
+    chatConsent?.rulesAcceptedAt && chatConsent.rulesVersion === (chatSetting?.rulesVersion ?? "class-chat-v1")
+  );
+  const consentReady = guardianReady && rulesAccepted;
   const localTime = new Intl.DateTimeFormat("en-GB", {
     timeZone: (chatSetting?.timezone as string) || "Africa/Accra",
     hour: "2-digit",
@@ -1668,13 +1738,19 @@ export async function getStudentClassDetail(studentId: string, classId: string) 
       postingEndsAt: (chatSetting?.postingEndsAt as string | null) ?? null,
       timezone: (chatSetting?.timezone as string) || "Africa/Accra",
       guardianConsentRequired: chatSetting?.guardianConsentRequired !== false,
+      guardianReady,
+      rulesAccepted,
       consentReady,
       withinHours,
       canPost: chatSetting?.enabled !== false && !chatSetting?.locked && consentReady && withinHours,
       rules: childFriendlyChatRules
     },
     notifications: (notificationRows ?? [])
-      .filter((row) => row.classId == null || row.classId === classId)
+      .filter((row) => {
+        if (row.classId === classId) return true;
+        // School-wide broadcasts without a class still appear in every room.
+        return row.classId == null && row.audience === "all";
+      })
       .map((row) => ({
         id: row.id as string,
         title: row.title as string,

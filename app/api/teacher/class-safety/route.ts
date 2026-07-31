@@ -63,18 +63,44 @@ export async function POST(request: Request) {
 const patchSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("settings"), classId: z.string().uuid(), enabled: z.boolean(), locked: z.boolean(), postingStartsAt: z.string().nullable(), postingEndsAt: z.string().nullable(), guardianConsentRequired: z.boolean() }),
   z.object({ action: z.literal("delete"), classId: z.string().uuid(), messageId: z.string().uuid(), reason: z.string().trim().min(3).max(300) }),
-  z.object({ action: z.literal("consent"), classId: z.string().uuid(), studentId: z.string().uuid(), active: z.boolean() })
+  z.object({ action: z.literal("consent"), classId: z.string().uuid(), studentId: z.string().uuid(), active: z.boolean() }),
+  z.object({ action: z.literal("resolve_report"), classId: z.string().uuid(), reportId: z.string().uuid(), status: z.enum(["resolved", "dismissed"]), note: z.string().trim().max(300).optional() })
 ]);
 export async function PATCH(request: Request) {
   try {
-    const teacher = await requireTeacher(); const input = patchSchema.parse(await request.json()); await owns(teacher.id, input.classId); const admin = createAdminClient();
+    const teacher = await requireTeacher();
+    const input = patchSchema.parse(await request.json());
+    await owns(teacher.id, input.classId);
+    const admin = createAdminClient();
     if (input.action === "settings") {
       const { error } = await admin.from("ClassChatSetting").upsert({ classId: input.classId, teacherId: teacher.id, enabled: input.enabled, locked: input.locked, postingStartsAt: input.postingStartsAt, postingEndsAt: input.postingEndsAt, guardianConsentRequired: input.guardianConsentRequired, updatedAt: new Date().toISOString() }, { onConflict: "classId" });
       if (error) throw new Error(error.message);
     } else if (input.action === "consent") {
       const now = new Date().toISOString();
-      const { error } = await admin.from("ClassChatConsent").upsert({ classId: input.classId, studentId: input.studentId, guardianConfirmedBy: teacher.id, guardianConfirmedAt: input.active ? now : null, rulesAcceptedAt: input.active ? now : null, rulesVersion: "class-chat-v1", active: input.active, updatedAt: now }, { onConflict: "classId,studentId" });
+      const { data: existing } = await admin.from("ClassChatConsent").select("rulesAcceptedAt,rulesVersion").eq("classId", input.classId).eq("studentId", input.studentId).maybeSingle();
+      const { error } = await admin.from("ClassChatConsent").upsert({
+        classId: input.classId,
+        studentId: input.studentId,
+        guardianConfirmedBy: teacher.id,
+        guardianConfirmedAt: input.active ? now : null,
+        // Keep any prior learner acceptance; guardian record no longer auto-accepts rules.
+        rulesAcceptedAt: input.active ? (existing?.rulesAcceptedAt ?? null) : null,
+        rulesVersion: existing?.rulesVersion ?? "class-chat-v1",
+        active: input.active,
+        updatedAt: now
+      }, { onConflict: "classId,studentId" });
       if (error) throw new Error(error.message);
+    } else if (input.action === "resolve_report") {
+      const now = new Date().toISOString();
+      const { data: report, error: reportError } = await admin.from("ClassMessageReport")
+        .update({ status: input.status, resolvedAt: now, resolvedBy: teacher.id, resolutionNote: input.note?.trim() || null })
+        .eq("id", input.reportId)
+        .eq("classId", input.classId)
+        .eq("status", "open")
+        .select("id,messageId")
+        .maybeSingle();
+      if (reportError) throw new Error(reportError.message);
+      if (!report) throw new Error("Open report not found.");
     } else {
       const { data: message } = await admin.from("ClassMessage").select("body").eq("id", input.messageId).eq("classId", input.classId).maybeSingle();
       if (!message) throw new Error("Message not found.");

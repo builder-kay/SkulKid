@@ -21,6 +21,8 @@ type MessageDetail = {
     postingEndsAt: string | null;
     timezone: string;
     guardianConsentRequired: boolean;
+    guardianReady?: boolean;
+    rulesAccepted?: boolean;
     consentReady: boolean;
     withinHours: boolean;
     canPost: boolean;
@@ -56,6 +58,13 @@ export function StudentMessagesPage({ initialClassId }: { initialClassId: string
         if (!active) return;
         const next = payload.classes ?? [];
         setClasses(next);
+        setPreviews((current) => {
+          const seeded = { ...current };
+          for (const item of next) {
+            if (!seeded[item.id] && item.lastMessagePreview) seeded[item.id] = item.lastMessagePreview;
+          }
+          return seeded;
+        });
         setSelectedId((current) => current && next.some((item) => item.id === current) ? current : "");
       })
       .catch((cause) => {
@@ -174,9 +183,22 @@ export function StudentMessagesPage({ initialClassId }: { initialClassId: string
     } : current);
   }
 
-  const visibleClasses = classes.filter((item) =>
-    `${item.name} ${item.teacherName}`.toLowerCase().includes(query.trim().toLowerCase())
-  );
+  const visibleClasses = classes
+    .filter((item) => `${item.name} ${item.teacherName}`.toLowerCase().includes(query.trim().toLowerCase()))
+    .slice()
+    .sort((a, b) => Date.parse(b.lastActivityAt ?? b.joinedAt) - Date.parse(a.lastActivityAt ?? a.joinedAt));
+
+  function activityLabel(value: string | null | undefined) {
+    if (!value) return "";
+    const date = new Date(value);
+    const today = new Date();
+    if (date.toDateString() === today.toDateString()) {
+      return new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(date);
+    }
+    const yesterday = new Date(Date.now() - 86400000);
+    if (date.toDateString() === yesterday.toDateString()) return "Yesterday";
+    return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(date);
+  }
 
   return (
     <StudentShell activeItem="messages">
@@ -194,10 +216,10 @@ export function StudentMessagesPage({ initialClassId }: { initialClassId: string
               </label>
             </div>
             <div className="max-h-[calc(100dvh-14rem)] overflow-y-auto lg:max-h-[calc(100dvh-12rem)]">
-              {loadingClasses ? <div className="grid min-h-48 place-items-center"><Loader2 className="size-7 animate-spin text-blue-700" /></div> : visibleClasses.length ? visibleClasses.map((item, index) => (
+              {loadingClasses ? <div className="grid min-h-48 place-items-center"><Loader2 className="size-7 animate-spin text-blue-700" /></div> : visibleClasses.length ? visibleClasses.map((item) => (
                 <button className={cn("flex w-full items-center gap-3 border-b border-slate-100 p-4 text-left transition hover:bg-blue-50", selectedId === item.id && "bg-blue-50")} key={item.id} onClick={() => selectClass(item.id)} type="button">
                   <span className="grid size-12 shrink-0 place-items-center rounded-full bg-gradient-to-br from-blue-600 to-indigo-700 font-black text-white">{item.name.slice(0, 2).toUpperCase()}</span>
-                  <span className="min-w-0 flex-1"><span className="flex items-center justify-between gap-2"><b className="truncate text-slate-950">{item.name}</b><span className="shrink-0 text-[10px] text-slate-400">{index === 0 ? "Recent" : ""}</span></span><span className="mt-0.5 block truncate text-xs text-slate-500">{previews[item.id] || `Supervised by ${item.teacherName}`}</span></span>
+                  <span className="min-w-0 flex-1"><span className="flex items-center justify-between gap-2"><b className="truncate text-slate-950">{item.name}</b><span className="shrink-0 text-[10px] text-slate-400">{activityLabel(item.lastActivityAt)}</span></span><span className="mt-0.5 block truncate text-xs text-slate-500">{previews[item.id] || item.lastMessagePreview || `Supervised by ${item.teacherName}`}</span></span>
                   {(unread[item.id] ?? item.unreadAdviceCount) > 0 ? <span className="grid min-w-6 place-items-center rounded-full bg-blue-600 px-1.5 py-1 text-[10px] font-black text-white">{Math.min(99, unread[item.id] ?? item.unreadAdviceCount)}</span> : null}
                 </button>
               )) : <div className="grid min-h-64 place-items-center p-6 text-center"><div><Users className="mx-auto size-9 text-slate-300" /><h2 className="mt-3 font-black">No class conversations</h2><p className="mt-1 text-sm text-slate-500">Join an active class to start seeing supervised group chats.</p></div></div>}
