@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, ArrowRight, BarChart3, BookOpen, ClipboardList, Copy, Layers3, Loader2, MinusCircle, Plus, ShieldCheck, Trophy, Trash2, UserRoundCheck, Users } from "lucide-react";
+import { ArrowLeft, ArrowRight, BarChart3, BookOpen, ClipboardList, Copy, Layers3, Library, Loader2, MinusCircle, Plus, ShieldCheck, Trophy, Trash2, UserRoundCheck, Users } from "lucide-react";
 import type {
   ClassCourseAssignmentView,
   ClassLeaderboardEntry,
@@ -13,6 +13,7 @@ import type {
 } from "@/lib/classes/types";
 import { TeacherPerformanceWorkspace } from "@/components/teacher/teacher-performance-workspace";
 import { TeacherClassTeam } from "@/components/teacher/teacher-class-team";
+import { cn } from "@/lib/utils";
 
 type Tab = "roster" | "courses" | "quizzes" | "leaderboard" | "performance" | "team";
 type PointReport = { id: string; deductionId: string; studentName: string; amount: number; reason: string; message: string; status: string; createdAt: string; resolutionNote: string | null };
@@ -277,54 +278,65 @@ export function TeacherClassDetail({ classId }: { classId: string }) {
     );
   }
 
+  const totalModules = courseAssignments.reduce((sum, item) => sum + item.moduleCount, 0);
+  const totalLessons = courseAssignments.reduce((sum, item) => sum + item.lessonCount, 0);
+
   return (
     <main className="mx-auto grid w-full max-w-7xl gap-5 sm:gap-6">
       <Link className="inline-flex items-center gap-2 text-sm font-bold text-teal-800 hover:text-teal-950" href="/teacher/classes"><ArrowLeft className="size-4" />All classes</Link>
 
-      <header className="relative overflow-hidden rounded-[2rem] bg-slate-950 text-white shadow-[0_24px_60px_rgba(15,23,42,.28)]">
+      <header className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-slate-950 via-slate-900 to-teal-950 text-white shadow-[0_24px_60px_rgba(15,23,42,.28)]">
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 opacity-40"
+          className="pointer-events-none absolute inset-0 opacity-50"
           style={{
             backgroundImage:
-              "radial-gradient(circle at 12% 20%, rgba(45,212,191,.35), transparent 42%), radial-gradient(circle at 90% 10%, rgba(56,189,248,.18), transparent 34%)"
+              "radial-gradient(circle at 12% 20%, rgba(45,212,191,.32), transparent 42%), radial-gradient(circle at 88% 12%, rgba(148,163,184,.18), transparent 36%), linear-gradient(135deg, transparent 40%, rgba(15,118,110,.18))"
           }}
         />
-        <div className="relative grid gap-6 p-6 sm:p-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+        <div className="relative grid gap-6 p-6 sm:p-8 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-end">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-teal-200/90">Classroom · Basic {classroom.gradeLevel}</p>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-teal-200/90">Classroom · Basic {classroom.gradeLevel}</p>
             <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">{classroom.name}</h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-300 sm:text-base">
               {classroom.description || "Share the join link so students can enter this class."}
             </p>
-            <div className="mt-5 flex flex-wrap gap-2">
-              <span className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-3 py-2 text-sm font-bold ring-1 ring-white/15">
-                <Users className="size-4 text-teal-200" />
-                {classroom.memberCount} students
-              </span>
-              <span className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-3 py-2 text-sm font-bold ring-1 ring-white/15">
-                <BookOpen className="size-4 text-teal-200" />
-                {classroom.courseCount} subjects
-              </span>
-              <span className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-3 py-2 text-sm font-bold ring-1 ring-white/15">
-                <ClipboardList className="size-4 text-teal-200" />
-                {classroom.quizCount} quizzes
-              </span>
-            </div>
+            <dl className="mt-6 grid max-w-xl grid-cols-3 gap-3">
+              <div className="rounded-2xl bg-white/10 px-3 py-3 ring-1 ring-white/15">
+                <dt className="text-[11px] font-bold uppercase tracking-wider text-teal-100/80">Students</dt>
+                <dd className="mt-1 text-2xl font-black">{classroom.memberCount}</dd>
+              </div>
+              <div className="rounded-2xl bg-white/10 px-3 py-3 ring-1 ring-white/15">
+                <dt className="text-[11px] font-bold uppercase tracking-wider text-teal-100/80">Subjects</dt>
+                <dd className="mt-1 text-2xl font-black">{classroom.courseCount}</dd>
+              </div>
+              <div className="rounded-2xl bg-white/10 px-3 py-3 ring-1 ring-white/15">
+                <dt className="text-[11px] font-bold uppercase tracking-wider text-teal-100/80">Quizzes</dt>
+                <dd className="mt-1 text-2xl font-black">{classroom.quizCount}</dd>
+              </div>
+            </dl>
           </div>
-          {classroom.capabilities.manageStudents ? <div className="grid gap-2 sm:min-w-[16rem]">
-            <button
-              className="inline-flex min-h-11 items-center justify-between gap-3 rounded-xl bg-teal-300 px-4 font-black text-slate-950 hover:bg-teal-200"
-              onClick={() => void copyJoinLink()}
-              type="button"
-            >
-              <span className="inline-flex items-center gap-2"><Copy className="size-4" />Copy join link</span>
-            </button>
-            <div className="rounded-xl bg-white/10 px-4 py-3 ring-1 ring-white/15">
-              <p className="text-[10px] font-black uppercase tracking-wider text-teal-100">Join code</p>
-              <p className="mt-1 font-black tracking-[0.2em]">{classroom.joinCode}</p>
+          {classroom.capabilities.manageStudents ? (
+            <div className="grid gap-3 rounded-[1.5rem] bg-white/10 p-4 ring-1 ring-white/15 backdrop-blur-sm">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-wider text-teal-100">Join code</p>
+                <p className="mt-1 font-black tracking-[0.28em] text-2xl sm:text-3xl">{classroom.joinCode}</p>
+              </div>
+              <button
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-teal-300 px-4 font-black text-slate-950 hover:bg-teal-200"
+                onClick={() => void copyJoinLink()}
+                type="button"
+              >
+                <Copy className="size-4" />Copy join link
+              </button>
             </div>
-          </div> : <div className="rounded-2xl bg-white/10 p-4 ring-1 ring-white/15"><p className="text-xs font-black uppercase tracking-wider text-teal-100">Your role</p><p className="mt-1 font-black">Subject Teacher</p><p className="mt-1 text-sm text-slate-300">{classroom.assignedSubjects.map((item) => item.name).join(" · ")}</p></div>}
+          ) : (
+            <div className="rounded-[1.5rem] bg-white/10 p-4 ring-1 ring-white/15">
+              <p className="text-xs font-black uppercase tracking-wider text-teal-100">Your role</p>
+              <p className="mt-1 text-xl font-black">Subject Teacher</p>
+              <p className="mt-2 text-sm leading-6 text-slate-300">{classroom.assignedSubjects.map((item) => item.name).join(" · ") || "Assigned subjects will appear here."}</p>
+            </div>
+          )}
         </div>
       </header>
 
@@ -339,7 +351,10 @@ export function TeacherClassDetail({ classId }: { classId: string }) {
         ] as const).map(([id, label, Icon]) => (
           <button
             aria-selected={tab === id}
-            className={`inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl px-4 text-sm font-black transition ${tab === id ? "bg-teal-700 text-white shadow-sm" : "bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"}`}
+            className={cn(
+              "inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl px-4 text-sm font-black transition",
+              tab === id ? "bg-teal-700 text-white shadow-sm" : "bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"
+            )}
             key={id}
             onClick={() => setTab(id)}
             role="tab"
@@ -413,38 +428,185 @@ export function TeacherClassDetail({ classId }: { classId: string }) {
       ) : null}
 
       {tab === "courses" ? (
-        <section className="grid gap-5">
-          <div className="overflow-hidden rounded-[1.75rem] bg-gradient-to-br from-violet-800 via-indigo-800 to-slate-950 p-6 text-white shadow-xl sm:p-8">
-            <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between"><div><p className="text-xs font-black uppercase tracking-[.2em] text-violet-200">Class subject studio</p><h2 className="mt-2 text-3xl font-black">Subjects made for {classroom.name}</h2><p className="mt-2 max-w-2xl text-violet-100">Create a private subject, organise it into modules, and build lessons directly inside it. Students in this class see the finished learning path.</p></div><div className="grid grid-cols-3 gap-2 text-center"><div className="rounded-xl bg-white/10 p-3"><b className="block text-2xl">{createdSubjects.length}</b><span className="text-xs text-violet-100">Created</span></div><div className="rounded-xl bg-white/10 p-3"><b className="block text-2xl">{createdSubjects.reduce((sum, item) => sum + item.moduleCount, 0)}</b><span className="text-xs text-violet-100">Modules</span></div><div className="rounded-xl bg-white/10 p-3"><b className="block text-2xl">{createdSubjects.reduce((sum, item) => sum + item.lessonCount, 0)}</b><span className="text-xs text-violet-100">Lessons</span></div></div></div>
-          </div>
-
-          {classroom.capabilities.manageClass ? <form className="rounded-[1.5rem] border border-violet-200 bg-white p-5 shadow-sm sm:p-6" onSubmit={createClassOnly}>
-            <div className="flex items-start gap-3"><span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-violet-100 text-violet-700"><Plus className="size-5" /></span><div><h2 className="text-xl font-black">Create a new class subject</h2><p className="mt-1 text-sm text-slate-600">It will immediately become available in Create Lesson, where you can add a module or place a lesson.</p></div></div>
-            <div className="mt-5 grid gap-3 sm:grid-cols-[1fr_1.4fr_auto]">
-              <label className="grid gap-1.5 text-sm font-bold">Subject name<input className="min-h-11 rounded-xl border border-slate-300 px-3" onChange={(event) => setClassOnlyName(event.target.value)} placeholder="e.g. Creative Arts" required value={classOnlyName} /></label>
-              <label className="grid gap-1.5 text-sm font-bold">Description<input className="min-h-11 rounded-xl border border-slate-300 px-3" onChange={(event) => setClassOnlyDescription(event.target.value)} placeholder="What will students learn?" value={classOnlyDescription} /></label>
-              <button className="mt-6 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-violet-700 px-5 font-black text-white disabled:opacity-60" disabled={busy || !classOnlyName.trim()} type="submit"><Plus className="size-4" /> Create subject</button>
+        <section className="grid gap-6">
+          <div className="relative overflow-hidden rounded-[1.75rem] border border-teal-100 bg-[linear-gradient(135deg,#f0fdfa_0%,#ffffff_45%,#f8fafc_100%)] p-6 sm:p-8">
+            <div aria-hidden className="pointer-events-none absolute -right-16 -top-20 size-64 rounded-full bg-teal-200/40 blur-3xl" />
+            <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+              <div className="max-w-2xl">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-teal-700">Subjects</p>
+                <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">Learning for {classroom.name}</h2>
+                <p className="mt-2 text-sm leading-7 text-slate-600 sm:text-base">
+                  Build private class subjects or assign platform subjects. Students see the finished path once modules and lessons are ready.
+                </p>
+              </div>
+              <dl className="grid grid-cols-3 gap-3 text-center lg:min-w-[20rem]">
+                <div className="rounded-2xl bg-white px-3 py-3 ring-1 ring-slate-200">
+                  <dt className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Subjects</dt>
+                  <dd className="mt-1 text-2xl font-black text-slate-950">{courseAssignments.length}</dd>
+                </div>
+                <div className="rounded-2xl bg-white px-3 py-3 ring-1 ring-slate-200">
+                  <dt className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Modules</dt>
+                  <dd className="mt-1 text-2xl font-black text-slate-950">{totalModules}</dd>
+                </div>
+                <div className="rounded-2xl bg-white px-3 py-3 ring-1 ring-slate-200">
+                  <dt className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Lessons</dt>
+                  <dd className="mt-1 text-2xl font-black text-slate-950">{totalLessons}</dd>
+                </div>
+              </dl>
             </div>
-          </form> : null}
+          </div>
 
           <div>
-            <div className="flex items-end justify-between gap-3"><div><h2 className="text-xl font-black">Your class subjects</h2><p className="mt-1 text-sm text-slate-600">Subjects created specifically for this class.</p></div></div>
-            {createdSubjects.length ? <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">{createdSubjects.map((assignment) => (
-              <article className="flex min-h-64 flex-col rounded-[1.5rem] border border-violet-200 bg-gradient-to-b from-violet-50 to-white p-5 shadow-sm" key={assignment.id}>
-                <div className="flex items-start justify-between gap-3"><span className="grid size-12 place-items-center rounded-2xl bg-violet-700 text-white"><BookOpen className="size-6" /></span><span className="rounded-full bg-violet-100 px-2.5 py-1 text-[11px] font-black uppercase text-violet-800">Class only</span></div>
-                <h3 className="mt-4 text-xl font-black text-slate-950">{assignment.courseName}</h3><p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-600">{assignment.description || "A private learning path for this class."}</p>
-                <div className="mt-4 flex gap-2 text-xs font-black"><span className="inline-flex items-center gap-1.5 rounded-lg bg-white px-2.5 py-2 ring-1 ring-slate-200"><Layers3 className="size-3.5" />{assignment.moduleCount} modules</span><span className="inline-flex items-center gap-1.5 rounded-lg bg-white px-2.5 py-2 ring-1 ring-slate-200"><BookOpen className="size-3.5" />{assignment.lessonCount} lessons</span></div>
-                <div className="mt-auto pt-5"><Link className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-violet-700 px-4 font-black text-white" href={`/teacher/lessons/new?classId=${encodeURIComponent(classId)}&courseId=${encodeURIComponent(assignment.courseId)}`}>Create module or lesson <ArrowRight className="size-4" /></Link></div>
-              </article>
-            ))}</div> : <div className="mt-4 rounded-[1.5rem] border border-dashed border-violet-300 bg-violet-50 p-8 text-center"><BookOpen className="mx-auto size-10 text-violet-500" /><h3 className="mt-3 text-lg font-black">No class subjects yet</h3><p className="mt-1 text-sm text-slate-600">Use the form above to create the first subject for this class.</p></div>}
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <h3 className="text-xl font-black text-slate-950">All subjects</h3>
+                <p className="mt-1 text-sm text-slate-600">
+                  {createdSubjects.length} class-only · {assignedPlatformSubjects.length} from platform
+                </p>
+              </div>
+              {classroom.capabilities.manageClass ? (
+                <Link
+                  className="inline-flex min-h-10 items-center gap-2 text-sm font-black text-teal-800 hover:text-teal-950"
+                  href={`/teacher/lessons/new?classId=${encodeURIComponent(classId)}`}
+                >
+                  Open lesson builder <ArrowRight className="size-4" />
+                </Link>
+              ) : null}
+            </div>
+
+            {courseAssignments.length ? (
+              <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {[...createdSubjects, ...assignedPlatformSubjects].map((assignment) => (
+                  <article
+                    className={cn(
+                      "group flex min-h-[17rem] flex-col rounded-[1.5rem] border p-5 transition",
+                      assignment.isClassOnly
+                        ? "border-teal-200 bg-gradient-to-b from-teal-50/90 to-white"
+                        : "border-slate-200 bg-white"
+                    )}
+                    key={assignment.id}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <span className={cn(
+                        "grid size-12 place-items-center rounded-2xl text-white",
+                        assignment.isClassOnly ? "bg-teal-700" : "bg-slate-800"
+                      )}>
+                        {assignment.isClassOnly ? <BookOpen className="size-5" /> : <Library className="size-5" />}
+                      </span>
+                      <span className={cn(
+                        "rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider",
+                        assignment.isClassOnly ? "bg-teal-100 text-teal-900" : "bg-slate-100 text-slate-700"
+                      )}>
+                        {assignment.isClassOnly ? "Class only" : "Platform"}
+                      </span>
+                    </div>
+                    <h4 className="mt-4 text-xl font-black tracking-tight text-slate-950">{assignment.courseName}</h4>
+                    <p className="mt-2 line-clamp-3 flex-1 text-sm leading-6 text-slate-600">
+                      {assignment.description || assignment.note || (assignment.isClassOnly
+                        ? "Private learning path for this class."
+                        : "Shared platform subject assigned to this class.")}
+                    </p>
+                    <div className="mt-4 flex flex-wrap gap-2 text-xs font-black text-slate-700">
+                      <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-50 px-2.5 py-2 ring-1 ring-slate-200">
+                        <Layers3 className="size-3.5 text-teal-700" />{assignment.moduleCount} modules
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-50 px-2.5 py-2 ring-1 ring-slate-200">
+                        <BookOpen className="size-3.5 text-teal-700" />{assignment.lessonCount} lessons
+                      </span>
+                    </div>
+                    <div className="mt-5 flex flex-wrap gap-2">
+                      <Link
+                        className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-teal-700 px-4 text-sm font-black text-white hover:bg-teal-800"
+                        href={`/teacher/lessons/new?classId=${encodeURIComponent(classId)}&courseId=${encodeURIComponent(assignment.courseId)}`}
+                      >
+                        {assignment.isClassOnly ? "Add module or lesson" : "Build lessons"}
+                        <ArrowRight className="size-4" />
+                      </Link>
+                      {classroom.capabilities.manageClass ? (
+                        <button
+                          aria-label={`Remove ${assignment.courseName}`}
+                          className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 px-3 text-rose-700 hover:bg-rose-50"
+                          disabled={busy}
+                          onClick={() => void removeCourse(assignment.id)}
+                          type="button"
+                        >
+                          <Trash2 className="size-4" />
+                        </button>
+                      ) : null}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <div className="mt-4 rounded-[1.5rem] border border-dashed border-teal-300 bg-teal-50/60 px-6 py-12 text-center">
+                <BookOpen className="mx-auto size-10 text-teal-700" />
+                <h3 className="mt-3 text-lg font-black text-slate-950">No subjects yet</h3>
+                <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-600">
+                  Create a class-only subject below, or assign an existing platform subject so learners have a clear path.
+                </p>
+              </div>
+            )}
           </div>
 
-          {classroom.capabilities.manageClass ? <details className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm">
-            <summary className="cursor-pointer font-black">Assign an existing platform subject ({assignedPlatformSubjects.length} assigned)</summary>
-            <p className="mt-2 text-sm text-slate-600">Add an existing published subject without making a new class-only subject.</p>
-            <form className="mt-4 grid gap-3 sm:grid-cols-[1.2fr_1fr_auto]" onSubmit={assignCourse}><select className="min-h-11 rounded-xl border border-slate-300 px-3" onChange={(event) => setSelectedCourseId(event.target.value)} required value={selectedCourseId}><option value="">Choose a published subject</option>{availableCourses.map((course) => <option key={course.id} value={course.id}>{course.name}</option>)}</select><input className="min-h-11 rounded-xl border border-slate-300 px-3" onChange={(event) => setCourseNote(event.target.value)} placeholder="Optional class note" value={courseNote} /><button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-teal-700 px-4 font-black text-white disabled:opacity-60" disabled={busy || !selectedCourseId} type="submit"><Plus className="size-4" /> Assign</button></form>
-            {assignedPlatformSubjects.length ? <div className="mt-4 grid gap-2">{assignedPlatformSubjects.map((assignment) => <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-slate-50 p-3" key={assignment.id}><div><p className="font-black">{assignment.courseName}</p><p className="text-xs text-slate-500">{assignment.note || "Platform subject"}</p></div><button className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold text-rose-700" onClick={() => void removeCourse(assignment.id)} type="button"><Trash2 className="size-4" />Remove</button></div>)}</div> : null}
-          </details> : null}
+          {classroom.capabilities.manageClass ? (
+            <div className="grid gap-5 xl:grid-cols-2">
+              <form className="rounded-[1.5rem] border border-slate-200 bg-white p-5 sm:p-6" onSubmit={createClassOnly}>
+                <div className="flex items-start gap-3">
+                  <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-teal-100 text-teal-800"><Plus className="size-5" /></span>
+                  <div>
+                    <h3 className="text-lg font-black text-slate-950">Create a class subject</h3>
+                    <p className="mt-1 text-sm leading-6 text-slate-600">Private to this class. Ready immediately in the lesson builder.</p>
+                  </div>
+                </div>
+                <div className="mt-5 grid gap-3">
+                  <label className="grid gap-1.5 text-sm font-bold text-slate-800">
+                    Subject name
+                    <input className="min-h-11 rounded-xl border border-slate-300 px-3 font-medium" onChange={(event) => setClassOnlyName(event.target.value)} placeholder="e.g. Creative Arts" required value={classOnlyName} />
+                  </label>
+                  <label className="grid gap-1.5 text-sm font-bold text-slate-800">
+                    Description
+                    <textarea className="min-h-24 rounded-xl border border-slate-300 px-3 py-2 font-medium" onChange={(event) => setClassOnlyDescription(event.target.value)} placeholder="What will students learn?" value={classOnlyDescription} />
+                  </label>
+                  <button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-teal-700 px-5 font-black text-white hover:bg-teal-800 disabled:opacity-60" disabled={busy || !classOnlyName.trim()} type="submit">
+                    {busy ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+                    Create subject
+                  </button>
+                </div>
+              </form>
+
+              <form className="rounded-[1.5rem] border border-slate-200 bg-white p-5 sm:p-6" onSubmit={assignCourse}>
+                <div className="flex items-start gap-3">
+                  <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-slate-100 text-slate-800"><Library className="size-5" /></span>
+                  <div>
+                    <h3 className="text-lg font-black text-slate-950">Assign a platform subject</h3>
+                    <p className="mt-1 text-sm leading-6 text-slate-600">Reuse a published SkulKid subject without recreating it.</p>
+                  </div>
+                </div>
+                <div className="mt-5 grid gap-3">
+                  <label className="grid gap-1.5 text-sm font-bold text-slate-800">
+                    Published subject
+                    <select className="min-h-11 rounded-xl border border-slate-300 px-3 font-medium" onChange={(event) => setSelectedCourseId(event.target.value)} required value={selectedCourseId}>
+                      <option value="">Choose a published subject</option>
+                      {availableCourses.map((course) => <option key={course.id} value={course.id}>{course.name}</option>)}
+                    </select>
+                  </label>
+                  <label className="grid gap-1.5 text-sm font-bold text-slate-800">
+                    Class note <span className="font-medium text-slate-500">(optional)</span>
+                    <input className="min-h-11 rounded-xl border border-slate-300 px-3 font-medium" onChange={(event) => setCourseNote(event.target.value)} placeholder="e.g. Term 2 focus" value={courseNote} />
+                  </label>
+                  <button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 font-black text-white hover:bg-slate-800 disabled:opacity-60" disabled={busy || !selectedCourseId || availableCourses.length === 0} type="submit">
+                    {busy ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+                    Assign subject
+                  </button>
+                  {availableCourses.length === 0 ? <p className="text-xs font-bold text-slate-500">Every available published subject is already assigned.</p> : null}
+                </div>
+              </form>
+            </div>
+          ) : (
+            <p className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-600">
+              You can teach the subjects assigned to you. Only the class teacher can create or assign new ones.
+            </p>
+          )}
         </section>
       ) : null}
 
