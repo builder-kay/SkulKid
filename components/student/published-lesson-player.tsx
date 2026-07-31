@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Brain, CheckCircle2, Clock, Crown, Eye, Flame, Gift, Map as MapIcon, RotateCcw, Sparkles, Star, Target, Trophy, X, Zap, type LucideIcon } from "lucide-react";
+import { ArrowLeft, ArrowRight, Brain, CheckCircle2, Clock, Crown, Eye, Flame, Gift, Map as MapIcon, RotateCcw, Sparkles, Star, Target, Trophy, X, type LucideIcon } from "lucide-react";
 import { BlockRenderer } from "@/components/lesson-player/block-renderer";
 import { XpBadge } from "@/components/gamification/xp-badge";
 import { StudentShell } from "@/components/student/student-shell";
@@ -142,22 +142,119 @@ function QuizModal({ open, title, questions, passingScore, masteryScore, onClose
   const [attempt, setAttempt] = useState(1);
   const [grade, setGrade] = useState<{ score: number; passed: boolean; wrong: string[] } | null>(null);
   const [reviewing, setReviewing] = useState(false);
+  const [questionIndex, setQuestionIndex] = useState(0);
   const answered = questions.filter((q) => choices[q.id]?.trim()).length;
-  const submit = () => { const wrong = questions.filter((q) => !answerIsCorrect(q, choices[q.id] ?? "")).map((q) => q.id); setGrade({ score: Math.round(((questions.length - wrong.length) / questions.length) * 100), passed: ((questions.length - wrong.length) / questions.length) * 100 >= passingScore, wrong }); };
-  const retake = () => { setChoices({}); setGrade(null); setReviewing(false); setAttempt((value) => value + 1); };
+  const reviewQuestions = grade?.wrong.length ? questions.filter((q) => grade.wrong.includes(q.id)) : questions;
+  const activeQuestions = reviewing ? reviewQuestions : questions;
+  const safeIndex = Math.min(questionIndex, Math.max(activeQuestions.length - 1, 0));
+  const current = activeQuestions[safeIndex];
+  const currentAnswered = Boolean(current && choices[current.id]?.trim());
+  const allAnswered = answered === questions.length;
+  const isLast = safeIndex >= activeQuestions.length - 1;
+  const progressValue = grade && !reviewing ? questions.length : safeIndex + 1;
+  const progressLabel = grade && !reviewing
+    ? `${answered} of ${questions.length} answered`
+    : reviewing
+      ? `Mistake ${safeIndex + 1} of ${activeQuestions.length}`
+      : `Question ${safeIndex + 1} of ${questions.length}`;
+  const submit = () => {
+    const wrong = questions.filter((q) => !answerIsCorrect(q, choices[q.id] ?? "")).map((q) => q.id);
+    setGrade({ score: Math.round(((questions.length - wrong.length) / questions.length) * 100), passed: ((questions.length - wrong.length) / questions.length) * 100 >= passingScore, wrong });
+    setQuestionIndex(0);
+  };
+  const retake = () => {
+    setChoices({});
+    setGrade(null);
+    setReviewing(false);
+    setQuestionIndex(0);
+    setAttempt((value) => value + 1);
+  };
+  const startReview = () => {
+    if (!grade?.passed || grade.wrong.length === 0) return;
+    setReviewing(true);
+    setQuestionIndex(0);
+  };
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-[80] overflow-y-auto bg-slate-950/70 p-2 backdrop-blur-sm sm:grid sm:place-items-center sm:p-6" onClick={onClose}>
       <section aria-labelledby="lesson-quiz-title" aria-modal="true" className="mx-auto max-h-[calc(100dvh-1rem)] w-full max-w-4xl overflow-y-auto overscroll-contain rounded-[1.5rem] bg-slate-50 shadow-2xl sm:max-h-[92dvh] sm:rounded-[2rem]" onClick={(event) => event.stopPropagation()} role="dialog">
         <header className="rounded-t-[1.5rem] bg-gradient-to-r from-violet-800 to-blue-700 px-4 py-4 text-white sm:rounded-t-[2rem] sm:px-6 sm:py-5">
-          <div className="flex items-start justify-between gap-4"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="text-xs font-black uppercase tracking-wider text-violet-200">Final challenge</p><span className="rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-black uppercase text-blue-100">Attempt {attempt}</span></div><h2 className="mt-1 line-clamp-2 text-xl font-black sm:text-2xl" id="lesson-quiz-title">{title} quiz</h2><p className="mt-1 hidden text-sm text-blue-100 sm:block">Complete each question, then submit when you are ready.</p></div><button aria-label="Close quiz" className="grid size-10 shrink-0 place-items-center rounded-xl bg-white/10 transition hover:bg-white/20" onClick={onClose} type="button"><X className="size-5" /></button></div>
-        </header>
-        <div className="border-b border-violet-100 bg-white px-4 py-3 sm:px-6"><div className="flex items-center justify-between gap-3 text-xs font-black"><span className="text-slate-600">Quiz progress</span><span className="text-violet-700">{answered} of {questions.length} answered</span></div><div aria-label={`${answered} of ${questions.length} questions answered`} aria-valuemax={questions.length} aria-valuemin={0} aria-valuenow={answered} className="mt-2 h-2.5 overflow-hidden rounded-full bg-slate-100" role="progressbar"><div className="h-full rounded-full bg-gradient-to-r from-violet-600 via-blue-500 to-emerald-400 transition-all duration-500" style={{ width: `${Math.round((answered / questions.length) * 100)}%` }} /></div></div>
-        <div className="grid gap-5 p-4 sm:p-6">
-          {questions.map((question, index) => <ExamQuestion choice={choices[question.id] ?? ""} disabled={Boolean(grade)} key={question.id} number={index + 1} onChange={(value) => setChoices((current) => ({ ...current, [question.id]: value }))} question={question} reveal={Boolean(reviewing && grade?.passed && grade.wrong.includes(question.id))} />)}
-          <div className="rounded-3xl bg-slate-950 p-6 text-center text-white">
-            {!grade ? <QuizSubmitPanel answered={answered} onSubmit={submit} total={questions.length} /> : <QuizOutcome attempt={attempt} grade={grade} masteryScore={masteryScore} onClaim={() => onClaim(questions.map((question) => ({ blockId: question.id, correct: !grade.wrong.includes(question.id), attempts: attempt })))} onRetake={retake} onReview={() => { if (grade.passed && grade.wrong.length > 0) setReviewing(true); }} passingScore={passingScore} reviewing={reviewing} total={questions.length} />}
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-xs font-black uppercase tracking-wider text-violet-200">Final challenge</p>
+                <span className="rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-black uppercase text-blue-100">Attempt {attempt}</span>
+              </div>
+              <h2 className="mt-1 line-clamp-2 text-xl font-black sm:text-2xl" id="lesson-quiz-title">{title} quiz</h2>
+              <p className="mt-1 hidden text-sm text-blue-100 sm:block">One question at a time — use Previous and Next to move through the quiz.</p>
+            </div>
+            <button aria-label="Close quiz" className="grid size-10 shrink-0 place-items-center rounded-xl bg-white/10 transition hover:bg-white/20" onClick={onClose} type="button"><X className="size-5" /></button>
           </div>
+        </header>
+        <div className="border-b border-violet-100 bg-white px-4 py-3 sm:px-6">
+          <div className="flex items-center justify-between gap-3 text-xs font-black">
+            <span className="text-slate-600">Quiz progress</span>
+            <span className="text-violet-700">{progressLabel}{!grade ? ` · ${answered} answered` : ""}</span>
+          </div>
+          <div aria-label={progressLabel} aria-valuemax={questions.length} aria-valuemin={0} aria-valuenow={progressValue} className="mt-2 h-2.5 overflow-hidden rounded-full bg-slate-100" role="progressbar">
+            <div className="h-full rounded-full bg-gradient-to-r from-violet-600 via-blue-500 to-emerald-400 transition-all duration-500" style={{ width: `${Math.round((progressValue / Math.max(activeQuestions.length, 1)) * 100)}%` }} />
+          </div>
+        </div>
+        <div className="grid gap-5 p-4 sm:p-6">
+          {!grade || reviewing ? (
+            current ? (
+              <ExamQuestion
+                choice={choices[current.id] ?? ""}
+                disabled={Boolean(grade)}
+                key={current.id}
+                number={reviewing ? safeIndex + 1 : questions.findIndex((q) => q.id === current.id) + 1}
+                onChange={(value) => setChoices((currentChoices) => ({ ...currentChoices, [current.id]: value }))}
+                question={current}
+                reveal={Boolean(reviewing && grade?.passed && grade.wrong.includes(current.id))}
+              />
+            ) : null
+          ) : null}
+          {!grade ? (
+            <div className="flex flex-wrap justify-between gap-3">
+              <button className="inline-flex min-h-12 items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 font-black text-slate-800 disabled:opacity-40" disabled={safeIndex === 0} onClick={() => setQuestionIndex((index) => Math.max(0, index - 1))} type="button">
+                <ArrowLeft className="size-4" />Previous
+              </button>
+              {!isLast ? (
+                <button className="inline-flex min-h-12 items-center gap-2 rounded-xl bg-violet-700 px-5 font-black text-white disabled:opacity-50" disabled={!currentAnswered} onClick={() => setQuestionIndex((index) => Math.min(questions.length - 1, index + 1))} type="button">
+                  Next<ArrowRight className="size-4" />
+                </button>
+              ) : (
+                <button className="inline-flex min-h-12 items-center gap-2 rounded-xl bg-amber-400 px-5 font-black text-slate-950 disabled:opacity-50" disabled={!allAnswered} onClick={submit} type="button">
+                  <Trophy className="size-4" />{allAnswered ? "Reveal my score" : `Answer ${questions.length - answered} more`}
+                </button>
+              )}
+            </div>
+          ) : null}
+          {reviewing ? (
+            <div className="flex flex-wrap justify-between gap-3">
+              <button className="inline-flex min-h-12 items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 font-black text-slate-800 disabled:opacity-40" disabled={safeIndex === 0} onClick={() => setQuestionIndex((index) => Math.max(0, index - 1))} type="button">
+                <ArrowLeft className="size-4" />Previous
+              </button>
+              <button className="inline-flex min-h-12 items-center gap-2 rounded-xl bg-violet-700 px-5 font-black text-white disabled:opacity-40" disabled={isLast} onClick={() => setQuestionIndex((index) => Math.min(activeQuestions.length - 1, index + 1))} type="button">
+                Next<ArrowRight className="size-4" />
+              </button>
+            </div>
+          ) : null}
+          {grade ? (
+            <div className="rounded-3xl bg-slate-950 p-6 text-center text-white">
+              <QuizOutcome
+                attempt={attempt}
+                grade={grade}
+                masteryScore={masteryScore}
+                onClaim={() => onClaim(questions.map((question) => ({ blockId: question.id, correct: !grade.wrong.includes(question.id), attempts: attempt })))}
+                onRetake={retake}
+                onReview={startReview}
+                passingScore={passingScore}
+                reviewing={reviewing}
+                total={questions.length}
+              />
+            </div>
+          ) : null}
         </div>
       </section>
     </div>
@@ -168,11 +265,6 @@ function ExamQuestion({ question, number, choice, disabled, reveal, onChange }: 
   const prompt = question.type === "multiple_choice" ? question.question : question.type === "true_false" ? question.statement : question.type === "fill_blank" ? question.sentence : "Question";
   const options = question.type === "multiple_choice" ? question.options.map((option) => ({ value: option.id, label: `${option.label}. ${option.text}` })) : question.type === "true_false" ? [{ value: "true", label: "True" }, { value: "false", label: "False" }] : [];
   return <section className={`relative overflow-hidden rounded-3xl border bg-white p-5 shadow-sm transition ${choice ? "border-violet-300 shadow-violet-100" : "border-slate-200"}`}><span className={`absolute inset-y-0 left-0 w-1.5 ${choice ? "bg-violet-500" : "bg-slate-200"}`} /><div className="flex items-center justify-between gap-3"><p className="inline-flex items-center gap-2 rounded-full bg-violet-100 px-3 py-1.5 text-xs font-black uppercase text-violet-700"><Brain className="size-4" />Challenge {number}</p>{choice ? <span className="inline-flex items-center gap-1 text-xs font-black text-emerald-700"><CheckCircle2 className="size-4" />Locked in</span> : <span className="text-xs font-bold text-muted">Choose one</span>}</div><h3 className="mt-4 text-xl font-black leading-8">{prompt}</h3>{options.length ? <div className="mt-4 grid gap-3">{options.map((option) => <button className={`min-h-14 rounded-2xl border px-4 text-left font-bold transition hover:-translate-y-0.5 hover:shadow-md ${choice === option.value ? "border-violet-500 bg-gradient-to-r from-violet-600 to-blue-600 text-white shadow-lg" : "border-slate-200 bg-slate-50 hover:border-violet-300 hover:bg-violet-50"}`} disabled={disabled} key={option.value} onClick={() => onChange(option.value)}>{option.label}</button>)}</div> : <input className="mt-4 min-h-12 w-full rounded-xl border border-slate-300 px-4" disabled={disabled} onChange={(event) => onChange(event.target.value)} value={choice} />}{reveal ? <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-rose-950"><p className="font-black">Correct answer: {correctAnswer(question)}</p><p className="mt-1 text-sm">{"explanation" in question ? question.explanation : "Review the lesson and compare your answer."}</p></div> : null}</section>;
-}
-
-function QuizSubmitPanel({ answered, total, onSubmit }: { answered: number; total: number; onSubmit: () => void }) {
-  const ready = answered === total;
-  return <><span className="mx-auto grid size-16 place-items-center rounded-2xl bg-violet-500/20 text-amber-300"><Zap className="size-8 fill-current" /></span><h3 className="mt-4 text-2xl font-black">{ready ? "All challenges locked in!" : "Complete every challenge"}</h3><p className="mt-2 text-slate-300">{ready ? "Submit when you are ready to reveal your score." : `${total - answered} question${total - answered === 1 ? "" : "s"} left before grading.`}</p><button className="mt-5 min-h-12 rounded-xl bg-gradient-to-r from-amber-300 to-orange-300 px-8 font-black text-slate-950 shadow-lg transition hover:-translate-y-0.5 disabled:opacity-40" disabled={!ready} onClick={onSubmit}>Reveal my score</button></>;
 }
 
 function QuizOutcome({ grade, total, attempt, passingScore, masteryScore, reviewing, onReview, onRetake, onClaim }: { grade: { score: number; passed: boolean; wrong: string[] }; total: number; attempt: number; passingScore: number; masteryScore: number; reviewing: boolean; onReview: () => void; onRetake: () => void; onClaim: () => void }) {

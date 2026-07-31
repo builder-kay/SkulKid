@@ -308,7 +308,7 @@ export function ClassQuizPlayer({ classId, quizId }: { classId: string; quizId: 
             ))}
             {error ? <p className="text-sm font-bold text-amber-800">{error}</p> : null}
             <div className="flex justify-between gap-3">
-              <button className="inline-flex min-h-12 items-center gap-2 rounded-xl border px-5 font-black disabled:opacity-40" disabled={questionIndex===0} onClick={()=>setQuestionIndex(i=>i-1)} type="button"><ArrowLeft className="size-4"/>Back</button>
+              <button className="inline-flex min-h-12 items-center gap-2 rounded-xl border px-5 font-black disabled:opacity-40" disabled={questionIndex===0} onClick={()=>setQuestionIndex(i=>i-1)} type="button"><ArrowLeft className="size-4"/>Previous</button>
               {questionIndex < payload.quiz.questions.length-1 ? <button className="inline-flex min-h-12 items-center gap-2 rounded-xl bg-primary px-5 font-black text-white disabled:opacity-50" disabled={answers[payload.quiz.questions[questionIndex].id]===undefined} onClick={()=>setQuestionIndex(i=>i+1)} type="button">Next<ArrowRight className="size-4"/></button>:
               <button className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-amber-400 px-5 font-black text-slate-950 disabled:opacity-60" disabled={submitting||Object.keys(answers).length<payload.quiz.questions.length} type="submit">{submitting?<Loader2 className="size-4 animate-spin"/>:<Trophy className="size-4"/>}Submit challenge</button>}
             </div>
