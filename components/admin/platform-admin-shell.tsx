@@ -9,6 +9,7 @@ import {
   BookOpenCheck,
   Clapperboard,
   ChevronRight,
+  ClipboardList,
   GraduationCap,
   Gauge,
   LayoutDashboard,
@@ -45,14 +46,15 @@ const navItems: NavItem[] = [
   { href: "/admin/system", label: "System control", shortLabel: "System", icon: Gauge, match: "prefix" },
   { href: "/admin/otp-diagnostics", label: "OTP diagnostics", shortLabel: "OTP", icon: RadioTower, match: "prefix" },
   { href: "/admin/activity", label: "Platform activity", shortLabel: "Activity", icon: Activity, match: "prefix" },
+  { href: "/admin/research-feedback", label: "Research feedback", shortLabel: "Research", icon: ClipboardList, match: "prefix" },
   { href: "/admin/api-platforms", label: "API platforms", shortLabel: "APIs", icon: Cable, match: "prefix" },
   { href: "/admin/settings", label: "System settings", shortLabel: "Settings", icon: Settings2, match: "prefix" }
 ];
 
 const navGroups = [
   { label: "Workspace", items: navItems.slice(0, 8) },
-  { label: "Monitor", items: navItems.slice(8, 13) },
-  { label: "Configure", items: navItems.slice(13) }
+  { label: "Monitor", items: navItems.slice(8, 14) },
+  { label: "Configure", items: navItems.slice(14) }
 ];
 
 export function PlatformAdminShell({ children }: { children: React.ReactNode }) {

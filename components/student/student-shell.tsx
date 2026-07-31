@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, type MutableRefObject } from "react";
-import { Award, BookMarked, BookOpen, LayoutDashboard, LogOut, Menu, MessageCircle, Trophy, UserRound, Users, X } from "lucide-react";
+import { Award, BookMarked, BookOpen, ClipboardList, LayoutDashboard, LogOut, Menu, MessageCircle, Trophy, UserRound, Users, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { GamificationArena } from "@/components/gamification/gamification-arena";
 import { CharacterAvatar } from "@/components/student/character-avatar";
@@ -277,7 +277,12 @@ export function StudentShell({ activeItem, children, mobileAside }: StudentShell
           { id: "leaderboard" as const, href: "/leaderboard", label: "Leaderboard", text: "See the SkulKid league standings", icon: Trophy },
           { id: "profile" as const, href: "/profile", label: "My Avatar", text: "Update your learner character", icon: UserRound },
           { id: "achievements" as const, href: "/achievements", label: "Rewards & Achievements", text: "See your progress collection", icon: Award }
-        ].map((item) => { const Icon = item.icon; const active = activeItem === item.id; return <Link aria-current={active ? "page" : undefined} className={cn("flex min-h-16 items-center gap-3 rounded-2xl border p-3", active ? "border-violet-400 bg-violet-50 text-violet-950" : "border-slate-200 bg-slate-50 text-slate-800")} href={item.href} key={item.id} onClick={() => setMoreOpen(false)}><span className={cn("grid size-10 shrink-0 place-items-center rounded-xl", active ? "bg-violet-600 text-white" : "bg-white text-violet-700")}><Icon className="size-5" /></span><span><b className="block">{item.label}</b><span className="text-xs text-slate-500">{item.text}</span></span></Link>; })}</nav>
+        ].map((item) => { const Icon = item.icon; const active = activeItem === item.id; return <Link aria-current={active ? "page" : undefined} className={cn("flex min-h-16 items-center gap-3 rounded-2xl border p-3", active ? "border-violet-400 bg-violet-50 text-violet-950" : "border-slate-200 bg-slate-50 text-slate-800")} href={item.href} key={item.id} onClick={() => setMoreOpen(false)}><span className={cn("grid size-10 shrink-0 place-items-center rounded-xl", active ? "bg-violet-600 text-white" : "bg-white text-violet-700")}><Icon className="size-5" /></span><span><b className="block">{item.label}</b><span className="text-xs text-slate-500">{item.text}</span></span></Link>; })}
+          <Link className="flex min-h-16 items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-slate-800" href="/feedback/student" onClick={() => setMoreOpen(false)}>
+            <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-white text-violet-700"><ClipboardList className="size-5" /></span>
+            <span><b className="block">Help improve SkulKid</b><span className="text-xs text-slate-500">Short research questionnaire — no name needed</span></span>
+          </Link>
+        </nav>
         <div className="mt-3 border-t border-slate-200 pt-3">
           <button
             className="group flex min-h-16 w-full items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-3 text-left text-rose-800 transition hover:border-rose-300 hover:bg-rose-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 active:scale-[0.98]"

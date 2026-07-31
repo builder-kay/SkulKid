@@ -53,6 +53,17 @@ export function TeacherSettingsWorkspace() {
         </div>
       </header>
 
+      <a
+        className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-violet-200 bg-violet-50 px-4 py-3 text-violet-950"
+        href="/feedback/teacher"
+      >
+        <span>
+          <b className="block text-sm">Help improve SkulKid</b>
+          <span className="text-xs font-bold text-violet-800/80">Share the teacher research questionnaire — confidential, no name required.</span>
+        </span>
+        <span className="text-sm font-black text-violet-800">Open Form B →</span>
+      </a>
+
       <div className="grid min-w-0 gap-5 lg:grid-cols-[17rem_minmax(0,1fr)]">
         <nav aria-label="Teacher settings sections" className="min-w-0 lg:sticky lg:top-5 lg:self-start">
           <div className="flex gap-2 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-sm lg:grid lg:overflow-visible">

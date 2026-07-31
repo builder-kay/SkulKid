@@ -617,3 +617,21 @@ input {
     opacity: 0.75;
   }
 }
+
+@media print {
+  header,
+  nav,
+  .print\:hidden,
+  aside {
+    display: none !important;
+  }
+
+  body {
+    background: white !important;
+  }
+
+  main,
+  .print\:shadow-none {
+    box-shadow: none !important;
+  }
+}

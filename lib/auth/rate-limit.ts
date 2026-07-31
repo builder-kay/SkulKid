@@ -51,3 +51,18 @@ export function allowTeacherDirectorySearch(key: string) {
   current.count += 1;
   return true;
 }
+
+const feedbackSubmits = new Map<string, Attempt>();
+
+/** Public research questionnaire: max 8 submits / 10 minutes per IP. */
+export function allowFeedbackSubmit(key: string) {
+  const now = Date.now();
+  const current = feedbackSubmits.get(key);
+  if (!current || current.resetAt <= now) {
+    feedbackSubmits.set(key, { count: 1, resetAt: now + 10 * 60_000 });
+    return true;
+  }
+  if (current.count >= 8) return false;
+  current.count += 1;
+  return true;
+}
