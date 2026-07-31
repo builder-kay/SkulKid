@@ -7,11 +7,13 @@ import { calculateLevel } from "@/lib/gamification/calculate-level";
 import { classJoinPath, generateJoinCode, normalizeJoinCode } from "@/lib/classes/join-code";
 import { analyseClassChatMessage, childFriendlyChatRules } from "@/lib/classes/class-chat-safety";
 import { signMessageAttachments, type StoredMessageAttachment } from "@/lib/classes/message-attachments";
+import { accraWeekStart } from "@/lib/gamification/daily-quests";
 import type {
   AdviceSuggestionType,
   ClassAdviceView,
   ClassCourseAssignmentView,
   ClassLeaderboardEntry,
+  ClassLeaderboardWindow,
   ClassQuizAttemptSummary,
   ClassQuizQuestion,
   ClassQuizView,
@@ -418,6 +420,218 @@ export async function deductStudentPoints(input: {
   return data;
 }
 
+export async function grantStudentBonusXp(input: {
+  teacherId: string;
+  classId: string;
+  studentId: string;
+  amount: 10 | 20 | 50;
+  reason: string;
+}) {
+  const access = await getTeacherClassAccess(input.teacherId, input.classId);
+  if (!access.capabilities.managePoints) throw new Error("You cannot send XP surprises in this class.");
+  const admin = createAdminClient();
+  const { data, error } = await admin.rpc("apply_teacher_point_bonus", {
+    p_teacher_id: input.teacherId,
+    p_class_id: input.classId,
+    p_student_id: input.studentId,
+    p_amount: input.amount,
+    p_reason: input.reason
+  });
+  if (error) throw new Error(error.message);
+
+  const bonusId = String((data as { id?: string } | null)?.id ?? crypto.randomUUID());
+  const { data: game } = await admin.from("StudentGameState").select("state").eq("userId", input.studentId).maybeSingle();
+  const state = ((game?.state ?? {}) as Record<string, unknown>);
+  const pending = Array.isArray(state.pendingCelebrations) ? [...state.pendingCelebrations] : [];
+  const createdAt = new Date().toISOString();
+  const celebration = {
+    id: `teacher-bonus-${bonusId}`,
+    source: "teacher_bonus",
+    title: "Teacher XP surprise!",
+    detail: input.reason.trim(),
+    xp: input.amount,
+    stars: 0,
+    createdAt
+  };
+  pending.push(celebration);
+  const history = Array.isArray(state.history) ? state.history as unknown[] : [];
+  const nextXp = Number(state.xp ?? 0);
+  await admin.from("StudentGameState").upsert({
+    userId: input.studentId,
+    state: {
+      ...state,
+      pendingCelebrations: pending,
+      lastReward: { title: celebration.title, detail: celebration.detail, xp: input.amount, stars: 0 },
+      history: [{
+        id: celebration.id,
+        type: "achievement",
+        title: celebration.title,
+        detail: celebration.detail,
+        xp: input.amount,
+        stars: 0,
+        rank: 1,
+        createdAt
+      }, ...history]
+    }
+  }, { onConflict: "userId" });
+  await admin.from("Student").update({
+    totalXpCache: nextXp,
+    currentLevelCache: calculateLevel(nextXp),
+    updatedAt: createdAt
+  }).eq("id", input.studentId);
+
+  await createClassAdvice({
+    teacherId: input.teacherId,
+    classId: input.classId,
+    studentId: input.studentId,
+    message: input.reason.trim(),
+    suggestionType: "general",
+    title: "XP surprise!",
+    feedbackCategory: "celebration",
+    priority: "normal",
+    followUpStatus: "not_required"
+  });
+  return data;
+}
+
+export async function sendClassShoutOut(input: {
+  teacherId: string;
+  classId: string;
+  studentId: string;
+  message: string;
+  bonusAmount?: 10 | 20 | 50;
+}) {
+  if (input.bonusAmount) {
+    return grantStudentBonusXp({
+      teacherId: input.teacherId,
+      classId: input.classId,
+      studentId: input.studentId,
+      amount: input.bonusAmount,
+      reason: input.message
+    });
+  }
+  await createClassAdvice({
+    teacherId: input.teacherId,
+    classId: input.classId,
+    studentId: input.studentId,
+    message: input.message.trim(),
+    suggestionType: "general",
+    title: "Class shout-out!",
+    feedbackCategory: "celebration",
+    priority: "normal",
+    followUpStatus: "not_required"
+  });
+  return { ok: true };
+}
+
+export async function crownWeeklyHelper(input: {
+  teacherId: string;
+  classId: string;
+  studentId: string;
+  note?: string;
+}) {
+  const access = await getTeacherClassAccess(input.teacherId, input.classId);
+  if (!access.capabilities.viewWholeClassPerformance) {
+    throw new Error("Only the class teacher can crown Helper of the Week.");
+  }
+  const admin = createAdminClient();
+  const roster = await listClassRoster(input.teacherId, input.classId);
+  const member = roster.find((item) => item.studentId === input.studentId);
+  if (!member) throw new Error("That student is not in this class.");
+  const weekStart = accraWeekStart();
+  const note = (input.note ?? "").trim();
+  const { error } = await admin.from("ClassWeeklyHelper").upsert({
+    classId: input.classId,
+    weekStart,
+    studentId: input.studentId,
+    crownedBy: input.teacherId,
+    note
+  }, { onConflict: "classId,weekStart" });
+  if (error) throw new Error(error.message);
+
+  const body = note
+    || `${member.displayName} is Helper of the Week. Thank you for helping classmates!`;
+  await createClassAdvice({
+    teacherId: input.teacherId,
+    classId: input.classId,
+    studentId: input.studentId,
+    message: body,
+    suggestionType: "general",
+    title: "Helper of the Week!",
+    feedbackCategory: "celebration",
+    priority: "normal",
+    followUpStatus: "not_required"
+  });
+  await createTeacherClassRoomMessage({
+    teacherId: input.teacherId,
+    classId: input.classId,
+    body: `Helper of the Week: ${member.displayName}. ${body}`
+  });
+  return { weekStart, studentId: input.studentId };
+}
+
+export type ClassMessageReactionKind = "like" | "helpful" | "celebrate";
+
+export async function setClassMessageReaction(input: {
+  studentId: string;
+  classId: string;
+  messageId: string;
+  reaction: ClassMessageReactionKind;
+}) {
+  await assertActiveMember(input.studentId, input.classId);
+  const admin = createAdminClient();
+  const { data: message, error: messageError } = await admin
+    .from("ClassMessage")
+    .select("id,classId,scope,moderationStatus,deletedAt")
+    .eq("id", input.messageId)
+    .eq("classId", input.classId)
+    .maybeSingle();
+  if (messageError) throw new Error(messageError.message);
+  if (!message || message.scope !== "class_room" || message.moderationStatus !== "allowed" || message.deletedAt) {
+    throw new Error("Message not found.");
+  }
+  const { error } = await admin.from("ClassMessageReaction").upsert({
+    messageId: input.messageId,
+    studentId: input.studentId,
+    reaction: input.reaction
+  }, { onConflict: "messageId,studentId" });
+  if (error) throw new Error(error.message);
+  return getMessageReactionSummary(input.messageId, input.studentId);
+}
+
+export async function clearClassMessageReaction(input: {
+  studentId: string;
+  classId: string;
+  messageId: string;
+}) {
+  await assertActiveMember(input.studentId, input.classId);
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("ClassMessageReaction")
+    .delete()
+    .eq("messageId", input.messageId)
+    .eq("studentId", input.studentId);
+  if (error) throw new Error(error.message);
+  return getMessageReactionSummary(input.messageId, input.studentId);
+}
+
+async function getMessageReactionSummary(messageId: string, studentId: string) {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("ClassMessageReaction")
+    .select("studentId,reaction")
+    .eq("messageId", messageId);
+  if (error) throw new Error(error.message);
+  const counts = { like: 0, helpful: 0, celebrate: 0 };
+  let myReaction: ClassMessageReactionKind | null = null;
+  for (const row of data ?? []) {
+    const reaction = row.reaction as ClassMessageReactionKind;
+    if (reaction in counts) counts[reaction] += 1;
+    if (row.studentId === studentId) myReaction = reaction;
+  }
+  return { counts, myReaction };
+}
+
 export async function listClassRoster(teacherId: string, classId: string): Promise<ClassRosterMember[]> {
   await getTeacherClassAccess(teacherId, classId);
   const admin = createAdminClient();
@@ -815,7 +1029,11 @@ export async function updateClassQuiz(
   if (error) throw new Error(error.message);
 }
 
-export async function getClassLeaderboard(classId: string, viewerStudentId?: string): Promise<ClassLeaderboardEntry[]> {
+export async function getClassLeaderboard(
+  classId: string,
+  viewerStudentId?: string,
+  window: ClassLeaderboardWindow = "all_time"
+): Promise<ClassLeaderboardEntry[]> {
   const admin = createAdminClient();
   const { data: memberships, error } = await admin
     .from("ClassMembership")
@@ -826,13 +1044,17 @@ export async function getClassLeaderboard(classId: string, viewerStudentId?: str
   if (!memberships?.length) return [];
 
   const studentIds = memberships.map((row) => row.studentId as string);
-  const [{ data: quizzes }, { data: attempts }, { data: gameStates }, { data: profiles }] = await Promise.all([
+  const weekStart = accraWeekStart();
+  const weekStartIso = `${weekStart}T00:00:00+00:00`;
+  const [{ data: quizzes }, { data: attempts }, { data: gameStates }, { data: profiles }, { data: helper }] = await Promise.all([
     admin.from("ClassQuiz").select("id").eq("classId", classId),
-    admin.from("ClassQuizAttempt").select("studentId,quizId,scorePercentage,passed,xpAwarded,starsAwarded").in("studentId", studentIds),
+    admin.from("ClassQuizAttempt").select("studentId,quizId,scorePercentage,passed,xpAwarded,starsAwarded,submittedAt").in("studentId", studentIds),
     admin.from("StudentGameState").select("userId,state").in("userId", studentIds),
-    admin.from("StudentProfile").select("userId,profile").in("userId", studentIds)
+    admin.from("StudentProfile").select("userId,profile").in("userId", studentIds),
+    admin.from("ClassWeeklyHelper").select("studentId").eq("classId", classId).eq("weekStart", weekStart).maybeSingle()
   ]);
   const classQuizIds = new Set((quizzes ?? []).map((row) => row.id as string));
+  const helperId = helper?.studentId as string | undefined;
   const users = await Promise.all(studentIds.map(async (id) => {
     const { data } = await admin.auth.admin.getUserById(id);
     return data.user;
@@ -840,9 +1062,12 @@ export async function getClassLeaderboard(classId: string, viewerStudentId?: str
   const userById = new Map(users.filter(Boolean).map((user) => [user!.id, user!]));
 
   const entries = studentIds.map((studentId) => {
-    const studentAttempts = (attempts ?? []).filter(
-      (attempt) => attempt.studentId === studentId && classQuizIds.has(attempt.quizId as string)
-    );
+    const studentAttempts = (attempts ?? []).filter((attempt) => {
+      if (attempt.studentId !== studentId || !classQuizIds.has(attempt.quizId as string)) return false;
+      if (window !== "week") return true;
+      const submitted = attempt.submittedAt ? new Date(attempt.submittedAt as string).getTime() : 0;
+      return submitted >= new Date(weekStartIso).getTime();
+    });
     let classXp = 0;
     let classStars = 0;
     const bestByQuiz = new Map<string, number>();
@@ -859,7 +1084,10 @@ export async function getClassLeaderboard(classId: string, viewerStudentId?: str
       ? Math.round(bestScores.reduce((sum, score) => sum + score, 0) / bestScores.length)
       : null;
     const state = (gameStates?.find((row) => row.userId === studentId)?.state ?? {}) as { xp?: number; streak?: number };
-    const profile = profiles?.find((row) => row.userId === studentId)?.profile as { displayName?: string } | undefined;
+    const profile = profiles?.find((row) => row.userId === studentId)?.profile as {
+      displayName?: string;
+      avatar?: ClassLeaderboardEntry["avatar"];
+    } | undefined;
     const user = userById.get(studentId);
     return {
       studentId,
@@ -871,6 +1099,8 @@ export async function getClassLeaderboard(classId: string, viewerStudentId?: str
       quizzesAttempted: bestByQuiz.size,
       platformXp: Number(state.xp ?? 0),
       streak: Number(state.streak ?? 0),
+      avatar: profile?.avatar ?? null,
+      isWeeklyHelper: helperId === studentId,
       isCurrentUser: viewerStudentId ? studentId === viewerStudentId : undefined
     };
   });
@@ -894,6 +1124,9 @@ export async function getClassLeaderboard(classId: string, viewerStudentId?: str
     quizzesAttempted: entry.quizzesAttempted,
     platformXp: entry.platformXp,
     streak: entry.streak,
+    avatar: entry.avatar,
+    isCupHolder: window === "week" && index === 0 && entry.classXp > 0,
+    isWeeklyHelper: entry.isWeeklyHelper,
     ...(entry.isCurrentUser !== undefined ? { isCurrentUser: entry.isCurrentUser } : {})
   }));
 }
@@ -1811,6 +2044,21 @@ export async function getStudentClassDetail(studentId: string, classId: string) 
   ]);
   const mutedIds = new Set((mutedRows ?? []).map((row) => row.mutedStudentId as string));
   const visibleMessageRows = (messageRows ?? []).filter((row) => !mutedIds.has(row.senderId as string));
+  const messageIds = visibleMessageRows.map((row) => row.id as string);
+  const { data: reactionRows } = messageIds.length
+    ? await admin.from("ClassMessageReaction").select("messageId,studentId,reaction").in("messageId", messageIds)
+    : { data: [] as Array<{ messageId: string; studentId: string; reaction: string }> };
+  const reactionsByMessage = new Map<string, { counts: { like: number; helpful: number; celebrate: number }; myReaction: ClassMessageReactionKind | null }>();
+  for (const messageId of messageIds) {
+    reactionsByMessage.set(messageId, { counts: { like: 0, helpful: 0, celebrate: 0 }, myReaction: null });
+  }
+  for (const row of reactionRows ?? []) {
+    const summary = reactionsByMessage.get(row.messageId as string);
+    if (!summary) continue;
+    const reaction = row.reaction as ClassMessageReactionKind;
+    if (reaction in summary.counts) summary.counts[reaction] += 1;
+    if (row.studentId === studentId) summary.myReaction = reaction;
+  }
   const senderIds = [...new Set(visibleMessageRows.map((row) => row.senderId as string))];
   const senderUsers = await Promise.all(senderIds.map(async (id) => (await admin.auth.admin.getUserById(id)).data.user));
   const senderNameById = new Map(senderUsers.filter(Boolean).map((user) => [user!.id, displayNameFrom(user!, "Learner")]));
@@ -2020,18 +2268,26 @@ export async function getStudentClassDetail(studentId: string, classId: string) 
         } : null
       };
     }),
-    messages: visibleMessageRows.map((row) => ({
-      id: row.id as string,
-      body: row.body as string,
-      attachments: studentAttachmentsById.get(String(row.id)) ?? [],
-      createdAt: row.createdAt as string,
-      fromStudent: row.senderId === studentId,
-      senderId: row.senderId as string,
-      senderName: row.senderId === studentId ? "You" : (senderNameById.get(row.senderId as string) ?? (row.senderRole === "teacher" ? "Teacher" : "Learner")),
-      senderRole: row.senderRole as "student" | "teacher" | "admin",
-      kind: row.kind as "discussion" | "announcement",
-      editedAt: (row.editedAt as string | null) ?? null
-    })),
+    messages: visibleMessageRows.map((row) => {
+      const reactions = reactionsByMessage.get(row.id as string) ?? {
+        counts: { like: 0, helpful: 0, celebrate: 0 },
+        myReaction: null as ClassMessageReactionKind | null
+      };
+      return {
+        id: row.id as string,
+        body: row.body as string,
+        attachments: studentAttachmentsById.get(String(row.id)) ?? [],
+        createdAt: row.createdAt as string,
+        fromStudent: row.senderId === studentId,
+        senderId: row.senderId as string,
+        senderName: row.senderId === studentId ? "You" : (senderNameById.get(row.senderId as string) ?? (row.senderRole === "teacher" ? "Teacher" : "Learner")),
+        senderRole: row.senderRole as "student" | "teacher" | "admin",
+        kind: row.kind as "discussion" | "announcement",
+        editedAt: (row.editedAt as string | null) ?? null,
+        reactionCounts: reactions.counts,
+        myReaction: reactions.myReaction
+      };
+    }),
     chat: {
       enabled: chatSetting?.enabled !== false,
       locked: Boolean(chatSetting?.locked),

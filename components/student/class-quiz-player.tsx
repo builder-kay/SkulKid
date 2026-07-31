@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ArrowLeft, ArrowRight, CheckCircle2, Clock3, Loader2, Star, Trophy } from "lucide-react";
+import { CharacterAvatar } from "@/components/student/character-avatar";
 import { StudentShell } from "@/components/student/student-shell";
 import { StudentPageNav } from "@/components/student/student-page-nav";
 import { applyServerGameState } from "@/lib/gamification/student-game";
 import type { ClassQuizAttemptSummary } from "@/lib/classes/types";
 import type { GameState } from "@/lib/gamification/student-game";
 import type { StudentCelebrationInput } from "@/lib/gamification/student-celebration";
+import { useStudentProfile } from "@/lib/student/student-profile";
 
 type QuizPayload = {
   quiz: {
@@ -49,6 +51,7 @@ type SubmitResult = {
 };
 
 export function ClassQuizPlayer({ classId, quizId }: { classId: string; quizId: string }) {
+  const { profile } = useStudentProfile();
   const [payload, setPayload] = useState<QuizPayload | null>(null);
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [result, setResult] = useState<SubmitResult | null>(null);
@@ -260,9 +263,21 @@ export function ClassQuizPlayer({ classId, quizId }: { classId: string; quizId: 
         {result && !retaking ? (
           <section className="rounded-[1.75rem] border border-emerald-200 bg-emerald-50 p-6 text-emerald-950">
             <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
-              {result.passed ? <Trophy className="size-8 text-amber-500" /> : <CheckCircle2 className="size-8 text-emerald-600" />}
+              <div className="grid size-28 shrink-0 place-items-center overflow-hidden rounded-[1.5rem] border-4 border-white bg-gradient-to-br from-cyan-100 via-violet-100 to-amber-100 shadow-md sm:size-32">
+                <CharacterAvatar
+                  avatar={profile.avatar}
+                  celebrationSignal={result.passed ? `quiz-pass-${quizId}-${result.attemptNumber}` : `quiz-${quizId}-${result.attemptNumber}`}
+                  className="size-full"
+                  label={`${profile.username}'s quiz avatar`}
+                  motion="expressive"
+                />
+              </div>
               <div>
-                <h2 className="text-2xl font-black">{result.passed ? "Great work!" : "Quiz submitted"}</h2>
+                <p className="text-xs font-black uppercase tracking-wider text-emerald-700">{result.passed ? "You smashed it!" : "Quiz in"}</p>
+                <h2 className="mt-1 flex items-center justify-center gap-2 text-2xl font-black sm:justify-start">
+                  {result.passed ? <Trophy className="size-7 text-amber-500" /> : <CheckCircle2 className="size-7 text-emerald-600" />}
+                  {result.passed ? "Great work!" : "Quiz submitted"}
+                </h2>
                 <div className="mt-2 flex justify-center gap-1 sm:justify-start" aria-label={`${result.starsAwarded} stars earned`}>{[1,2,3].map(star=><Star className={`size-7 ${star<=result.starsAwarded?"fill-amber-400 text-amber-400":"text-slate-300"}`} key={star}/>)}</div>
                 <p className="text-sm">Score {result.scorePercentage}% · {result.xpAwarded} XP earned · {result.starsAwarded} stars earned</p>
                 <p className="mt-1 text-sm">Best score {result.bestScore}% · Attempt {result.attemptNumber} of {result.maxAttempts}</p>

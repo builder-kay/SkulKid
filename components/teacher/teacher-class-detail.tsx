@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, ArrowRight, BarChart3, BookOpen, ClipboardList, Copy, Layers3, Library, Loader2, MinusCircle, Plus, ShieldCheck, Trophy, Trash2, UserRoundCheck, Users } from "lucide-react";
+import { ArrowLeft, ArrowRight, BarChart3, BookOpen, ClipboardList, Copy, Crown, Layers3, Library, Loader2, MinusCircle, Plus, ShieldCheck, Sparkles, Trophy, Trash2, UserRoundCheck, Users, Zap } from "lucide-react";
 import type {
   ClassCourseAssignmentView,
   ClassLeaderboardEntry,
@@ -11,8 +11,10 @@ import type {
   ClassRosterMember,
   TeacherClassSummary
 } from "@/lib/classes/types";
+import { ClassLeaderboardPanel } from "@/components/student/class-leaderboard-panel";
 import { TeacherPerformanceWorkspace } from "@/components/teacher/teacher-performance-workspace";
 import { TeacherClassTeam } from "@/components/teacher/teacher-class-team";
+import { isTimedChallengeQuiz } from "@/lib/classes/timed-challenge";
 import { cn } from "@/lib/utils";
 
 type Tab = "roster" | "courses" | "quizzes" | "leaderboard" | "performance" | "team";
@@ -49,6 +51,9 @@ export function TeacherClassDetail({ classId }: { classId: string }) {
   const [deductionStudent, setDeductionStudent] = useState<ClassRosterMember | null>(null);
   const [deductionAmount, setDeductionAmount] = useState(1);
   const [deductionReason, setDeductionReason] = useState("");
+  const [surpriseStudent, setSurpriseStudent] = useState<ClassRosterMember | null>(null);
+  const [surpriseAmount, setSurpriseAmount] = useState<10 | 20 | 50 | 0>(20);
+  const [surpriseReason, setSurpriseReason] = useState("");
   const [busy, setBusy] = useState(false);
 
   async function load() {
@@ -270,6 +275,64 @@ export function TeacherClassDetail({ classId }: { classId: string }) {
     }
   }
 
+  async function sendSurprise(event: React.FormEvent) {
+    event.preventDefault();
+    if (!surpriseStudent) return;
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const response = await fetch(`/api/teacher/classes/${classId}/bonuses`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          studentId: surpriseStudent.studentId,
+          amount: surpriseAmount || undefined,
+          reason: surpriseReason,
+          shoutOutOnly: surpriseAmount === 0
+        })
+      });
+      const payload = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(payload.error || "Unable to send surprise.");
+      setMessage(
+        surpriseAmount
+          ? `Sent +${surpriseAmount} XP surprise to ${surpriseStudent.displayName}.`
+          : `Shout-out sent to ${surpriseStudent.displayName}.`
+      );
+      setSurpriseStudent(null);
+      setSurpriseReason("");
+      setSurpriseAmount(20);
+      await load();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to send surprise.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function crownHelper(member: ClassRosterMember) {
+    const note = window.prompt(`Crown ${member.displayName} Helper of the Week? Optional note:`, "Thank you for helping the class!");
+    if (note === null) return;
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const response = await fetch(`/api/teacher/classes/${classId}/helper`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ studentId: member.studentId, note: note.trim() || undefined })
+      });
+      const payload = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(payload.error || "Unable to crown helper.");
+      setMessage(`${member.displayName} is Helper of the Week.`);
+      await load();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to crown helper.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="mx-auto grid w-full max-w-7xl gap-5">
@@ -395,6 +458,50 @@ export function TeacherClassDetail({ classId }: { classId: string }) {
               <p className="mt-3 flex items-start gap-2 text-xs font-bold leading-5 text-amber-900"><ShieldCheck className="mt-0.5 size-4 shrink-0" />Safeguards: 50-point action limit, 100 points and 5 actions per student per 24 hours, no negative balances, and a permanent admin audit trail.</p>
             </form>
           ) : null}
+          {surpriseStudent ? (
+            <form className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4" onSubmit={sendSurprise}>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h3 className="font-black text-emerald-950">Surprise {surpriseStudent.displayName}</h3>
+                  <p className="mt-1 text-sm text-emerald-900">Send a shout-out, or drop bonus XP that shows up as a celebration.</p>
+                </div>
+                <button className="text-sm font-bold text-emerald-900" onClick={() => setSurpriseStudent(null)} type="button">Cancel</button>
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {([0, 10, 20, 50] as const).map((amount) => (
+                  <button
+                    className={cn(
+                      "min-h-10 rounded-xl px-3 text-xs font-black",
+                      surpriseAmount === amount ? "bg-emerald-700 text-white" : "border border-emerald-300 bg-white text-emerald-900"
+                    )}
+                    key={amount}
+                    onClick={() => setSurpriseAmount(amount)}
+                    type="button"
+                  >
+                    {amount === 0 ? "Shout-out only" : `+${amount} XP`}
+                  </button>
+                ))}
+              </div>
+              <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
+                <label className="grid gap-1 text-xs font-black uppercase tracking-wider text-emerald-950">
+                  Note
+                  <textarea
+                    className="min-h-20 rounded-xl border border-emerald-300 bg-white px-3 py-2 text-base font-medium normal-case tracking-normal"
+                    maxLength={600}
+                    minLength={4}
+                    onChange={(event) => setSurpriseReason(event.target.value)}
+                    placeholder="Great teamwork today in maths!"
+                    required
+                    value={surpriseReason}
+                  />
+                </label>
+                <button className="mt-5 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 font-black text-white disabled:opacity-50" disabled={busy || surpriseReason.trim().length < 4} type="submit">
+                  {busy ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
+                  Send
+                </button>
+              </div>
+            </form>
+          ) : null}
           {roster.length === 0 ? (
             <p className="mt-3 text-sm text-slate-600">No students yet. Share the join link to grow your class.</p>
           ) : (
@@ -428,7 +535,22 @@ export function TeacherClassDetail({ classId }: { classId: string }) {
                       <td className="px-3 py-3">{member.quizzesPassed}/{member.quizzesTaken}</td>
                       <td className="px-3 py-3">{member.averageQuizScore == null ? "—" : `${member.averageQuizScore}%`}</td>
                       </> : <td className="px-3 py-3 text-slate-500">Active class member</td>}
-                      <td className="px-3 py-3">{classroom.capabilities.managePoints ? <button className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-amber-300 px-3 text-xs font-black text-amber-800 disabled:opacity-50" disabled={member.xp < 1} onClick={() => { setDeductionStudent(member); setDeductionAmount(1); setError(""); setMessage(""); }} type="button"><MinusCircle className="size-3.5" /> Deduct</button> : <span className="text-xs text-slate-400">Subject view</span>}</td>
+                      <td className="px-3 py-3">
+                        <div className="flex flex-wrap gap-2">
+                          {classroom.capabilities.managePoints ? (
+                            <>
+                              <button className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-emerald-300 px-3 text-xs font-black text-emerald-800" onClick={() => { setSurpriseStudent(member); setSurpriseAmount(20); setSurpriseReason(""); setDeductionStudent(null); setError(""); setMessage(""); }} type="button"><Zap className="size-3.5" /> Surprise</button>
+                              <button className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-amber-300 px-3 text-xs font-black text-amber-800 disabled:opacity-50" disabled={member.xp < 1} onClick={() => { setDeductionStudent(member); setDeductionAmount(1); setSurpriseStudent(null); setError(""); setMessage(""); }} type="button"><MinusCircle className="size-3.5" /> Deduct</button>
+                            </>
+                          ) : null}
+                          {classroom.capabilities.viewWholeClassPerformance ? (
+                            <button className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-sky-300 px-3 text-xs font-black text-sky-800 disabled:opacity-50" disabled={busy} onClick={() => void crownHelper(member)} type="button"><Crown className="size-3.5" /> Helper</button>
+                          ) : null}
+                          {!classroom.capabilities.managePoints && !classroom.capabilities.viewWholeClassPerformance ? (
+                            <span className="text-xs text-slate-400">Subject view</span>
+                          ) : null}
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -728,6 +850,11 @@ export function TeacherClassDetail({ classId }: { classId: string }) {
                     <h3 className="font-black text-slate-950">{quiz.title}</h3>
                     <p className="text-sm text-slate-600">{quiz.questions.length} questions · {quiz.baseXpReward} XP · pass {quiz.passingScore}% · {quiz.maxAttempts} attempts</p>
                     <p className="mt-1 text-xs font-bold uppercase tracking-wider text-teal-700">{quiz.status}{quiz.startAt ? ` · opens ${new Date(quiz.startAt).toLocaleString()}` : ""}{quiz.deadline ? ` · ends ${new Date(quiz.deadline).toLocaleString()}` : " · open until ended"}</p>
+                    {isTimedChallengeQuiz({ startAt: quiz.startAt, deadline: quiz.deadline, status: quiz.status }) ? (
+                      <p className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-rose-50 px-3 py-1.5 text-xs font-black uppercase tracking-wide text-rose-800">
+                        <Trophy className="size-3.5" /> Challenge quiz
+                      </p>
+                    ) : null}
                     {quiz.offPlatformReward ? <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm font-bold text-amber-900">Class reward: {quiz.offPlatformReward}</p> : null}
                   </div>
                   <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-700">{quiz.attemptCount} attempts</span>
@@ -740,40 +867,7 @@ export function TeacherClassDetail({ classId }: { classId: string }) {
       ) : null}
 
       {tab === "leaderboard" ? (
-        <section className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-xl font-black">Class leaderboard</h2>
-          <p className="mt-1 text-sm text-slate-600">Ranked by class quiz XP, then best quiz average, then platform XP.</p>
-          {leaderboard.length === 0 ? (
-            <p className="mt-3 text-sm text-slate-600">No students on the leaderboard yet.</p>
-          ) : (
-            <div className="mt-4 overflow-x-auto">
-              <table className="min-w-full text-left text-sm">
-                <thead className="border-b border-slate-200 text-xs font-black uppercase tracking-wider text-slate-500">
-                  <tr>
-                    <th className="px-3 py-2">Rank</th>
-                    <th className="px-3 py-2">Name</th>
-                    <th className="px-3 py-2">Class XP</th>
-                    <th className="px-3 py-2">Class stars</th>
-                    <th className="px-3 py-2">Quiz avg</th>
-                    <th className="px-3 py-2">Quizzes passed</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {leaderboard.map((entry) => (
-                    <tr className="border-b border-slate-100" key={entry.studentId}>
-                      <td className="px-3 py-3 font-black text-teal-700">#{entry.rank}</td>
-                      <td className="px-3 py-3 font-bold text-slate-900">{entry.displayName}</td>
-                      <td className="px-3 py-3">{entry.classXp}</td>
-                      <td className="px-3 py-3">{entry.classStars}</td>
-                      <td className="px-3 py-3">{entry.bestQuizAverage == null ? "—" : `${entry.bestQuizAverage}%`}</td>
-                      <td className="px-3 py-3">{entry.quizzesPassed}/{entry.quizzesAttempted}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
+        <ClassLeaderboardPanel apiBase="teacher" classId={classId} entries={leaderboard} loading={loading} />
       ) : null}
 
       {tab === "performance" ? <TeacherPerformanceWorkspace classId={classId} pointReports={pointReports} /> : null}

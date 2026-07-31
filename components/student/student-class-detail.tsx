@@ -23,6 +23,7 @@ import { ClassLeaderboardPanel, ClassLeaderboardStandings } from "@/components/s
 import { StudentPageNav } from "@/components/student/student-page-nav";
 import { StudentShell } from "@/components/student/student-shell";
 import type { AdviceSuggestionType, ClassLeaderboardEntry, ClassQuizAttemptSummary, CourseVisibility, PointDeductionView } from "@/lib/classes/types";
+import { isTimedChallengeQuiz, timedChallengeCountdown } from "@/lib/classes/timed-challenge";
 import { cn } from "@/lib/utils";
 import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 
@@ -79,7 +80,20 @@ type Detail = {
     resolutionNote?: string | null;
   }>;
   deductions: PointDeductionView[];
-  messages: Array<{ id: string; body: string; attachments?: Array<{ name: string; kind: "image" | "audio" | "file"; url: string }>; createdAt: string; fromStudent: boolean; senderId: string; senderName: string; senderRole: "student" | "teacher" | "admin"; kind: "discussion" | "announcement"; editedAt: string | null }>;
+  messages: Array<{
+    id: string;
+    body: string;
+    attachments?: Array<{ name: string; kind: "image" | "audio" | "file"; url: string }>;
+    createdAt: string;
+    fromStudent: boolean;
+    senderId: string;
+    senderName: string;
+    senderRole: "student" | "teacher" | "admin";
+    kind: "discussion" | "announcement";
+    editedAt: string | null;
+    reactionCounts?: { like: number; helpful: number; celebrate: number };
+    myReaction?: "like" | "helpful" | "celebrate" | null;
+  }>;
   chat: {
     enabled: boolean; locked: boolean; postingStartsAt: string | null; postingEndsAt: string | null;
     timezone: string; guardianConsentRequired: boolean; consentReady: boolean; withinHours: boolean;
@@ -288,7 +302,8 @@ export function StudentClassDetail({ classId }: { classId: string }) {
     [detail]
   );
   const leaderboard = detail?.leaderboard ?? [];
-  const boardPanel = <ClassLeaderboardPanel entries={leaderboard} loading={loading} />;
+  const weeklyHelper = leaderboard.find((entry) => entry.isWeeklyHelper);
+  const boardPanel = <ClassLeaderboardPanel classId={classId} entries={leaderboard} loading={loading} />;
 
   if (loading) {
     return (
@@ -326,7 +341,7 @@ export function StudentClassDetail({ classId }: { classId: string }) {
   ];
 
   return (
-    <StudentShell activeItem="classes" mobileAside={<ClassLeaderboardPanel entries={leaderboard} idPrefix="mobile-" />}>
+    <StudentShell activeItem="classes" mobileAside={<ClassLeaderboardPanel classId={classId} entries={leaderboard} idPrefix="mobile-" />}>
       <main className="mx-auto w-full max-w-7xl space-y-5 sm:space-y-6">
         <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
           <div className="grid min-w-0 gap-5 sm:gap-6">
@@ -345,7 +360,7 @@ export function StudentClassDetail({ classId }: { classId: string }) {
                 </p>
                 <h1 className="mt-3 text-3xl font-black tracking-tight sm:text-4xl">{detail.classroom.name}</h1>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300 sm:text-base">
-                  {detail.classroom.description || "Quizzes, subjects and tips from your teacher live here."}
+                  {detail.classroom.description || "Class cup, quizzes and after-school chat live here."}
                 </p>
                 <div className="mt-5 flex flex-wrap gap-2">
                   <span className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-3 py-2 text-sm font-bold ring-1 ring-white/15">
@@ -360,6 +375,17 @@ export function StudentClassDetail({ classId }: { classId: string }) {
                     <MessageSquareHeart className="size-4 text-rose-200" />
                     {unreadAdvice} new tip{unreadAdvice === 1 ? "" : "s"}
                   </span>
+                  {weeklyHelper ? (
+                    <span className="inline-flex items-center gap-2 rounded-xl bg-amber-400/20 px-3 py-2 text-sm font-bold text-amber-100 ring-1 ring-amber-300/40">
+                      <Trophy className="size-4 text-amber-300" />
+                      Helper of the Week: {weeklyHelper.isCurrentUser ? "You!" : weeklyHelper.displayName}
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-3 py-2 text-sm font-bold ring-1 ring-white/15">
+                      <Trophy className="size-4 text-slate-300" />
+                      No Helper crowned yet
+                    </span>
+                  )}
                 </div>
               </div>
             </header>
@@ -416,19 +442,22 @@ export function StudentClassDetail({ classId }: { classId: string }) {
               <section className="grid gap-4" id="class-quizzes">
                 {detail.pastQuizCount > 0 ? <Link className="flex min-h-16 items-center justify-between gap-3 rounded-[1.25rem] border border-orange-200 bg-gradient-to-r from-amber-50 to-orange-50 p-4 text-orange-950 shadow-sm" href={`/pasco?classId=${classId}`}><span className="flex items-center gap-3"><span className="grid size-10 place-items-center rounded-xl bg-orange-500 text-white"><BookMarked className="size-5" /></span><span><b className="block">Review past quizzes in PASCO</b><span className="text-xs font-bold text-orange-700">{detail.pastQuizCount} ended quiz{detail.pastQuizCount === 1 ? "" : "zes"} from this class</span></span></span><ArrowRight className="size-5" /></Link> : null}
                 {detail.quizzes.length === 0 ? (
-                  <EmptyBlock title="No active quizzes" text={detail.pastQuizCount ? "Ended quizzes have moved to PASCO for revision." : "Your teacher has not published a class quiz. Check back soon."} />
+                  <EmptyBlock title="No active quizzes" text={detail.pastQuizCount ? "Ended quizzes have moved to PASCO for revision." : "No quiz on the board yet. Your teacher will drop one soon."} />
                 ) : detail.quizzes.map((quiz) => {
                   const best = quiz.bestAttempt ?? quiz.attempt;
                   const overdue = quiz.deadline ? new Date(quiz.deadline).getTime() < Date.now() : false;
                   const upcoming = quiz.startAt ? new Date(quiz.startAt).getTime() > Date.now() : false;
+                  const timed = isTimedChallengeQuiz({ startAt: quiz.startAt, deadline: quiz.deadline, status: quiz.status });
                   return (
-                    <article className="overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white shadow-sm" key={quiz.id}>
+                    <article className={cn("overflow-hidden rounded-[1.5rem] border bg-white shadow-sm", timed ? "border-rose-300 ring-2 ring-rose-100" : "border-slate-200")} key={quiz.id}>
                       <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
                             <h3 className="text-lg font-black text-slate-950">{quiz.title}</h3>
                             {quiz.status === "closed" || overdue ? (
                               <span className="rounded-full bg-slate-900 px-2.5 py-0.5 text-[11px] font-black uppercase text-white">Quiz Ended</span>
+                            ) : timed ? (
+                              <span className="rounded-full bg-rose-100 px-2.5 py-0.5 text-[11px] font-black uppercase text-rose-800">Beat the clock</span>
                             ) : upcoming ? (
                               <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-[11px] font-black uppercase text-blue-800">Coming soon</span>
                             ) : !quiz.attemptsUsed ? (
@@ -440,8 +469,8 @@ export function StudentClassDetail({ classId }: { classId: string }) {
                           </p>
                           {quiz.startAt ? <p className="mt-1 text-xs font-bold text-blue-700">Starts {new Date(quiz.startAt).toLocaleString()}</p> : null}
                           {quiz.deadline ? (
-                            <p className={cn("mt-1 text-xs font-bold", overdue ? "text-amber-700" : "text-sky-700")}>
-                              Due {new Date(quiz.deadline).toLocaleString()}
+                            <p className={cn("mt-1 text-xs font-bold", overdue ? "text-amber-700" : timed ? "text-rose-700" : "text-sky-700")}>
+                              {timed ? timedChallengeCountdown(quiz.deadline) : `Due ${new Date(quiz.deadline).toLocaleString()}`}
                             </p>
                           ) : null}
                           {!quiz.startAt && !quiz.deadline ? <p className="mt-1 text-xs font-bold text-sky-700">Available until your teacher ends it</p> : null}
@@ -453,8 +482,8 @@ export function StudentClassDetail({ classId }: { classId: string }) {
                           ) : null}
                         </div>
                         {quiz.status === "closed" || overdue ? <span className="rounded-xl bg-slate-100 px-5 py-3 text-sm font-black text-slate-600">Quiz Ended</span> : upcoming ? <span className="rounded-xl bg-blue-50 px-5 py-3 text-sm font-black text-blue-800">Opens {new Date(quiz.startAt!).toLocaleString()}</span> : !quiz.attemptsUsed ? (
-                          <Link className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-sky-600 px-5 text-sm font-black text-white hover:bg-sky-700" href={`/classes/${classId}/quizzes/${quiz.id}`}>
-                            Take quiz <ArrowRight className="size-4" />
+                          <Link className={cn("inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-5 text-sm font-black text-white", timed ? "bg-rose-600 hover:bg-rose-700" : "bg-sky-600 hover:bg-sky-700")} href={`/classes/${classId}/quizzes/${quiz.id}`}>
+                            {timed ? "Beat the clock" : "Take quiz"} <ArrowRight className="size-4" />
                           </Link>
                         ) : quiz.canRetake ? (
                           <Link className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-amber-500 px-5 text-sm font-black text-white hover:bg-amber-600" href={`/classes/${classId}/quizzes/${quiz.id}`}>
@@ -523,7 +552,7 @@ export function StudentClassDetail({ classId }: { classId: string }) {
               </section>
             ) : null}
 
-            {section === "board" ? <ClassLeaderboardStandings entries={leaderboard} /> : null}
+            {section === "board" ? <ClassLeaderboardStandings classId={classId} entries={leaderboard} /> : null}
 
             {/* Mobile: compact board access matching platform medal drawer pattern */}
             <div className="xl:hidden">

@@ -297,6 +297,8 @@ export type StudentClassCourse = {
   lessons: Lesson[];
 };
 
+export type ClassLeaderboardWindow = "all_time" | "week";
+
 export type ClassLeaderboardEntry = {
   rank: number;
   studentId: string;
@@ -309,4 +311,7 @@ export type ClassLeaderboardEntry = {
   platformXp: number;
   streak: number;
   isCurrentUser?: boolean;
+  avatar?: import("@/lib/student/student-profile").AvatarConfig | null;
+  isCupHolder?: boolean;
+  isWeeklyHelper?: boolean;
 };

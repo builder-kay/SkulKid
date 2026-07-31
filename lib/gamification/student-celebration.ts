@@ -9,7 +9,9 @@ export type StudentCelebrationSource =
   | "lesson_quiz"
   | "video"
   | "class_quiz"
-  | "daily_gift";
+  | "daily_gift"
+  | "daily_quest"
+  | "teacher_bonus";
 
 export type CelebrationAchievement = Pick<Achievement, "id" | "name" | "description" | "icon">;
 

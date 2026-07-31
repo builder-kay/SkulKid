@@ -18,6 +18,9 @@ import {
   UsersRound
 } from "lucide-react";
 import type { StudentDashboardActivity } from "@/lib/classes/types";
+import { isTimedChallengeQuiz, timedChallengeCountdown } from "@/lib/classes/timed-challenge";
+import { CharacterAvatar } from "@/components/student/character-avatar";
+import { useStudentProfile } from "@/lib/student/student-profile";
 
 const emptyActivity: StudentDashboardActivity = {
   classes: [],
@@ -108,12 +111,12 @@ export function DashboardClassActivity() {
           <span className="grid size-12 place-items-center rounded-2xl bg-sky-700 text-white shadow-lg shadow-sky-200">
             <UsersRound className="size-6" />
           </span>
-          <p className="mt-5 text-xs font-black uppercase tracking-wider text-sky-700">Class shortcuts</p>
+          <p className="mt-5 text-xs font-black uppercase tracking-wider text-sky-700">After-school class desk</p>
           <h2 className="mt-1 text-2xl font-black text-text-primary sm:text-3xl" id="class-activity-heading">
-            Join a class to see what is happening
+            Join a class to unlock your class cup
           </h2>
           <p className="mt-2 max-w-xl text-sm leading-6 text-text-secondary sm:text-base">
-            When you join your teacher&apos;s class, quizzes, class subjects and teacher tips will appear here.
+            When you join with your teacher&apos;s code, quizzes, class subjects and kind chat stickers show up here.
           </p>
           <Link
             className="mt-5 inline-flex min-h-12 items-center gap-2 rounded-2xl bg-sky-700 px-5 font-black text-white transition hover:-translate-y-0.5 hover:bg-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
@@ -133,12 +136,12 @@ export function DashboardClassActivity() {
         <div>
           <div className="flex items-center gap-2 text-sky-700">
             <Sparkles aria-hidden="true" className="size-4" />
-            <p className="text-xs font-black uppercase tracking-wider">Your learning shortcuts</p>
+            <p className="text-xs font-black uppercase tracking-wider">Class shortcuts</p>
           </div>
           <h2 className="mt-1 text-2xl font-black text-text-primary sm:text-3xl" id="class-activity-heading">
             Happening in your classes
           </h2>
-          <p className="mt-1 text-sm text-text-secondary">Jump straight to your quizzes, subjects and teacher updates.</p>
+          <p className="mt-1 text-sm text-text-secondary">Beat the clock on challenge quizzes, then earn class cup XP.</p>
         </div>
         <Link
           className="inline-flex min-h-11 items-center gap-2 self-start rounded-xl border border-slate-300 bg-white px-4 text-sm font-black text-text-primary shadow-sm transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:self-auto"
@@ -157,8 +160,8 @@ export function DashboardClassActivity() {
                 <ClipboardList aria-hidden="true" className="size-5" />
               </span>
               <div>
-                <h3 className="font-black text-text-primary">Quiz challenges</h3>
-                <p className="text-xs font-semibold text-text-secondary">Ready now and coming soon</p>
+                <h3 className="font-black text-text-primary">Class quizzes</h3>
+                <p className="text-xs font-semibold text-text-secondary">Timed challenges and open quizzes</p>
               </div>
             </div>
             <span className="rounded-full bg-white px-2.5 py-1 text-xs font-black text-indigo-700 shadow-sm">{activity.quizzes.length}</span>
@@ -211,27 +214,47 @@ export function DashboardClassActivity() {
 }
 
 function QuizShortcut({ quiz }: { quiz: StudentDashboardActivity["quizzes"][number] }) {
+  const { profile } = useStudentProfile();
   const upcoming = quiz.state === "upcoming";
   const completed = quiz.state === "completed";
+  const timed = !upcoming && !completed && isTimedChallengeQuiz({
+    startAt: quiz.startAt,
+    deadline: quiz.deadline,
+    status: "published"
+  });
   const href = upcoming ? `/classes/${quiz.classId}` : `/classes/${quiz.classId}/quizzes/${quiz.id}`;
   const timeLabel = upcoming && quiz.startAt
     ? `Starts ${formatActivityTime(quiz.startAt)}`
-    : quiz.deadline
-      ? `Ends ${formatActivityTime(quiz.deadline)}`
-      : "No end time";
-  const action = upcoming ? "View class" : completed ? "View result" : quiz.attemptsUsed > 0 ? "Continue" : "Start quiz";
+    : timed && quiz.deadline
+      ? timedChallengeCountdown(quiz.deadline)
+      : quiz.deadline
+        ? `Ends ${formatActivityTime(quiz.deadline)}`
+        : "No end time";
+  const action = upcoming ? "View class" : completed ? "View result" : timed ? "Beat the clock" : quiz.attemptsUsed > 0 ? "Continue" : "Start quiz";
 
   return (
     <Link
-      className="group block min-h-52 rounded-2xl border border-indigo-100 bg-gradient-to-br from-white to-indigo-50/70 p-4 transition hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+      className={`group block min-h-52 rounded-2xl border p-4 transition hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 ${
+        timed
+          ? "border-rose-300 bg-gradient-to-br from-white to-rose-50/80 hover:border-rose-400 focus-visible:ring-rose-500"
+          : "border-indigo-100 bg-gradient-to-br from-white to-indigo-50/70 hover:border-indigo-300 focus-visible:ring-indigo-500"
+      }`}
       href={href}
     >
       <span className="flex items-start justify-between gap-3">
-        <span className={`grid size-11 shrink-0 place-items-center rounded-2xl ${completed ? "bg-emerald-100 text-emerald-700" : upcoming ? "bg-sky-100 text-sky-700" : "bg-amber-100 text-amber-800"}`}>
-          {completed ? <CheckCircle2 aria-hidden="true" className="size-5" /> : upcoming ? <CalendarClock aria-hidden="true" className="size-5" /> : <Star aria-hidden="true" className="size-5" />}
-        </span>
-        <span className={`rounded-full px-3 py-1 text-[0.68rem] font-black uppercase tracking-wide ${completed ? "bg-emerald-100 text-emerald-800" : upcoming ? "bg-sky-100 text-sky-800" : "bg-amber-100 text-amber-900"}`}>
-          {completed ? "Completed" : upcoming ? "Coming soon" : "Ready now"}
+        {timed ? (
+          <span className="grid size-12 shrink-0 place-items-center overflow-hidden rounded-2xl border-2 border-white bg-gradient-to-br from-rose-100 to-amber-100 shadow-sm">
+            <CharacterAvatar avatar={profile.avatar} className="size-full" label={`${profile.username} ready for the challenge`} motion="expressive" />
+          </span>
+        ) : (
+          <span className={`grid size-11 shrink-0 place-items-center rounded-2xl ${completed ? "bg-emerald-100 text-emerald-700" : upcoming ? "bg-sky-100 text-sky-700" : "bg-amber-100 text-amber-800"}`}>
+            {completed ? <CheckCircle2 aria-hidden="true" className="size-5" /> : upcoming ? <CalendarClock aria-hidden="true" className="size-5" /> : <Star aria-hidden="true" className="size-5" />}
+          </span>
+        )}
+        <span className={`rounded-full px-3 py-1 text-[0.68rem] font-black uppercase tracking-wide ${
+          completed ? "bg-emerald-100 text-emerald-800" : timed ? "bg-rose-100 text-rose-900" : upcoming ? "bg-sky-100 text-sky-800" : "bg-amber-100 text-amber-900"
+        }`}>
+          {completed ? "Completed" : timed ? "Beat the clock" : upcoming ? "Coming soon" : "Ready now"}
         </span>
       </span>
       <span className="mt-3 block">
@@ -249,8 +272,8 @@ function QuizShortcut({ quiz }: { quiz: StudentDashboardActivity["quizzes"][numb
         </span>
       </span>
       <span className="mt-3 flex items-center justify-between gap-3">
-        <span className={`text-xs font-black ${upcoming ? "text-sky-700" : completed ? "text-emerald-700" : "text-amber-800"}`}>{timeLabel}</span>
-        <span className="inline-flex shrink-0 items-center gap-1 rounded-xl bg-indigo-700 px-3 py-2 text-xs font-black text-white">
+        <span className={`text-xs font-black ${upcoming ? "text-sky-700" : completed ? "text-emerald-700" : timed ? "text-rose-800" : "text-amber-800"}`}>{timeLabel}</span>
+        <span className={`inline-flex shrink-0 items-center gap-1 rounded-xl px-3 py-2 text-xs font-black text-white ${timed ? "bg-rose-600" : "bg-indigo-700"}`}>
           {action}
           <ArrowRight aria-hidden="true" className="size-4 transition group-hover:translate-x-0.5" />
         </span>

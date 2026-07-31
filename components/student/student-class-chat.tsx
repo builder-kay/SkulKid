@@ -1,10 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Clock3, Flag, Loader2, LockKeyhole, MessageCircle, Paperclip, Send, ShieldCheck, Users, X } from "lucide-react";
+import { Clock3, Flag, Heart, Loader2, LockKeyhole, MessageCircle, Paperclip, Send, ShieldCheck, Sparkles, ThumbsUp, Users, X } from "lucide-react";
 import { ChatMessageText } from "@/components/chat/chat-message-text";
 import type { AdviceSuggestionType } from "@/lib/classes/types";
 import { cn } from "@/lib/utils";
+
+type ReactionKind = "like" | "helpful" | "celebrate";
+type ReactionCounts = { like: number; helpful: number; celebrate: number };
 
 const reportReasons = [
   { id: "bullying", label: "Being unkind or bullying" },
@@ -28,6 +31,9 @@ type ChatItem = {
   senderName?: string;
   linkify?: boolean;
   canReport?: boolean;
+  canReact?: boolean;
+  reactionCounts?: ReactionCounts;
+  myReaction?: ReactionKind | null;
   adviceId?: string;
   feedbackCategory?: "celebration" | "practice" | "intervention" | null;
   recommendedActions?: Array<{ label: string; href?: string }>;
@@ -60,7 +66,19 @@ export function StudentClassChat({
   classId: string;
   className: string;
   chat: ChatState;
-  messages: Array<{ id: string; body: string; attachments?: Array<{ name: string; kind: "image" | "audio" | "file"; url: string }>; createdAt: string; fromStudent: boolean; senderName: string; senderRole: "student" | "teacher" | "admin"; kind: "discussion" | "announcement"; editedAt: string | null }>;
+  messages: Array<{
+    id: string;
+    body: string;
+    attachments?: Array<{ name: string; kind: "image" | "audio" | "file"; url: string }>;
+    createdAt: string;
+    fromStudent: boolean;
+    senderName: string;
+    senderRole: "student" | "teacher" | "admin";
+    kind: "discussion" | "announcement";
+    editedAt: string | null;
+    reactionCounts?: ReactionCounts;
+    myReaction?: ReactionKind | null;
+  }>;
   notifications: Array<{ id: string; title: string; body: string; attachments?: Array<{ name: string; kind: "image" | "audio" | "file"; url: string }>; audience: string; createdAt: string }>;
   advice: Array<{ id: string; message: string; suggestionType: AdviceSuggestionType; createdAt: string; readAt: string | null; title?: string | null; feedbackCategory?: "celebration" | "practice" | "intervention" | null; recommendedActions?: Array<{ label: string; href?: string }>; followUpStatus?: "not_required" | "open" | "acknowledged" | "resolved"; dueAt?: string | null; resolutionNote?: string | null }>;
   value: string;
@@ -80,10 +98,28 @@ export function StudentClassChat({
   const [reportReason, setReportReason] = useState<ReportReason>("bullying");
   const [reportDetails, setReportDetails] = useState("");
   const [acceptingRules, setAcceptingRules] = useState(false);
+  const [reactionState, setReactionState] = useState<Record<string, { counts: ReactionCounts; myReaction: ReactionKind | null }>>({});
+  const [reactingId, setReactingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const next: Record<string, { counts: ReactionCounts; myReaction: ReactionKind | null }> = {};
+    for (const item of messages) {
+      next[item.id] = {
+        counts: item.reactionCounts ?? { like: 0, helpful: 0, celebrate: 0 },
+        myReaction: item.myReaction ?? null
+      };
+    }
+    setReactionState(next);
+  }, [messages]);
+
   const timeline = useMemo<ChatItem[]>(() => [
     ...messages.map((item) => {
       const isTeacherAnnouncement = variant === "class_group"
         && (item.senderRole === "teacher" || item.senderRole === "admin" || item.kind === "announcement");
+      const reactions = reactionState[item.id] ?? {
+        counts: item.reactionCounts ?? { like: 0, helpful: 0, celebrate: 0 },
+        myReaction: item.myReaction ?? null
+      };
       return {
         id: `message-${item.id}`, body: item.body, createdAt: item.createdAt,
         direction: item.fromStudent ? "outgoing" as const : "incoming" as const,
@@ -92,7 +128,10 @@ export function StudentClassChat({
         messageId: item.id, senderName: item.senderName,
         attachments: item.attachments,
         linkify: item.senderRole === "teacher" || item.senderRole === "admin",
-        canReport: variant === "class_group" && !item.fromStudent && item.senderRole === "student"
+        canReport: variant === "class_group" && !item.fromStudent && item.senderRole === "student",
+        canReact: variant === "class_group",
+        reactionCounts: reactions.counts,
+        myReaction: reactions.myReaction
       };
     }),
     ...(variant === "class_group" ? advice.map((item) => ({
@@ -102,7 +141,41 @@ export function StudentClassChat({
       followUpStatus: item.followUpStatus, dueAt: item.dueAt, resolutionNote: item.resolutionNote,
       linkify: true
     })) : [])
-  ].sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt)), [advice, messages, variant]);
+  ].sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt)), [advice, messages, reactionState, variant]);
+
+  async function toggleReaction(messageId: string, reaction: ReactionKind) {
+    const current = reactionState[messageId] ?? { counts: { like: 0, helpful: 0, celebrate: 0 }, myReaction: null };
+    const clearing = current.myReaction === reaction;
+    const optimisticCounts = { ...current.counts };
+    if (current.myReaction) optimisticCounts[current.myReaction] = Math.max(0, optimisticCounts[current.myReaction] - 1);
+    if (!clearing) optimisticCounts[reaction] += 1;
+    setReactionState((state) => ({
+      ...state,
+      [messageId]: { counts: optimisticCounts, myReaction: clearing ? null : reaction }
+    }));
+    setReactingId(messageId);
+    try {
+      const response = await fetch(`/api/student/classes/${classId}/messages/${messageId}/reactions`, {
+        method: clearing ? "DELETE" : "POST",
+        headers: clearing ? undefined : { "Content-Type": "application/json" },
+        body: clearing ? undefined : JSON.stringify({ reaction })
+      });
+      const payload = await response.json() as { counts?: ReactionCounts; myReaction?: ReactionKind | null; error?: string };
+      if (!response.ok) throw new Error(payload.error || "Could not save sticker.");
+      setReactionState((state) => ({
+        ...state,
+        [messageId]: {
+          counts: payload.counts ?? optimisticCounts,
+          myReaction: payload.myReaction ?? (clearing ? null : reaction)
+        }
+      }));
+    } catch (cause) {
+      setReactionState((state) => ({ ...state, [messageId]: current }));
+      setNotice(cause instanceof Error ? cause.message : "Could not save sticker.");
+    } finally {
+      setReactingId(null);
+    }
+  }
 
   const latestItemId = timeline.at(-1)?.id ?? "";
   useEffect(() => {
@@ -222,8 +295,8 @@ export function StudentClassChat({
           {timeline.length ? timeline.map((item, index) => {
             const previous = timeline[index - 1];
             const showDate = !previous || new Date(previous.createdAt).toDateString() !== new Date(item.createdAt).toDateString();
-            return <div key={item.id}>{showDate ? <DateDivider value={item.createdAt} /> : null}<Bubble item={item} onAcknowledge={acknowledge} onReport={openReport} reporting={reporting} /></div>;
-          }) : <div className="mx-auto mt-12 max-w-sm rounded-2xl border border-blue-100 bg-white/95 p-5 text-center text-sm leading-6 text-slate-700 shadow-sm"><span className="mx-auto mb-3 grid size-11 place-items-center rounded-full bg-blue-100 text-blue-700"><MessageCircle className="size-5" /></span><b className="block text-slate-950">{variant === "direct" ? "Message your teacher" : "Your class conversation starts here"}</b>{variant === "direct" ? "This private chat is only between you and your teacher." : "Your teacher supervises this room, and only active classmates can participate."}</div>}
+            return <div key={item.id}>{showDate ? <DateDivider value={item.createdAt} /> : null}<Bubble item={item} onAcknowledge={acknowledge} onReact={toggleReaction} onReport={openReport} reactingId={reactingId} reporting={reporting} /></div>;
+          }) : <div className="mx-auto mt-12 max-w-sm rounded-2xl border border-blue-100 bg-white/95 p-5 text-center text-sm leading-6 text-slate-700 shadow-sm"><span className="mx-auto mb-3 grid size-11 place-items-center rounded-full bg-blue-100 text-blue-700"><MessageCircle className="size-5" /></span><b className="block text-slate-950">{variant === "direct" ? "Message your teacher" : "Say something kind to your class"}</b>{variant === "direct" ? "This private chat is only between you and your teacher." : "After-school vibes welcome — your teacher watches this room, and classmates can tap stickers."}</div>}
           <div ref={endRef} />
         </div>
       </div>
@@ -280,16 +353,35 @@ export function StudentClassChat({
   );
 }
 
-function Bubble({ item, onAcknowledge, onReport, reporting }: { item: ChatItem; onAcknowledge: (id: string) => void; onReport: (id: string) => void; reporting: string | null }) {
+function Bubble({
+  item, onAcknowledge, onReact, onReport, reactingId, reporting
+}: {
+  item: ChatItem;
+  onAcknowledge: (id: string) => void;
+  onReact: (messageId: string, reaction: ReactionKind) => void;
+  onReport: (id: string) => void;
+  reactingId: string | null;
+  reporting: string | null;
+}) {
   const outgoing = item.direction === "outgoing";
+  const celebration = item.kind === "advice" && item.feedbackCategory === "celebration";
+  const stickers: Array<{ id: ReactionKind; label: string; icon: typeof Heart }> = [
+    { id: "like", label: "Like", icon: Heart },
+    { id: "helpful", label: "Helpful", icon: ThumbsUp },
+    { id: "celebrate", label: "Celebrate", icon: Sparkles }
+  ];
   return <div className={cn("flex", outgoing ? "justify-end" : "justify-start")}>
-    <article className={cn("max-w-[88%] rounded-2xl px-3.5 py-2.5 shadow-sm sm:max-w-[76%] lg:max-w-[68%]", outgoing ? "rounded-br-sm bg-blue-700 text-white" : "rounded-bl-sm border border-slate-200/80 bg-white")}>
+    <article className={cn(
+      "max-w-[88%] rounded-2xl px-3.5 py-2.5 shadow-sm sm:max-w-[76%] lg:max-w-[68%]",
+      celebration ? "rounded-bl-sm border-2 border-amber-300 bg-gradient-to-br from-amber-50 via-white to-rose-50 ring-2 ring-amber-100" :
+        outgoing ? "rounded-br-sm bg-blue-700 text-white" : "rounded-bl-sm border border-slate-200/80 bg-white"
+    )}>
       {item.senderName && !outgoing ? <p className="mb-0.5 text-xs font-black text-blue-700">{item.senderName}</p> : null}
-      {item.title ? <p className={cn("mb-1 text-xs font-black", outgoing ? "text-blue-100" : item.kind === "announcement" ? "text-violet-700" : "text-blue-700")}>{item.title}</p> : null}
+      {item.title ? <p className={cn("mb-1 text-xs font-black", celebration ? "text-amber-800" : outgoing ? "text-blue-100" : item.kind === "announcement" ? "text-violet-700" : "text-blue-700")}>{celebration ? `🎉 ${item.title}` : item.title}</p> : null}
       <ChatMessageText
         body={item.body}
-        className={cn("whitespace-pre-wrap break-words text-sm leading-5", outgoing ? "text-white" : "text-slate-900")}
-        linkClassName={outgoing ? "text-sky-100" : "text-blue-700"}
+        className={cn("whitespace-pre-wrap break-words text-sm leading-5", outgoing && !celebration ? "text-white" : "text-slate-900")}
+        linkClassName={outgoing && !celebration ? "text-sky-100" : "text-blue-700"}
         linkify={Boolean(item.linkify)}
       />
       {item.attachments?.length ? <div className="mt-2 grid gap-2">{item.attachments.map((attachment) => attachment.kind === "image" ? <a href={attachment.url} key={attachment.url} rel="noreferrer" target="_blank"><img alt={attachment.name} className="max-h-72 w-full rounded-xl object-cover" loading="lazy" src={attachment.url} /></a> : attachment.kind === "audio" ? <audio className="max-w-full" controls key={attachment.url} preload="metadata" src={attachment.url} /> : <a className={cn("inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-black", outgoing ? "border-white/30 text-white" : "border-slate-200 text-blue-700")} download={attachment.name} href={attachment.url} key={attachment.url} rel="noreferrer" target="_blank"><Paperclip className="size-4" /><span className="max-w-48 truncate">{attachment.name}</span></a>)}</div> : null}
@@ -300,8 +392,38 @@ function Bubble({ item, onAcknowledge, onReport, reporting }: { item: ChatItem; 
         {item.followUpStatus === "open" && item.adviceId ? <button className="min-h-9 rounded-lg bg-blue-700 px-3 text-xs font-black text-white disabled:opacity-60" disabled={reporting === `advice-${item.adviceId}`} onClick={() => void onAcknowledge(item.adviceId!)} type="button">{reporting === `advice-${item.adviceId}` ? "Saving…" : "I understand this next step"}</button> : null}
       </div> : null}
       {item.resolutionNote ? <p className="mt-2 rounded-lg bg-emerald-50 p-2 text-xs font-bold text-emerald-900">Teacher follow-up: {item.resolutionNote}</p> : null}
+      {item.canReact && item.messageId ? (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {stickers.map((sticker) => {
+            const count = item.reactionCounts?.[sticker.id] ?? 0;
+            const active = item.myReaction === sticker.id;
+            const Icon = sticker.icon;
+            return (
+              <button
+                aria-label={`${sticker.label}${count ? ` (${count})` : ""}`}
+                aria-pressed={active}
+                className={cn(
+                  "inline-flex min-h-8 items-center gap-1 rounded-full px-2.5 text-[11px] font-black transition",
+                  active
+                    ? "bg-amber-200 text-amber-950 ring-1 ring-amber-400"
+                    : outgoing
+                      ? "bg-white/15 text-blue-50 hover:bg-white/25"
+                      : "bg-slate-100 text-slate-700 hover:bg-amber-50"
+                )}
+                disabled={reactingId === item.messageId}
+                key={sticker.id}
+                onClick={() => onReact(item.messageId!, sticker.id)}
+                type="button"
+              >
+                <Icon className="size-3.5" />
+                {count > 0 ? count : sticker.label}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
       <div className="mt-1 flex items-center justify-end gap-1 pl-8">
-        <time className={cn("text-[10px]", outgoing ? "text-blue-100" : "text-slate-500")}>{new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(new Date(item.createdAt))}</time>
+        <time className={cn("text-[10px]", outgoing && !celebration ? "text-blue-100" : "text-slate-500")}>{new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(new Date(item.createdAt))}</time>
         {item.canReport && item.messageId ? <button aria-label="Report and mute this learner" className="ml-1 text-slate-400 hover:text-rose-700" disabled={reporting === item.messageId} onClick={() => onReport(item.messageId!)} type="button">{reporting === item.messageId ? <Loader2 className="size-3 animate-spin" /> : <Flag className="size-3" />}</button> : null}
       </div>
     </article>

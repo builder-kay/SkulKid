@@ -6,6 +6,7 @@ import { ArrowLeft, Loader2, MessageCircle, Search, ShieldCheck, UserRound, User
 import { StudentClassChat } from "@/components/student/student-class-chat";
 import { StudentShell } from "@/components/student/student-shell";
 import type { AdviceSuggestionType, StudentClassSummary } from "@/lib/classes/types";
+import { useStudentGame } from "@/lib/gamification/student-game";
 import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 import { cn } from "@/lib/utils";
 
@@ -64,6 +65,7 @@ export function StudentMessagesPage({
   initialThread?: "group" | "dm";
 }) {
   const router = useRouter();
+  const { markKindMessageQuest } = useStudentGame();
   const [classes, setClasses] = useState<StudentClassSummary[]>([]);
   const [selectedId, setSelectedId] = useState(
     initialClassId ? `${initialThread === "dm" ? "dm" : "group"}:${initialClassId}` : ""
@@ -217,6 +219,7 @@ export function StudentMessagesPage({
       });
       const payload = await response.json() as { error?: string; message?: { id: string; body: string; createdAt: string } };
       if (!response.ok) throw new Error(payload.error || "Unable to send your message.");
+      if (scope === "class_room") markKindMessageQuest();
       if (payload.message) {
         const nextMessage = {
           ...payload.message,

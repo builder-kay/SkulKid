@@ -186,7 +186,7 @@ export function StudentCelebrationHost({ avatar, learnerName }: Props) {
           </button>
         </div>
 
-        <div className="mx-auto mt-5 grid size-48 place-items-center sm:size-52">
+        <div className="student-celebration-avatar mx-auto mt-4 grid size-56 place-items-center sm:size-64">
           <CharacterAvatar
             avatar={avatar}
             celebrationSignal={active.id}
@@ -196,8 +196,8 @@ export function StudentCelebrationHost({ avatar, learnerName }: Props) {
           />
         </div>
 
-        <p className="mt-3 text-xs font-black uppercase tracking-[.18em] text-violet-700">You did it, {learnerName}!</p>
-        <h2 className="mt-1 text-3xl font-black text-slate-950">{active.title}</h2>
+        <p className="mt-3 text-xs font-black uppercase tracking-[.18em] text-violet-700">Nice one, {learnerName}!</p>
+        <h2 className="mt-1 text-3xl font-black text-slate-950 sm:text-4xl">{active.title}</h2>
         <p className="mt-2 text-sm leading-6 text-slate-600">{active.detail}</p>
 
         <div className="mt-4 flex flex-wrap justify-center gap-2">

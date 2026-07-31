@@ -14,9 +14,20 @@ async function authenticatedUser() {
 export async function GET() {
   const user = await authenticatedUser();
   if (!user) return NextResponse.json({ error: "Authentication required." }, { status: 401 });
-  const { data, error } = await createAdminClient().from("StudentGameState").select("state").eq("userId", user.id).maybeSingle();
+  const admin = createAdminClient();
+  const { data, error } = await admin.from("StudentGameState").select("state").eq("userId", user.id).maybeSingle();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ state: data?.state ?? null });
+  const state = (data?.state ?? null) as Record<string, unknown> | null;
+  if (!state || !Array.isArray(state.pendingCelebrations) || state.pendingCelebrations.length === 0) {
+    return NextResponse.json({ state });
+  }
+  const celebrations = state.pendingCelebrations;
+  const nextState = { ...state, pendingCelebrations: [] };
+  const { error: clearError } = await admin
+    .from("StudentGameState")
+    .upsert({ userId: user.id, state: nextState }, { onConflict: "userId" });
+  if (clearError) return NextResponse.json({ error: clearError.message }, { status: 500 });
+  return NextResponse.json({ state: nextState, celebrations });
 }
 
 export async function PUT(request: Request) {

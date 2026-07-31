@@ -13,6 +13,7 @@ import { GamificationArena } from "@/components/gamification/gamification-arena"
 import { StudentShell } from "@/components/student/student-shell";
 import { CharacterAvatar } from "@/components/student/character-avatar";
 import { DailyEncouragement } from "@/components/student/daily-encouragement";
+import { DailyQuestCard } from "@/components/student/daily-quest-card";
 import { DashboardClassActivity } from "@/components/student/dashboard-class-activity";
 import { SkulKidCard } from "@/components/shared/skulkid-card";
 import { usePublishedCourses } from "@/lib/courses/published-courses";
@@ -84,24 +85,26 @@ export function StudentDashboard() {
           />
         </section>
 
+        <DailyQuestCard />
+
         <DashboardClassActivity />
 
         <section aria-labelledby="course-heading" className="space-y-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <p className="text-xs font-black uppercase tracking-wider text-violet-700">Open to every learner</p>
+              <p className="text-xs font-black uppercase tracking-wider text-violet-700">Market of subjects</p>
               <h2 id="course-heading" className="mt-1 text-2xl font-bold text-text-primary">
-                Learning for everyone
+                Explore subjects
               </h2>
               <p className="mt-2 text-text-secondary">
-                These lessons are available to every SkulKid learner and do not belong to just one class.
+                Pick a subject and keep your learning streak strong — open to every SkulKid.
               </p>
             </div>
             <Link
               className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-text-primary shadow-sm transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               href="/courses"
             >
-              Explore public learning
+              Explore more
               <ArrowRight aria-hidden="true" className="size-4" />
             </Link>
           </div>

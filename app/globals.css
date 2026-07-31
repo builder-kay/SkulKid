@@ -524,6 +524,23 @@ input {
   animation: student-celebration-card-enter 420ms cubic-bezier(0.2, 1.25, 0.45, 1) both;
 }
 
+@keyframes student-celebration-avatar-bounce {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  35% {
+    transform: translateY(-10px) scale(1.06);
+  }
+  60% {
+    transform: translateY(2px) scale(0.98);
+  }
+}
+
+.student-celebration-avatar {
+  animation: student-celebration-avatar-bounce 900ms cubic-bezier(0.34, 1.4, 0.64, 1) both;
+}
+
 @keyframes landing-float {
   0%,
   100% {
@@ -609,7 +626,8 @@ input {
   }
 
   .student-celebration-card,
-  .student-celebration-glow {
+  .student-celebration-glow,
+  .student-celebration-avatar {
     animation: none !important;
   }
 
