@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   assignCourseToClass,
   createClassOnlyCourse,
+  deleteClassOnlyCourse,
   listClassCourses,
   removeCourseFromClass,
   requireTeacher
@@ -54,13 +55,20 @@ export async function POST(request: Request, context: { params: Promise<{ classI
   }
 }
 
-const removeSchema = z.object({ assignmentId: z.string().uuid() });
+const removeSchema = z.union([
+  z.object({ assignmentId: z.string().uuid() }),
+  z.object({ deleteSubject: z.literal(true), courseId: z.string().min(1) })
+]);
 
 export async function DELETE(request: Request, context: { params: Promise<{ classId: string }> }) {
   try {
     const teacher = await requireTeacher();
     const { classId } = await context.params;
     const input = removeSchema.parse(await request.json());
+    if ("deleteSubject" in input) {
+      await deleteClassOnlyCourse(teacher.id, classId, input.courseId);
+      return NextResponse.json({ courseAssignments: await listClassCourses(teacher.id, classId) });
+    }
     await removeCourseFromClass(teacher.id, classId, input.assignmentId);
     return NextResponse.json({ ok: true });
   } catch (error) {

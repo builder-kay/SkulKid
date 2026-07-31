@@ -635,6 +635,52 @@ export async function removeCourseFromClass(teacherId: string, classId: string, 
   if (error) throw new Error(error.message);
 }
 
+export async function deleteClassOnlyCourse(teacherId: string, classId: string, courseId: string) {
+  await assertOwnsClass(teacherId, classId);
+  const admin = createAdminClient();
+  const { data: course, error: courseError } = await admin.from("Subject")
+    .select("id,name,visibility,ownerClassId,createdBy")
+    .eq("id", courseId)
+    .maybeSingle();
+  if (courseError) throw new Error(courseError.message);
+  if (!course || course.visibility !== "class" || course.ownerClassId !== classId || course.createdBy !== teacherId) {
+    throw new Error("Only the main Class Teacher can delete a subject created for this class.");
+  }
+  const [{ data: lessons }, { data: quizzes }, { data: units }] = await Promise.all([
+    admin.from("AdminLessonRecord").select("id,createdBy").eq("courseId", courseId),
+    admin.from("ClassQuiz").select("id,createdBy").eq("classId", classId).eq("courseId", courseId),
+    admin.from("Unit").select("id,createdBy").eq("subjectId", courseId)
+  ]);
+  const unitIds = (units ?? []).map((item) => String(item.id));
+  const { data: topics } = unitIds.length
+    ? await admin.from("Topic").select("createdBy").in("unitId", unitIds)
+    : { data: [] as Array<{ createdBy: string | null }> };
+  const hasAnotherTeacherContent = [
+    ...(lessons ?? []).map((item) => item.createdBy),
+    ...(quizzes ?? []).map((item) => item.createdBy),
+    ...(units ?? []).map((item) => item.createdBy),
+    ...(topics ?? []).map((item) => item.createdBy)
+  ].some((creatorId) => creatorId && creatorId !== teacherId);
+  if (hasAnotherTeacherContent) {
+    throw new Error("This subject contains another teacher’s work. Remove or reassign that content before deleting the subject.");
+  }
+  const lessonIds = (lessons ?? []).map((item) => String(item.id));
+  const quizIds = (quizzes ?? []).map((item) => String(item.id));
+  if (lessonIds.length) {
+    const { error } = await admin.from("AdminLessonRecord").delete().in("id", lessonIds).eq("createdBy", teacherId);
+    if (error) throw new Error(error.message);
+  }
+  if (quizIds.length) {
+    const { error } = await admin.from("ClassQuiz").delete().in("id", quizIds).eq("createdBy", teacherId);
+    if (error) throw new Error(error.message);
+  }
+  const { error } = await admin.from("Subject").delete()
+    .eq("id", courseId)
+    .eq("ownerClassId", classId)
+    .eq("createdBy", teacherId);
+  if (error) throw new Error(error.message);
+}
+
 function normalizeQuestions(questions: ClassQuizQuestion[]): ClassQuizQuestion[] {
   return questions.map((question, index) => ({
     id: question.id || `q-${index + 1}`,

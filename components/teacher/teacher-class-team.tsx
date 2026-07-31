@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, Save, Search, ShieldCheck, UserPlus, UserRoundCheck, UserX } from "lucide-react";
+import { Loader2, Save, Search, ShieldCheck, Trash2, UserPlus, UserRoundCheck, UserX } from "lucide-react";
 import type { ClassCourseAssignmentView, ClassTeachingTeamMember } from "@/lib/classes/types";
 
 export function TeacherClassTeam({ classId, subjects }: { classId: string; subjects: ClassCourseAssignmentView[] }) {
@@ -96,6 +96,25 @@ export function TeacherClassTeam({ classId, subjects }: { classId: string; subje
     } finally { setBusy(false); }
   }
 
+  async function deleteSubject(subject: ClassCourseAssignmentView) {
+    if (!window.confirm(`Delete ${subject.courseName}? Its lessons and quizzes created by you will also be removed. This cannot be undone.`)) return;
+    setBusy(true); setError(""); setNotice("");
+    try {
+      const response = await fetch(`/api/teacher/classes/${classId}/courses`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ deleteSubject: true, courseId: subject.courseId })
+      });
+      const payload = await response.json() as { courseAssignments?: ClassCourseAssignmentView[]; error?: string };
+      if (!response.ok) throw new Error(payload.error || "Unable to delete this subject.");
+      setAvailableSubjects(payload.courseAssignments ?? []);
+      setCourseIds((current) => current.filter((id) => id !== subject.courseId));
+      setNotice(`${subject.courseName} was deleted.`);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to delete this subject.");
+    } finally { setBusy(false); }
+  }
+
   const subjectTeachers = team.filter((item) => item.role === "subject_teacher");
   return <section className="grid gap-5">
     <div className="rounded-[1.75rem] bg-gradient-to-br from-blue-800 via-indigo-800 to-slate-950 p-6 text-white shadow-xl sm:p-8">
@@ -109,6 +128,7 @@ export function TeacherClassTeam({ classId, subjects }: { classId: string; subje
         {teacherQuery.trim().length >= 2 && !selectedTeacherId ? <div className="absolute left-0 right-0 top-[4.8rem] z-20 max-h-64 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl" role="listbox">{suggestions.length ? suggestions.map((teacher) => <button className="flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-blue-50" key={teacher.id} onClick={() => { setTeacherQuery(teacher.username); setSelectedTeacherId(teacher.id); setSuggestions([]); }} role="option" type="button"><span><b className="block text-sm text-slate-900">{teacher.displayName}</b><span className="text-xs font-medium text-slate-500">@{teacher.username}</span></span><span className="text-[10px] font-black uppercase text-blue-700">Select</span></button>) : !searching ? <p className="px-3 py-3 text-xs font-medium text-slate-500">{schoolName ? `No matching teachers found at ${schoolName}.` : "Your school name must match the one in the other teacher’s account."}</p> : null}</div> : null}
         <span className="text-xs font-medium text-slate-500">Suggestions include only registered teachers whose school name matches yours. If several teachers share a name, use the exact username.</span></label>
       <SubjectPicker selected={courseIds} subjects={availableSubjects} onChange={setCourseIds} />
+      {availableSubjects.some((subject) => subject.isClassOnly) ? <details className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3"><summary className="cursor-pointer text-sm font-black text-slate-700">Manage class-created subjects</summary><div className="mt-3 grid gap-2">{availableSubjects.filter((subject) => subject.isClassOnly).map((subject) => <div className="flex items-center justify-between gap-3 rounded-xl bg-white p-3 ring-1 ring-slate-200" key={subject.courseId}><div className="min-w-0"><p className="truncate text-sm font-black text-slate-900">{subject.courseName}</p><p className="text-xs text-slate-500">{subject.lessonCount} lessons · created for this class</p></div><button aria-label={`Delete ${subject.courseName}`} className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg border border-rose-200 px-3 text-xs font-black text-rose-700 hover:bg-rose-50 disabled:opacity-50" disabled={busy} onClick={() => void deleteSubject(subject)} type="button"><Trash2 className="size-4" />Delete</button></div>)}</div></details> : null}
       {showCreateSubject ? <div className="mt-3 grid gap-3 rounded-2xl border border-blue-200 bg-blue-50 p-4"><div><p className="font-black text-blue-950">Create a class subject</p><p className="mt-1 text-xs text-blue-800">It will belong to this class and be selected for this invitation automatically.</p></div><label className="grid gap-1.5 text-sm font-black text-slate-800">Subject name<input className="min-h-11 rounded-xl border border-blue-200 bg-white px-3 font-medium" maxLength={120} minLength={2} onChange={(event) => setNewSubjectName(event.target.value)} placeholder="e.g. Creative Writing" required value={newSubjectName} /></label><label className="grid gap-1.5 text-sm font-black text-slate-800">Description <span className="font-medium text-slate-500">(optional)</span><textarea className="min-h-20 rounded-xl border border-blue-200 bg-white px-3 py-2 font-medium" maxLength={500} onChange={(event) => setNewSubjectDescription(event.target.value)} placeholder="What will students learn?" value={newSubjectDescription} /></label><button className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-blue-700 px-4 font-black text-white disabled:opacity-50" disabled={busy || newSubjectName.trim().length < 2} onClick={() => void createSubject()} type="button">{busy ? <Loader2 className="size-4 animate-spin" /> : <UserPlus className="size-4" />}Create and select subject</button></div> : null}
       <div className="mt-6 flex flex-col gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:items-center sm:justify-between">
         <button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-dashed border-blue-300 px-4 text-sm font-black text-blue-700 hover:bg-blue-50" onClick={() => setShowCreateSubject((open) => !open)} type="button"><UserPlus className="size-4" />{showCreateSubject ? "Cancel new subject" : "Create a new subject"}</button>
