@@ -1,10 +1,11 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { z } from "zod";
 import { requireTeacher } from "@/lib/classes/classroom-server";
 import type { AdminLessonRecord } from "@/lib/admin/lesson-library";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveAppRole } from "@/lib/auth/roles";
-import { markModerationPublished, moderateTeacherContent } from "@/lib/moderation/teacher-content-server";
+import { ensureContentVersionIsNotBlocked, ensureTeacherTrustProfile, markModerationPublished, moderateTeacherContent } from "@/lib/moderation/teacher-content-server";
+import { recordOperationalEvent } from "@/lib/admin/operational-events";
 
 const lessonSchema = z.object({
   id: z.string().min(1),
@@ -74,40 +75,21 @@ export async function POST(request: Request) {
     const now = new Date().toISOString();
     const stored = { ...record, createdBy: undefined };
     delete stored.createdBy;
-    const moderation = record.status === "published"
-      ? await moderateTeacherContent({
-          teacherId: teacher.id,
-          contentType: "lesson",
-          contentId: record.id,
-          snapshot: {
-            ...stored,
-            classId: record.classId ?? null,
-            courseId: record.courseId,
-            unitId: record.unitId ?? null,
-            topicId: record.topicId ?? null
-          }
-        })
-      : null;
-    if (moderation && moderation.state !== "published") {
-      if (!existing) {
-        const privateDraft = { ...stored, status: "draft" as const };
-        const { error: draftError } = await admin.from("AdminLessonRecord").insert({
-          id: record.id,
-          subject: record.subject,
-          status: "draft",
+    if (record.status === "published") {
+      const trust = await ensureTeacherTrustProfile(teacher.id);
+      if (trust.status === "banned") throw new Error("This teacher account is not allowed to publish content.");
+      await ensureContentVersionIsNotBlocked({
+        teacherId: teacher.id,
+        contentType: "lesson",
+        contentId: record.id,
+        snapshot: {
+          ...stored,
           classId: record.classId ?? null,
           courseId: record.courseId,
           unitId: record.unitId ?? null,
-          topicId: record.topicId ?? null,
-          position: count ?? 0,
-          record: privateDraft,
-          createdBy: teacher.id,
-          createdAt: record.createdAt ?? now,
-          updatedAt: now
-        });
-        if (draftError) throw new Error(draftError.message);
-      }
-      return NextResponse.json({ ok: true, lesson: { ...stored, status: "draft" }, moderation }, { status: 202 });
+          topicId: record.topicId ?? null
+        }
+      });
     }
     const { error: saveError } = await admin.from("AdminLessonRecord").upsert({
       id: record.id,
@@ -124,8 +106,45 @@ export async function POST(request: Request) {
       updatedAt: now
     }, { onConflict: "id" });
     if (saveError) throw new Error(saveError.message);
-    if (moderation) await markModerationPublished(moderation.caseId);
-    return NextResponse.json({ ok: true, lesson: stored, moderation });
+    if (record.status === "published") {
+      const snapshot = {
+        ...stored,
+        classId: record.classId ?? null,
+        courseId: record.courseId,
+        unitId: record.unitId ?? null,
+        topicId: record.topicId ?? null
+      };
+      after(async () => {
+        try {
+          const moderation = await moderateTeacherContent({
+            teacherId: teacher.id,
+            contentType: "lesson",
+            contentId: record.id,
+            snapshot,
+            publishBeforeReview: true
+          });
+          await markModerationPublished(moderation.caseId);
+        } catch (moderationError) {
+          await recordOperationalEvent({
+            category: "application",
+            eventType: "lesson.safety_scan_failed",
+            outcome: "failure",
+            severity: "high",
+            route: "/api/teacher/lessons",
+            subject: record.id,
+            metadata: { contentType: "lesson" }
+          });
+          console.error("Post-publication lesson safety scan failed:", moderationError instanceof Error ? moderationError.message : "Unknown error");
+        }
+      });
+    }
+    return NextResponse.json({
+      ok: true,
+      lesson: stored,
+      moderation: record.status === "published"
+        ? { state: "published", message: "Lesson published. The child-safety scan is running in the background." }
+        : null
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Could not save the lesson.";
     return NextResponse.json({ error: message }, { status: message.includes("required") ? 401 : 400 });

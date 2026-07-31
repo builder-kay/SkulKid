@@ -14,7 +14,7 @@ type ContentItem = {
   id: string; teacherId: string; teacherName: string; contentType: string; contentId: string;
   snapshot: Record<string, unknown>; status: string; academicRelevance: string; severity: string;
   confidence: number; categories: string[]; reasons: string[]; mediaWarnings: string[];
-  model: string | null; createdAt: string;
+  model: string | null; createdAt: string; publishedAt: string | null;
   trust: { status: string; cleanLessonCount: number; requiredCleanLessons: number } | null;
 };
 type Appeal = {
@@ -100,7 +100,7 @@ export default function AdminModerationPage() {
             <SkulKidCard className="p-5 sm:p-6" key={item.id}>
               <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
                 <div className="min-w-0">
-                  <div className="flex flex-wrap gap-2"><Badge tone={item.status === "error" ? "amber" : "rose"}>{item.status === "error" ? "AI unavailable" : "Held"}</Badge><Badge>{item.contentType.replaceAll("_", " ")}</Badge><Badge>{item.teacherName}</Badge></div>
+                  <div className="flex flex-wrap gap-2"><Badge tone={item.status === "error" ? "amber" : "rose"}>{item.contentType === "lesson" && item.publishedAt ? item.status === "error" ? "Live · scan failed" : "Live · flagged" : item.status === "error" ? "Scan unavailable" : "Held for review"}</Badge><Badge>{item.contentType.replaceAll("_", " ")}</Badge><Badge>{item.teacherName}</Badge></div>
                   <h2 className="mt-3 text-xl font-black">{contentTitle(item.snapshot)}</h2>
                   <p className="mt-1 text-sm text-slate-600">{item.reasons?.join(" ")}</p>
                   <p className="mt-2 text-xs font-bold text-slate-500">Academic: {item.academicRelevance || "unclear"} · Severity: {item.severity || "unknown"} · Confidence: {Math.round(Number(item.confidence || 0) * 100)}% · Trust: {item.trust?.status?.replaceAll("_", " ") ?? "unknown"}</p>
@@ -109,8 +109,8 @@ export default function AdminModerationPage() {
                 </div>
                 <div className="flex shrink-0 flex-wrap gap-2">
                   <button className={actionButton("secondary")} onClick={() => setPreview({ title: contentTitle(item.snapshot), snapshot: item.snapshot })}><Eye className="size-4" />Preview</button>
-                  <button className={actionButton("approve")} onClick={() => setAction({ kind: "approve_content", id: item.id, title: "Approve and publish" })}><CheckCircle2 className="size-4" />Approve</button>
-                  <button className={actionButton("reject")} onClick={() => setAction({ kind: "reject_content", id: item.id, title: "Reject content" })}>Reject</button>
+                  <button className={actionButton("approve")} onClick={() => setAction({ kind: "approve_content", id: item.id, title: item.contentType === "lesson" && item.publishedAt ? "Keep content live" : "Approve and publish" })}><CheckCircle2 className="size-4" />{item.contentType === "lesson" && item.publishedAt ? "Keep live" : "Approve"}</button>
+                  <button className={actionButton("reject")} onClick={() => setAction({ kind: "reject_content", id: item.id, title: item.contentType === "lesson" && item.publishedAt ? "Block content and notify teacher" : "Reject content" })}>{item.contentType === "lesson" && item.publishedAt ? "Block" : "Reject"}</button>
                   <button className={actionButton("danger")} onClick={() => setAction({ kind: "ban_teacher", id: item.id, title: "Ban teacher and phone" })}><ShieldAlert className="size-4" />Ban</button>
                 </div>
               </div>

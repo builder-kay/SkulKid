@@ -41,7 +41,7 @@ export default function TeacherTrustPage() {
       <header className="rounded-[2rem] bg-gradient-to-br from-slate-950 via-violet-950 to-blue-900 p-6 text-white shadow-xl sm:p-8">
         <ShieldCheck className="size-7 text-emerald-300" />
         <h1 className="mt-3 text-3xl font-black sm:text-5xl">Content trust</h1>
-        <p className="mt-3 max-w-3xl leading-7 text-violet-100">See how learner-facing lessons and quizzes are checked. Content trust describes publishing history, not professional credentials.</p>
+        <p className="mt-3 max-w-3xl leading-7 text-violet-100">Published lessons are scanned automatically. Only content with a possible child-safety concern is sent to an administrator, who can block it with a clear reason.</p>
       </header>
       {error ? <p className="rounded-2xl bg-rose-50 p-4 font-bold text-rose-900" role="alert">{error}</p> : null}
       {notice ? <p className="rounded-2xl bg-emerald-50 p-4 font-bold text-emerald-900" role="status">{notice}</p> : null}

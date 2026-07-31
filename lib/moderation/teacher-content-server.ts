@@ -107,11 +107,36 @@ export async function getTeacherTrustSummary(teacherId: string) {
   return { trust, cases: cases ?? [], appeals: appeals ?? [] };
 }
 
+export async function ensureContentVersionIsNotBlocked(input: {
+  teacherId: string;
+  contentType: ModerationContentType;
+  contentId: string;
+  snapshot: unknown;
+}) {
+  const admin = createAdminClient();
+  const contentHash = stableContentHash(input.snapshot);
+  const { data, error } = await admin.from("ContentModerationCase")
+    .select("reviewNote")
+    .eq("teacherId", input.teacherId)
+    .eq("contentType", input.contentType)
+    .eq("contentId", input.contentId)
+    .eq("contentHash", contentHash)
+    .eq("status", "rejected")
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) return;
+  const reason = typeof data.reviewNote === "string" && data.reviewNote.trim()
+    ? ` Reason: ${data.reviewNote.trim()}`
+    : "";
+  throw new Error(`This exact content version was blocked by an administrator. Update the lesson before publishing it again.${reason}`);
+}
+
 export async function moderateTeacherContent(input: {
   teacherId: string;
   contentType: ModerationContentType;
   contentId: string;
   snapshot: unknown;
+  publishBeforeReview?: boolean;
 }) {
   const admin = createAdminClient();
   const trust = await ensureTeacherTrustProfile(input.teacherId);
@@ -125,10 +150,10 @@ export async function moderateTeacherContent(input: {
     .eq("contentHash", contentHash)
     .maybeSingle();
   if (existingError) throw new Error(existingError.message);
-  if (existing) return outcomeFromCase(existing, trust, contentHash);
+  if (existing) return outcomeFromCase(existing, trust, contentHash, input.publishBeforeReview);
 
   const media = collectMedia(input.snapshot);
-  const needsModeration = shouldModerateContent({
+  const needsModeration = input.contentType === "lesson" || shouldModerateContent({
     trustStatus: trust.status,
     monitoringRemaining: trust.monitoringRemaining,
     contentHash,
@@ -188,7 +213,9 @@ export async function moderateTeacherContent(input: {
       caseId: moderationCase.id,
       contentHash,
       trust,
-      message: "This content is private while an administrator reviews the safety check."
+      message: input.publishBeforeReview
+        ? "This lesson is live and has been flagged for administrator review."
+        : "This content is private while an administrator reviews the safety check."
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : "The AI safety check could not be completed.";
@@ -213,7 +240,9 @@ export async function moderateTeacherContent(input: {
       caseId: moderationCase.id,
       contentHash,
       trust,
-      message: "The safety check is temporarily unavailable. Your content is saved privately for administrator review."
+      message: input.publishBeforeReview
+        ? "This lesson is live, but its safety scan could not be completed. An administrator has been alerted."
+        : "The safety check is temporarily unavailable. Your content is saved privately for administrator review."
     };
   }
 }
@@ -223,7 +252,7 @@ export async function markModerationPublished(caseId: string) {
   const { error } = await admin.from("ContentModerationCase").update({
     publishedAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
-  }).eq("id", caseId).in("status", ["approved", "overridden"]);
+  }).eq("id", caseId).in("status", ["approved", "overridden", "held", "error"]);
   if (error) throw new Error(error.message);
 }
 
@@ -284,7 +313,7 @@ function approvedOutcome(caseId: string, contentHash: string, trust: TeacherTrus
   };
 }
 
-function outcomeFromCase(row: Record<string, unknown>, trust: TeacherTrustProfile, contentHash: string): ModerationOutcome {
+function outcomeFromCase(row: Record<string, unknown>, trust: TeacherTrustProfile, contentHash: string, publishBeforeReview = false): ModerationOutcome {
   if (row.status === "approved" || row.status === "overridden") return approvedOutcome(String(row.id), contentHash, trust);
   return {
     state: row.status === "error" ? "ai_unavailable" : "held_for_review",
@@ -292,8 +321,12 @@ function outcomeFromCase(row: Record<string, unknown>, trust: TeacherTrustProfil
     contentHash,
     trust,
     message: row.status === "error"
-      ? "The safety check is unavailable. This version remains private for administrator review."
-      : "This version remains private while an administrator reviews it."
+      ? publishBeforeReview
+        ? "This lesson is live, but its safety scan could not be completed. An administrator has been alerted."
+        : "The safety check is unavailable. This version remains private for administrator review."
+      : publishBeforeReview
+        ? "This lesson is live and has been flagged for administrator review."
+        : "This version remains private while an administrator reviews it."
   };
 }
 

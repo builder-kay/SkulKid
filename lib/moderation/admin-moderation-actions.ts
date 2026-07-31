@@ -112,6 +112,45 @@ export async function publishModeratedSnapshot(moderationCase: ModerationCase) {
   await markModerationPublished(moderationCase.id);
 }
 
+export async function blockModeratedContent(moderationCase: ModerationCase) {
+  const admin = createAdminClient();
+  const now = new Date().toISOString();
+  if (moderationCase.contentType === "lesson") {
+    const { data: lesson, error: readError } = await admin.from("AdminLessonRecord")
+      .select("status,record")
+      .eq("id", moderationCase.contentId)
+      .eq("createdBy", moderationCase.teacherId)
+      .maybeSingle();
+    if (readError) throw new Error(readError.message);
+    if (!lesson) throw new Error("The published lesson could not be found.");
+    const record = { ...(lesson.record as Record<string, unknown>), status: "draft" };
+    const { error } = await admin.from("AdminLessonRecord").update({
+      status: "draft",
+      record,
+      quarantinedAt: now,
+      preQuarantineStatus: lesson.status,
+      updatedAt: now
+    }).eq("id", moderationCase.contentId).eq("createdBy", moderationCase.teacherId);
+    if (error) throw new Error(error.message);
+    return;
+  }
+  if (moderationCase.contentType === "teacher_quiz") {
+    const { error } = await admin.from("TeacherQuiz").update({
+      status: "archived",
+      quarantinedAt: now,
+      preQuarantineStatus: "ready"
+    }).eq("id", moderationCase.contentId).eq("createdBy", moderationCase.teacherId);
+    if (error) throw new Error(error.message);
+    return;
+  }
+  const { error } = await admin.from("ClassQuiz").update({
+    status: "draft",
+    quarantinedAt: now,
+    preQuarantineStatus: "published"
+  }).eq("id", moderationCase.contentId).eq("createdBy", moderationCase.teacherId);
+  if (error) throw new Error(error.message);
+}
+
 export async function banTeacherForModeration(input: {
   teacherId: string;
   actorId: string;

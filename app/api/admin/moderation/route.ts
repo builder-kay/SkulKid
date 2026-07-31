@@ -5,6 +5,7 @@ import type { PublicLearningSnapshot } from "@/lib/public-learning/publication-s
 import {
   approveModerationCase,
   banTeacherForModeration,
+  blockModeratedContent,
   unbanTeacherAfterAppeal
 } from "@/lib/moderation/admin-moderation-actions";
 import type { ModerationContentType } from "@/lib/moderation/teacher-content-policy";
@@ -166,6 +167,7 @@ async function reviewTeacherContent(input: z.infer<typeof contentReviewSchema>, 
     await notifyApprovedClassQuiz(moderationCase, request);
   } else {
     const now = new Date().toISOString();
+    await blockModeratedContent(moderationCase);
     const { error: updateError } = await admin.from("ContentModerationCase").update({
       status: "rejected",
       reviewNote: input.note,
