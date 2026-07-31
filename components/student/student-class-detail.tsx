@@ -493,7 +493,7 @@ export function StudentClassDetail({ classId }: { classId: string }) {
                     <MessageSquareHeart className="size-7 text-blue-100" />
                     <h2 className="mt-3 text-2xl font-black">Continue in Messages</h2>
                     <p className="mt-2 max-w-2xl text-sm leading-6 text-blue-100">Class conversations now have their own WhatsApp-style workspace, where every class appears as a separate supervised group chat.</p>
-                    <Link className="mt-5 inline-flex min-h-12 items-center gap-2 rounded-xl bg-white px-5 font-black text-blue-800 shadow-sm" href={`/messages?classId=${encodeURIComponent(classId)}`}>Open {detail.classroom.name} chat <ArrowRight className="size-4" /></Link>
+                    <Link className="mt-5 inline-flex min-h-12 items-center gap-2 rounded-xl bg-white px-5 font-black text-blue-800 shadow-sm" href={`/messages?classId=${encodeURIComponent(classId)}&thread=group`}>Open {detail.classroom.name} chat <ArrowRight className="size-4" /></Link>
                   </div>
                 </div>
                 {detail.deductions.length ? <div className="mt-2"><p className="text-xs font-black uppercase tracking-wider text-amber-800">Points and safety reports</p><h2 className="mt-1 text-xl font-black text-slate-950">Account activity</h2></div> : null}

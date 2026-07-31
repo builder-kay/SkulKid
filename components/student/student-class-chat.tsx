@@ -54,7 +54,7 @@ type ChatState = {
 
 export function StudentClassChat({
   teacherName, classId, className, chat, messages, notifications, advice, value, sending,
-  onChange, onReadAdvice, onReported, onSubmit
+  onChange, onReadAdvice, onReported, onSubmit, variant = "class_group"
 }: {
   teacherName: string;
   classId: string;
@@ -69,6 +69,7 @@ export function StudentClassChat({
   onReadAdvice: (adviceId: string) => void;
   onReported: () => void;
   onSubmit: (event: React.FormEvent) => void;
+  variant?: "class_group" | "direct";
 }) {
   const endRef = useRef<HTMLDivElement>(null);
   const markedAdviceRef = useRef(new Set<string>());
@@ -87,22 +88,22 @@ export function StudentClassChat({
       messageId: item.id, senderName: item.senderName,
       attachments: item.attachments,
       linkify: item.senderRole === "teacher" || item.senderRole === "admin",
-      canReport: !item.fromStudent && item.senderRole === "student"
+      canReport: variant === "class_group" && !item.fromStudent && item.senderRole === "student"
     })),
-    ...notifications.map((item) => ({
+    ...(variant === "class_group" ? notifications.map((item) => ({
       id: `notification-${item.id}`, title: item.title, body: item.body, createdAt: item.createdAt,
       direction: "incoming" as const, kind: "announcement" as const,
       attachments: item.attachments,
       linkify: true
-    })),
-    ...advice.map((item) => ({
+    })) : []),
+    ...(variant === "class_group" ? advice.map((item) => ({
       id: `advice-${item.id}`, title: item.title || adviceLabel(item.suggestionType), body: item.message, createdAt: item.createdAt,
       direction: "incoming" as const, kind: "advice" as const, adviceId: item.id,
       feedbackCategory: item.feedbackCategory, recommendedActions: item.recommendedActions,
       followUpStatus: item.followUpStatus, dueAt: item.dueAt, resolutionNote: item.resolutionNote,
       linkify: true
-    }))
-  ].sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt)), [advice, messages, notifications]);
+    })) : [])
+  ].sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt)), [advice, messages, notifications, variant]);
 
   useEffect(() => { endRef.current?.scrollIntoView({ block: "end" }); }, [timeline.length]);
   useEffect(() => {
@@ -187,27 +188,35 @@ export function StudentClassChat({
 
   return (
     <section className="flex h-[min(42rem,calc(100dvh-6rem))] min-h-[28rem] flex-col overflow-hidden rounded-[1.25rem] border border-blue-100 bg-white shadow-[0_20px_60px_-28px_rgba(30,64,175,0.45)] sm:h-[min(46rem,calc(100dvh-8rem))] sm:min-h-[34rem] sm:rounded-[1.75rem] lg:h-[46rem]">
-      <header className="flex min-h-16 shrink-0 items-center gap-3 border-b border-blue-800/40 bg-gradient-to-r from-blue-700 via-blue-700 to-indigo-700 px-3 py-2.5 text-white sm:px-5">
+      <header className={cn("flex min-h-16 shrink-0 items-center gap-3 border-b px-3 py-2.5 text-white sm:px-5", variant === "direct" ? "border-indigo-900/40 bg-gradient-to-r from-indigo-700 via-blue-700 to-blue-800" : "border-blue-800/40 bg-gradient-to-r from-blue-700 via-blue-700 to-indigo-700")}>
         <span className="grid size-11 shrink-0 place-items-center rounded-full border border-white/25 bg-white/15 shadow-inner"><Users className="size-5" /></span>
         <div className="min-w-0 flex-1">
           <h2 className="truncate font-black">{className}</h2>
-          <p className="truncate text-xs font-semibold text-blue-100">Supervised by {teacherName} · active classmates only</p>
+          <p className="truncate text-xs font-semibold text-blue-100">
+            {variant === "direct" ? `Private chat with ${teacherName}` : `Class group · supervised by ${teacherName}`}
+          </p>
         </div>
-        <span className="grid size-10 shrink-0 place-items-center rounded-full bg-white/10" title="Teacher-supervised class chat"><ShieldCheck className="size-5 text-blue-100" /></span>
+        <span className="grid size-10 shrink-0 place-items-center rounded-full bg-white/10" title={variant === "direct" ? "Private teacher chat" : "Teacher-supervised class chat"}><ShieldCheck className="size-5 text-blue-100" /></span>
       </header>
-      <div className="shrink-0 border-b border-blue-100 bg-blue-50 px-3 py-2.5 sm:px-5">
-        <details>
-          <summary className="cursor-pointer select-none text-xs font-black text-blue-900"><ShieldCheck className="mr-1.5 inline size-4" />Safe class chat · tap to read the rules</summary>
-          <ul className="mt-2 grid gap-1 pl-5 text-xs leading-5 text-blue-950">{chat.rules.map((rule) => <li className="list-disc" key={rule}>{rule}</li>)}</ul>
-        </details>
-      </div>
+      {variant === "class_group" ? (
+        <div className="shrink-0 border-b border-blue-100 bg-blue-50 px-3 py-2.5 sm:px-5">
+          <details>
+            <summary className="cursor-pointer select-none text-xs font-black text-blue-900"><ShieldCheck className="mr-1.5 inline size-4" />Safe class chat · tap to read the rules</summary>
+            <ul className="mt-2 grid gap-1 pl-5 text-xs leading-5 text-blue-950">{chat.rules.map((rule) => <li className="list-disc" key={rule}>{rule}</li>)}</ul>
+          </details>
+        </div>
+      ) : (
+        <div className="shrink-0 border-b border-indigo-100 bg-indigo-50 px-3 py-2.5 text-xs font-bold text-indigo-950 sm:px-5">
+          Only you and your teacher can see this private conversation.
+        </div>
+      )}
       <div aria-live="polite" className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-slate-100 bg-[radial-gradient(circle_at_center,rgba(59,130,246,.10)_1px,transparent_1px)] bg-[length:18px_18px] px-2.5 py-4 sm:px-6 sm:py-5" role="log">
         <div className="mx-auto grid max-w-4xl gap-2">
           {timeline.length ? timeline.map((item, index) => {
             const previous = timeline[index - 1];
             const showDate = !previous || new Date(previous.createdAt).toDateString() !== new Date(item.createdAt).toDateString();
             return <div key={item.id}>{showDate ? <DateDivider value={item.createdAt} /> : null}<Bubble item={item} onAcknowledge={acknowledge} onReport={openReport} reporting={reporting} /></div>;
-          }) : <div className="mx-auto mt-12 max-w-sm rounded-2xl border border-blue-100 bg-white/95 p-5 text-center text-sm leading-6 text-slate-700 shadow-sm"><span className="mx-auto mb-3 grid size-11 place-items-center rounded-full bg-blue-100 text-blue-700"><MessageCircle className="size-5" /></span><b className="block text-slate-950">Your class conversation starts here</b>Your teacher supervises this room, and only active classmates can participate.</div>}
+          }) : <div className="mx-auto mt-12 max-w-sm rounded-2xl border border-blue-100 bg-white/95 p-5 text-center text-sm leading-6 text-slate-700 shadow-sm"><span className="mx-auto mb-3 grid size-11 place-items-center rounded-full bg-blue-100 text-blue-700"><MessageCircle className="size-5" /></span><b className="block text-slate-950">{variant === "direct" ? "Message your teacher" : "Your class conversation starts here"}</b>{variant === "direct" ? "This private chat is only between you and your teacher." : "Your teacher supervises this room, and only active classmates can participate."}</div>}
           <div ref={endRef} />
         </div>
       </div>
@@ -224,7 +233,7 @@ export function StudentClassChat({
         </div>
       ) : null}
       <form className="flex shrink-0 items-end gap-2 border-t border-blue-100 bg-white p-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] sm:p-3" onSubmit={onSubmit}>
-        <textarea aria-label={`Message ${className} discussion`} className="max-h-32 min-h-12 flex-1 resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-base leading-5 shadow-inner outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-200 disabled:bg-slate-200 sm:text-sm" disabled={!chat.canPost} maxLength={1000} onChange={(event) => onChange(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} placeholder={chat.canPost ? "Message your class…" : "Posting is unavailable"} rows={1} value={value} />
+        <textarea aria-label={variant === "direct" ? `Message ${teacherName}` : `Message ${className} discussion`} className="max-h-32 min-h-12 flex-1 resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-base leading-5 shadow-inner outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-200 disabled:bg-slate-200 sm:text-sm" disabled={!chat.canPost} maxLength={1000} onChange={(event) => onChange(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} placeholder={chat.canPost ? (variant === "direct" ? "Message your teacher…" : "Message your class…") : "Posting is unavailable"} rows={1} value={value} />
         <button aria-label="Send message" className="grid size-12 shrink-0 place-items-center rounded-full bg-blue-700 text-white shadow-md shadow-blue-700/20 transition hover:bg-blue-800 active:scale-95 disabled:opacity-50" disabled={!chat.canPost || sending || !value.trim()} type="submit">{sending ? <Loader2 className="size-5 animate-spin" /> : <Send className="size-5" />}</button>
       </form>
       {reportTarget ? (

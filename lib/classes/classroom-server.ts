@@ -1160,70 +1160,171 @@ async function getTeacherMessagingRoster(teacherId: string) {
 export async function getTeacherMessagingData(teacherId: string) {
   const admin = createAdminClient();
   const roster = await getTeacherMessagingRoster(teacherId);
-  const [{ data: messages, error }, { data: notifications, error: notificationError }] = await Promise.all([
+  const classIds = roster.classes.map((item) => item.id);
+  if (!classIds.length) {
+    return { classes: [], threads: [], messages: [] };
+  }
+  const [{ data: directRows, error: directError }, { data: classRows, error: classError }] = await Promise.all([
     admin.from("ClassMessage")
-      .select("id,classId,studentId,body,attachments,createdAt,readAt")
-      .eq("teacherId", teacherId)
+      .select("id,classId,studentId,senderId,senderRole,body,attachments,createdAt,readAt,kind")
       .eq("scope", "legacy_direct")
-      .order("createdAt", { ascending: false })
-      .limit(300),
-    admin.from("TeacherNotification")
-      .select("id,classId,title,body,attachments,createdAt")
-      .eq("teacherId", teacherId)
-      .order("createdAt", { ascending: false })
-      .limit(200)
+      .in("classId", classIds)
+      .is("deletedAt", null)
+      .order("createdAt", { ascending: true })
+      .limit(800),
+    admin.from("ClassMessage")
+      .select("id,classId,studentId,senderId,senderRole,body,attachments,createdAt,readAt,kind")
+      .eq("scope", "class_room")
+      .in("classId", classIds)
+      .eq("moderationStatus", "allowed")
+      .is("deletedAt", null)
+      .order("createdAt", { ascending: true })
+      .limit(800)
   ]);
-  if (error) throw new Error(error.message);
-  if (notificationError) throw new Error(notificationError.message);
-  const notificationIds = (notifications ?? []).map((notification) => notification.id as string);
-  const { data: notificationRecipients, error: recipientError } = notificationIds.length
-    ? await admin.from("TeacherNotificationRecipient")
-        .select("notificationId,studentId")
-        .in("notificationId", notificationIds)
-    : { data: [], error: null };
-  if (recipientError) throw new Error(recipientError.message);
-  const { studentById, classById, firstClassByStudent } = roster;
-  const notificationById = new Map((notifications ?? []).map((notification) => [notification.id as string, notification]));
-  const attachmentEntries = await Promise.all([
-    ...(messages ?? []).map(async (message) => [String(message.id), await signMessageAttachments(message.attachments)] as const),
-    ...(notifications ?? []).map(async (notification) => [String(notification.id), await signMessageAttachments(notification.attachments)] as const)
-  ]);
+  if (directError) throw new Error(directError.message);
+  if (classError) throw new Error(classError.message);
+
+  const { studentById, classById } = roster;
+  const allRows = [...(directRows ?? []), ...(classRows ?? [])];
+  const attachmentEntries = await Promise.all(
+    allRows.map(async (message) => [String(message.id), await signMessageAttachments(message.attachments)] as const)
+  );
   const attachmentsById = new Map(attachmentEntries);
-  const incoming = (messages ?? [])
-    .filter((message) => Boolean(message.studentId))
-    .map((message) => ({
+  const senderIds = [...new Set(allRows.map((row) => row.senderId as string))];
+  const senderUsers = await Promise.all(senderIds.map(async (id) => (await admin.auth.admin.getUserById(id)).data.user));
+  const senderNameById = new Map(senderUsers.filter(Boolean).map((user) => [user!.id, displayNameFrom(user!, "Member")]));
+
+  type ThreadMessage = {
+    id: string;
+    classId: string;
+    className: string;
+    studentId: string | null;
+    studentName: string | null;
+    senderId: string;
+    senderName: string;
+    senderRole: "student" | "teacher" | "admin";
+    title: string | null;
+    body: string;
+    attachments: Awaited<ReturnType<typeof signMessageAttachments>>;
+    direction: "incoming" | "outgoing";
+    kind: "discussion" | "announcement";
+    createdAt: string;
+    readAt: string | null;
+    scope: "class_room" | "legacy_direct";
+  };
+
+  const mapRow = (message: (typeof allRows)[number], scope: "class_room" | "legacy_direct"): ThreadMessage => {
+    const senderRole = (message.senderRole as ThreadMessage["senderRole"]) || "student";
+    const outgoing = message.senderId === teacherId || senderRole === "teacher" || senderRole === "admin";
+    return {
       id: message.id as string,
       classId: message.classId as string,
       className: classById.get(message.classId as string) ?? "Class",
-      studentId: message.studentId as string,
-      studentName: studentById.get(message.studentId as string)?.displayName ?? "Student",
-      title: null,
+      studentId: (message.studentId as string | null) ?? null,
+      studentName: message.studentId ? studentById.get(message.studentId as string)?.displayName ?? "Student" : null,
+      senderId: message.senderId as string,
+      senderName: outgoing
+        ? "You"
+        : (senderNameById.get(message.senderId as string)
+          ?? studentById.get(message.senderId as string)?.displayName
+          ?? "Learner"),
+      senderRole,
+      title: message.kind === "announcement" ? "Class announcement" : null,
       body: message.body as string,
       attachments: attachmentsById.get(String(message.id)) ?? [],
-      direction: "incoming" as const,
+      direction: outgoing ? "outgoing" : "incoming",
+      kind: (message.kind as "discussion" | "announcement") || "discussion",
       createdAt: message.createdAt as string,
-      readAt: (message.readAt as string | null) ?? null
-    }));
-  const outgoing = (notificationRecipients ?? []).flatMap((recipient) => {
-    const notification = notificationById.get(recipient.notificationId as string);
-    if (!notification) return [];
-    const fallbackClass = firstClassByStudent.get(recipient.studentId as string);
-    const notificationClassId = notification.classId as string | null;
-    return [{
-      id: `${notification.id as string}:${recipient.studentId as string}`,
-      classId: notificationClassId ?? fallbackClass?.id ?? "",
-      className: notificationClassId ? classById.get(notificationClassId) ?? "Class" : fallbackClass?.name ?? "Learner",
-      studentId: recipient.studentId as string,
-      studentName: studentById.get(recipient.studentId as string)?.displayName ?? "Student",
-      title: notification.title as string,
-      body: notification.body as string,
-      attachments: attachmentsById.get(String(notification.id)) ?? [],
-      direction: "outgoing" as const,
-      createdAt: notification.createdAt as string,
-      readAt: notification.createdAt as string
-    }];
+      readAt: (message.readAt as string | null) ?? null,
+      scope
+    };
+  };
+
+  const classMessages = (classRows ?? []).map((row) => mapRow(row, "class_room"));
+  const directMessages = (directRows ?? []).map((row) => mapRow(row, "legacy_direct"));
+
+  const classThreads = roster.classes.map((classroom) => {
+    const messages = classMessages.filter((item) => item.classId === classroom.id);
+    const latest = messages.at(-1) ?? null;
+    return {
+      id: `class:${classroom.id}`,
+      kind: "class_group" as const,
+      classId: classroom.id,
+      className: classroom.name,
+      name: classroom.name,
+      studentId: null as string | null,
+      studentCount: classroom.students.length,
+      teacherRole: classroom.teacherRole,
+      assignedSubjects: classroom.assignedSubjects,
+      messages,
+      latest,
+      // Class rooms are shared; keep unread focused on private learner DMs.
+      unread: 0
+    };
   });
-  const unreadIds = incoming.filter((message) => !message.readAt).map((message) => message.id);
+
+  const dmKey = (classId: string, studentId: string) => `${classId}:${studentId}`;
+  const dmMap = new Map<string, {
+    id: string;
+    kind: "direct";
+    classId: string;
+    className: string;
+    name: string;
+    studentId: string;
+    studentCount: null;
+    teacherRole: typeof roster.classes[number]["teacherRole"];
+    assignedSubjects: typeof roster.classes[number]["assignedSubjects"];
+    messages: ThreadMessage[];
+    latest: ThreadMessage | null;
+    unread: number;
+  }>();
+
+  for (const classroom of roster.classes) {
+    for (const student of classroom.students) {
+      const key = dmKey(classroom.id, student.id);
+      dmMap.set(key, {
+        id: `dm:${classroom.id}:${student.id}`,
+        kind: "direct",
+        classId: classroom.id,
+        className: classroom.name,
+        name: student.name,
+        studentId: student.id,
+        studentCount: null,
+        teacherRole: classroom.teacherRole,
+        assignedSubjects: classroom.assignedSubjects,
+        messages: [],
+        latest: null,
+        unread: 0
+      });
+    }
+  }
+
+  for (const message of directMessages) {
+    if (!message.studentId) continue;
+    const key = dmKey(message.classId, message.studentId);
+    const thread = dmMap.get(key) ?? {
+      id: `dm:${message.classId}:${message.studentId}`,
+      kind: "direct" as const,
+      classId: message.classId,
+      className: message.className,
+      name: message.studentName ?? "Student",
+      studentId: message.studentId,
+      studentCount: null,
+      teacherRole: "class_teacher" as const,
+      assignedSubjects: [],
+      messages: [] as ThreadMessage[],
+      latest: null as ThreadMessage | null,
+      unread: 0
+    };
+    thread.messages.push(message);
+    thread.latest = message;
+    if (message.direction === "incoming" && !message.readAt) thread.unread += 1;
+    dmMap.set(key, thread);
+  }
+
+  const unreadIds = directMessages
+    .filter((message) => message.direction === "incoming" && !message.readAt)
+    .map((message) => message.id);
   if (unreadIds.length) {
     const { error: readError } = await admin.from("ClassMessage")
       .update({ readAt: new Date().toISOString() })
@@ -1231,10 +1332,192 @@ export async function getTeacherMessagingData(teacherId: string) {
       .eq("scope", "legacy_direct");
     if (readError) throw new Error(readError.message);
   }
+
+  const threads = [...classThreads, ...dmMap.values()].sort((a, b) => {
+    const aTime = a.latest ? Date.parse(a.latest.createdAt) : 0;
+    const bTime = b.latest ? Date.parse(b.latest.createdAt) : 0;
+    // Keep class group rooms pinned above learner DMs, then sort by recent activity.
+    if (a.kind !== b.kind) return a.kind === "class_group" ? -1 : 1;
+    if (aTime !== bTime) return bTime - aTime;
+    return a.name.localeCompare(b.name);
+  });
+
   return {
     classes: roster.classes,
-    messages: [...incoming, ...outgoing].sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt))
+    threads,
+    // Backward-compatible flat DM list for any older clients.
+    messages: directMessages
   };
+}
+
+export async function createTeacherClassRoomMessage(input: {
+  teacherId: string;
+  classId: string;
+  courseId?: string | null;
+  body: string;
+  kind?: "discussion" | "announcement";
+  attachments?: StoredMessageAttachment[];
+}) {
+  const access = await getTeacherClassAccess(input.teacherId, input.classId);
+  if (access.role === "subject_teacher") {
+    if (!input.courseId || !access.assignedCourseIds.includes(input.courseId)) {
+      throw new Error("Choose one of your assigned subjects for this class message.");
+    }
+  }
+  const body = input.body.trim();
+  if (!body && !(input.attachments?.length)) throw new Error("Write a message or attach a file.");
+  const safety = analyseClassChatMessage(body || "Attachment", { allowLinks: true });
+  if (!safety.allowed) throw new Error(safety.reason || "This message was held by the safety filter.");
+  const admin = createAdminClient();
+  const { data, error } = await admin.from("ClassMessage").insert({
+    classId: input.classId,
+    courseId: input.courseId ?? null,
+    teacherId: input.teacherId,
+    senderId: input.teacherId,
+    senderRole: "teacher",
+    scope: "class_room",
+    kind: input.kind ?? "discussion",
+    body: body || (input.attachments?.some((item) => item.kind === "audio") ? "Voice message" : "Attachment"),
+    attachments: input.attachments ?? [],
+    moderationStatus: "allowed"
+  }).select("id,body,createdAt").single();
+  if (error) throw new Error(error.message);
+  await admin.from("ClassMessageAudit").insert({
+    messageId: data.id,
+    classId: input.classId,
+    actorId: input.teacherId,
+    action: "created",
+    bodySnapshot: body
+  });
+  return { id: String(data.id), body: String(data.body), createdAt: String(data.createdAt) };
+}
+
+export async function createTeacherDirectMessage(input: {
+  teacherId: string;
+  classId: string;
+  studentId: string;
+  body: string;
+  attachments?: StoredMessageAttachment[];
+}) {
+  await getTeacherClassAccess(input.teacherId, input.classId);
+  const roster = await listClassRoster(input.teacherId, input.classId);
+  if (!roster.some((item) => item.studentId === input.studentId)) {
+    throw new Error("That learner is not in this class.");
+  }
+  const body = input.body.trim();
+  if (!body && !(input.attachments?.length)) throw new Error("Write a message or attach a file.");
+  const safety = analyseClassChatMessage(body || "Attachment", { allowLinks: true });
+  if (!safety.allowed) throw new Error(safety.reason || "This message was held by the safety filter.");
+  const admin = createAdminClient();
+  const { data, error } = await admin.from("ClassMessage").insert({
+    classId: input.classId,
+    teacherId: input.teacherId,
+    studentId: input.studentId,
+    senderId: input.teacherId,
+    senderRole: "teacher",
+    scope: "legacy_direct",
+    kind: "discussion",
+    body: body || (input.attachments?.some((item) => item.kind === "audio") ? "Voice message" : "Attachment"),
+    attachments: input.attachments ?? [],
+    moderationStatus: "allowed",
+    readAt: new Date().toISOString()
+  }).select("id,body,createdAt").single();
+  if (error) throw new Error(error.message);
+  return { id: String(data.id), body: String(data.body), createdAt: String(data.createdAt) };
+}
+
+export async function createStudentDirectMessage(input: {
+  studentId: string;
+  classId: string;
+  body: string;
+}) {
+  await assertActiveMember(input.studentId, input.classId);
+  const admin = createAdminClient();
+  const { data: classroom, error } = await admin
+    .from("TeacherClass")
+    .select("teacherId")
+    .eq("id", input.classId)
+    .eq("status", "active")
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!classroom) throw new Error("Class not found.");
+  const { data: setting } = await admin.from("ClassChatSetting")
+    .select("guardianConsentRequired,rulesVersion")
+    .eq("classId", input.classId)
+    .maybeSingle();
+  if (setting?.guardianConsentRequired !== false) {
+    const { data: consent } = await admin.from("ClassChatConsent")
+      .select("active,guardianConfirmedAt,rulesAcceptedAt,rulesVersion")
+      .eq("classId", input.classId)
+      .eq("studentId", input.studentId)
+      .maybeSingle();
+    if (!consent?.active || !consent.guardianConfirmedAt || !consent.rulesAcceptedAt || consent.rulesVersion !== setting?.rulesVersion) {
+      throw new Error("Guardian consent and acceptance of the class-chat rules are required before messaging your teacher.");
+    }
+  }
+  const safety = analyseClassChatMessage(input.body);
+  if (!safety.allowed) throw new Error(safety.reason ?? "This message was held for safety review.");
+  const { data: inserted, error: insertError } = await admin.from("ClassMessage").insert({
+    classId: input.classId,
+    teacherId: classroom.teacherId,
+    studentId: input.studentId,
+    senderId: input.studentId,
+    senderRole: "student",
+    scope: "legacy_direct",
+    kind: "discussion",
+    body: input.body.trim(),
+    moderationStatus: "allowed",
+    moderationCategories: [],
+    moderationReason: null
+  }).select("id,body,createdAt").single();
+  if (insertError) throw new Error(insertError.message);
+  return {
+    id: String(inserted.id),
+    body: String(inserted.body),
+    createdAt: String(inserted.createdAt)
+  };
+}
+
+export async function getStudentDirectMessages(studentId: string, classId: string, options?: { markRead?: boolean }) {
+  await assertActiveMember(studentId, classId);
+  const admin = createAdminClient();
+  const { data: rows, error } = await admin.from("ClassMessage")
+    .select("id,body,attachments,createdAt,senderId,senderRole,kind,editedAt,readAt")
+    .eq("classId", classId)
+    .eq("studentId", studentId)
+    .eq("scope", "legacy_direct")
+    .is("deletedAt", null)
+    .order("createdAt", { ascending: true })
+    .limit(500);
+  if (error) throw new Error(error.message);
+  const attachmentEntries = await Promise.all(
+    (rows ?? []).map(async (message) => [String(message.id), await signMessageAttachments(message.attachments)] as const)
+  );
+  const attachmentsById = new Map(attachmentEntries);
+  if (options?.markRead) {
+    const unreadTeacherIds = (rows ?? [])
+      .filter((row) => row.senderId !== studentId && !row.readAt)
+      .map((row) => row.id as string);
+    if (unreadTeacherIds.length) {
+      await admin.from("ClassMessage")
+        .update({ readAt: new Date().toISOString() })
+        .in("id", unreadTeacherIds)
+        .eq("scope", "legacy_direct");
+    }
+  }
+  return (rows ?? []).map((row) => ({
+    id: row.id as string,
+    body: row.body as string,
+    attachments: attachmentsById.get(String(row.id)) ?? [],
+    createdAt: row.createdAt as string,
+    fromStudent: row.senderId === studentId,
+    senderId: row.senderId as string,
+    senderName: row.senderId === studentId ? "You" : "Teacher",
+    senderRole: row.senderRole as "student" | "teacher" | "admin",
+    kind: row.kind as "discussion" | "announcement",
+    editedAt: (row.editedAt as string | null) ?? null,
+    readAt: (row.readAt as string | null) ?? null
+  }));
 }
 
 export async function createTeacherNotification(input: {
@@ -1261,11 +1544,26 @@ export async function createTeacherNotification(input: {
     if (input.audience === "student" && recipients.length !== 1) throw new Error("Choose one student.");
   }
   if (!recipients.length) throw new Error("There are no students in this audience.");
-  const resolvedClassId = input.classId
-    ?? (input.audience === "student" || input.audience === "selected"
-      ? roster.firstClassByStudent.get(recipients[0]!)?.id ?? null
-      : null);
   const admin = createAdminClient();
+
+  // Private / selected audiences become real 1:1 chat messages so both sides share a thread.
+  if (input.audience === "student" || input.audience === "selected") {
+    const body = `${input.title.trim()}\n\n${input.body.trim()}`.slice(0, 1000);
+    for (const studentId of recipients) {
+      const classId = input.classId ?? roster.firstClassByStudent.get(studentId)?.id;
+      if (!classId) continue;
+      await createTeacherDirectMessage({
+        teacherId: input.teacherId,
+        classId,
+        studentId,
+        body,
+        attachments: input.attachments
+      });
+    }
+    return recipients.length;
+  }
+
+  const resolvedClassId = input.classId ?? null;
   const { data: notification, error } = await admin.from("TeacherNotification").insert({
     teacherId: input.teacherId,
     classId: resolvedClassId,
@@ -1747,8 +2045,9 @@ export async function getStudentClassDetail(studentId: string, classId: string) 
     },
     notifications: (notificationRows ?? [])
       .filter((row) => {
+        // Keep broadcast notices out of private DM history; class announcements stay in the group room.
+        if (row.audience === "student" || row.audience === "selected") return false;
         if (row.classId === classId) return true;
-        // School-wide broadcasts without a class still appear in every room.
         return row.classId == null && row.audience === "all";
       })
       .map((row) => ({
@@ -1759,6 +2058,7 @@ export async function getStudentClassDetail(studentId: string, classId: string) 
         audience: row.audience as string,
         createdAt: row.createdAt as string
       })),
+    directMessages: await getStudentDirectMessages(studentId, classId, { markRead: false }),
     leaderboard
   };
 }
