@@ -20,4 +20,15 @@ describe("class chat safety", () => {
     expect(result.allowed).toBe(false);
     expect(result.categories).toContain(category);
   });
+
+  it("allows teachers to send links while still blocking other risks", () => {
+    expect(analyseClassChatMessage("Read https://example.com/notes", { allowLinks: true })).toMatchObject({
+      allowed: true,
+      categories: []
+    });
+    expect(analyseClassChatMessage("Call me on 0548006722", { allowLinks: true })).toMatchObject({
+      allowed: false,
+      categories: ["phone_number"]
+    });
+  });
 });

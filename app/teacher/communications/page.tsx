@@ -17,6 +17,7 @@ import {
   Users,
   X
 } from "lucide-react";
+import { ChatMessageText } from "@/components/chat/chat-message-text";
 import { cn } from "@/lib/utils";
 
 type Message = {
@@ -377,7 +378,12 @@ function MessageBubble({ message }: { message: Message }) {
         outgoing ? "rounded-tr-none bg-blue-700 text-white" : "rounded-tl-none bg-white"
       )}>
         {message.title && message.title !== "Message from your teacher" ? <p className={cn("mb-1 text-xs font-black", outgoing ? "text-blue-100" : "text-blue-800")}>{message.title}</p> : null}
-        <p className={cn("whitespace-pre-wrap break-words text-sm leading-5", outgoing ? "text-white" : "text-slate-900")}>{message.body}</p>
+        <ChatMessageText
+          body={message.body}
+          className={cn("whitespace-pre-wrap break-words text-sm leading-5", outgoing ? "text-white" : "text-slate-900")}
+          linkClassName={outgoing ? "text-sky-100" : "text-blue-700"}
+          linkify={outgoing}
+        />
         <AttachmentList attachments={message.attachments ?? []} outgoing={outgoing} />
         <div className="mt-1 flex items-center justify-end gap-1 pl-8">
           <time className={cn("text-[10px]", outgoing ? "text-blue-100" : "text-slate-500")}>{messageTime(message.createdAt)}</time>

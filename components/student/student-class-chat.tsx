@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CheckCheck, Clock3, Flag, Loader2, LockKeyhole, Paperclip, Send, ShieldCheck, Users } from "lucide-react";
+import { ChatMessageText } from "@/components/chat/chat-message-text";
 import type { AdviceSuggestionType } from "@/lib/classes/types";
 import { cn } from "@/lib/utils";
 
@@ -14,6 +15,7 @@ type ChatItem = {
   kind: "message" | "announcement" | "advice";
   messageId?: string;
   senderName?: string;
+  linkify?: boolean;
   canReport?: boolean;
   adviceId?: string;
   feedbackCategory?: "celebration" | "practice" | "intervention" | null;
@@ -67,18 +69,21 @@ export function StudentClassChat({
       title: item.kind === "announcement" ? "Teacher announcement" : undefined,
       messageId: item.id, senderName: item.senderName,
       attachments: item.attachments,
+      linkify: item.senderRole === "teacher" || item.senderRole === "admin",
       canReport: !item.fromStudent && item.senderRole === "student"
     })),
     ...notifications.map((item) => ({
       id: `notification-${item.id}`, title: item.title, body: item.body, createdAt: item.createdAt,
-      direction: "incoming" as const, kind: "announcement" as const
-      ,attachments: item.attachments
+      direction: "incoming" as const, kind: "announcement" as const,
+      attachments: item.attachments,
+      linkify: true
     })),
     ...advice.map((item) => ({
       id: `advice-${item.id}`, title: item.title || adviceLabel(item.suggestionType), body: item.message, createdAt: item.createdAt,
       direction: "incoming" as const, kind: "advice" as const, adviceId: item.id,
       feedbackCategory: item.feedbackCategory, recommendedActions: item.recommendedActions,
-      followUpStatus: item.followUpStatus, dueAt: item.dueAt, resolutionNote: item.resolutionNote
+      followUpStatus: item.followUpStatus, dueAt: item.dueAt, resolutionNote: item.resolutionNote,
+      linkify: true
     }))
   ].sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt)), [advice, messages, notifications]);
 
@@ -179,7 +184,12 @@ function Bubble({ item, onAcknowledge, onReport, reporting }: { item: ChatItem; 
     <article className={cn("max-w-[88%] rounded-2xl px-3.5 py-2.5 shadow-sm sm:max-w-[76%] lg:max-w-[68%]", outgoing ? "rounded-br-sm bg-blue-700 text-white" : "rounded-bl-sm border border-slate-200/80 bg-white")}>
       {item.senderName && !outgoing ? <p className="mb-0.5 text-xs font-black text-blue-700">{item.senderName}</p> : null}
       {item.title ? <p className={cn("mb-1 text-xs font-black", outgoing ? "text-blue-100" : item.kind === "announcement" ? "text-violet-700" : "text-blue-700")}>{item.title}</p> : null}
-      <p className={cn("whitespace-pre-wrap break-words text-sm leading-5", outgoing ? "text-white" : "text-slate-900")}>{item.body}</p>
+      <ChatMessageText
+        body={item.body}
+        className={cn("whitespace-pre-wrap break-words text-sm leading-5", outgoing ? "text-white" : "text-slate-900")}
+        linkClassName={outgoing ? "text-sky-100" : "text-blue-700"}
+        linkify={Boolean(item.linkify)}
+      />
       {item.attachments?.length ? <div className="mt-2 grid gap-2">{item.attachments.map((attachment) => attachment.kind === "image" ? <a href={attachment.url} key={attachment.url} rel="noreferrer" target="_blank"><img alt={attachment.name} className="max-h-72 w-full rounded-xl object-cover" loading="lazy" src={attachment.url} /></a> : attachment.kind === "audio" ? <audio className="max-w-full" controls key={attachment.url} preload="metadata" src={attachment.url} /> : <a className={cn("inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-black", outgoing ? "border-white/30 text-white" : "border-slate-200 text-blue-700")} download={attachment.name} href={attachment.url} key={attachment.url} rel="noreferrer" target="_blank"><Paperclip className="size-4" /><span className="max-w-48 truncate">{attachment.name}</span></a>)}</div> : null}
       {item.recommendedActions?.length ? <div className="mt-3 grid gap-1.5">{item.recommendedActions.map((action) => action.href ? <a className="rounded-lg bg-blue-50 px-3 py-2 text-xs font-black text-blue-800 hover:bg-blue-100" href={action.href} key={action.label}>→ {action.label}</a> : <p className="rounded-lg bg-blue-50 px-3 py-2 text-xs font-bold text-blue-950" key={action.label}>→ {action.label}</p>)}</div> : null}
       {item.dueAt ? <p className="mt-2 flex items-center gap-1 text-[11px] font-bold text-amber-800"><Clock3 className="size-3" />Suggested by {new Date(item.dueAt).toLocaleDateString()}</p> : null}

@@ -31,15 +31,21 @@ const patterns: Array<{
 export const childFriendlyChatRules = [
   "Use kind words and discuss class learning.",
   "Do not share phone numbers, addresses, passwords, email addresses or live locations.",
-  "Do not send links, pictures, videos or files.",
+  "Only teachers may share links. Learners must not send links, pictures, videos or files.",
   "Do not threaten, bully, embarrass or pressure another learner.",
   "Tell your teacher or another trusted adult if a message makes you feel unsafe.",
   "Messages may be reviewed by your teacher and SkulKid safety administrators."
 ] as const;
 
-export function analyseClassChatMessage(input: string): ChatSafetyResult {
+export function analyseClassChatMessage(
+  input: string,
+  options?: { allowLinks?: boolean }
+): ChatSafetyResult {
   const body = input.trim().replace(/\s+/g, " ");
-  const matches = patterns.filter((item) => item.pattern.test(body));
+  const matches = patterns.filter((item) => {
+    if (options?.allowLinks && item.category === "link") return false;
+    return item.pattern.test(body);
+  });
   if (!matches.length) return { allowed: true, severity: "low", categories: [], reason: null };
   const severityOrder = { low: 0, medium: 1, high: 2, critical: 3 } as const;
   const severity = matches.reduce<ChatSafetyResult["severity"]>(
@@ -52,7 +58,9 @@ export function analyseClassChatMessage(input: string): ChatSafetyResult {
     severity,
     categories,
     reason: categories.some((item) => ["link", "phone_number", "email", "personal_information"].includes(item))
-      ? "For safety, class chat does not allow links or personal contact information."
+      ? categories.includes("link")
+        ? "For safety, only teachers may send links in class chat. Personal contact information is not allowed."
+        : "For safety, class chat does not allow personal contact information."
       : "This message may be unsafe or hurtful and was sent to the teacher for review."
   };
 }
