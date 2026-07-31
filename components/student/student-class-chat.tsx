@@ -72,6 +72,7 @@ export function StudentClassChat({
   variant?: "class_group" | "direct";
 }) {
   const endRef = useRef<HTMLDivElement>(null);
+  const logRef = useRef<HTMLDivElement>(null);
   const markedAdviceRef = useRef(new Set<string>());
   const [reporting, setReporting] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
@@ -80,22 +81,20 @@ export function StudentClassChat({
   const [reportDetails, setReportDetails] = useState("");
   const [acceptingRules, setAcceptingRules] = useState(false);
   const timeline = useMemo<ChatItem[]>(() => [
-    ...messages.map((item) => ({
-      id: `message-${item.id}`, body: item.body, createdAt: item.createdAt,
-      direction: item.fromStudent ? "outgoing" as const : "incoming" as const,
-      kind: item.kind === "announcement" ? "announcement" as const : "message" as const,
-      title: item.kind === "announcement" ? "Teacher announcement" : undefined,
-      messageId: item.id, senderName: item.senderName,
-      attachments: item.attachments,
-      linkify: item.senderRole === "teacher" || item.senderRole === "admin",
-      canReport: variant === "class_group" && !item.fromStudent && item.senderRole === "student"
-    })),
-    ...(variant === "class_group" ? notifications.map((item) => ({
-      id: `notification-${item.id}`, title: item.title, body: item.body, createdAt: item.createdAt,
-      direction: "incoming" as const, kind: "announcement" as const,
-      attachments: item.attachments,
-      linkify: true
-    })) : []),
+    ...messages.map((item) => {
+      const isTeacherAnnouncement = variant === "class_group"
+        && (item.senderRole === "teacher" || item.senderRole === "admin" || item.kind === "announcement");
+      return {
+        id: `message-${item.id}`, body: item.body, createdAt: item.createdAt,
+        direction: item.fromStudent ? "outgoing" as const : "incoming" as const,
+        kind: isTeacherAnnouncement ? "announcement" as const : "message" as const,
+        title: isTeacherAnnouncement ? "Announcement" : undefined,
+        messageId: item.id, senderName: item.senderName,
+        attachments: item.attachments,
+        linkify: item.senderRole === "teacher" || item.senderRole === "admin",
+        canReport: variant === "class_group" && !item.fromStudent && item.senderRole === "student"
+      };
+    }),
     ...(variant === "class_group" ? advice.map((item) => ({
       id: `advice-${item.id}`, title: item.title || adviceLabel(item.suggestionType), body: item.message, createdAt: item.createdAt,
       direction: "incoming" as const, kind: "advice" as const, adviceId: item.id,
@@ -103,9 +102,17 @@ export function StudentClassChat({
       followUpStatus: item.followUpStatus, dueAt: item.dueAt, resolutionNote: item.resolutionNote,
       linkify: true
     })) : [])
-  ].sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt)), [advice, messages, notifications, variant]);
+  ].sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt)), [advice, messages, variant]);
 
-  useEffect(() => { endRef.current?.scrollIntoView({ block: "end" }); }, [timeline.length]);
+  const latestItemId = timeline.at(-1)?.id ?? "";
+  useEffect(() => {
+    const log = logRef.current;
+    if (!log) return;
+    // Keep private and class-group chats pinned to the latest message inside the log pane.
+    requestAnimationFrame(() => {
+      log.scrollTop = log.scrollHeight;
+    });
+  }, [classId, variant, timeline.length, latestItemId]);
   useEffect(() => {
     for (const item of advice) {
       if (!item.readAt && !markedAdviceRef.current.has(item.id)) {
@@ -210,7 +217,7 @@ export function StudentClassChat({
           Only you and your teacher can see this private conversation.
         </div>
       )}
-      <div aria-live="polite" className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-slate-100 bg-[radial-gradient(circle_at_center,rgba(59,130,246,.10)_1px,transparent_1px)] bg-[length:18px_18px] px-2.5 py-4 sm:px-6 sm:py-5" role="log">
+      <div aria-live="polite" className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-slate-100 bg-[radial-gradient(circle_at_center,rgba(59,130,246,.10)_1px,transparent_1px)] bg-[length:18px_18px] px-2.5 py-4 sm:px-6 sm:py-5" ref={logRef} role="log">
         <div className="mx-auto grid max-w-4xl gap-2">
           {timeline.length ? timeline.map((item, index) => {
             const previous = timeline[index - 1];

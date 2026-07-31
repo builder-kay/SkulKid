@@ -1229,11 +1229,15 @@ export async function getTeacherMessagingData(teacherId: string) {
           ?? studentById.get(message.senderId as string)?.displayName
           ?? "Learner"),
       senderRole,
-      title: message.kind === "announcement" ? "Class announcement" : null,
+      title: scope === "class_room" && (senderRole === "teacher" || senderRole === "admin")
+        ? "Announcement"
+        : null,
       body: message.body as string,
       attachments: attachmentsById.get(String(message.id)) ?? [],
       direction: outgoing ? "outgoing" : "incoming",
-      kind: (message.kind as "discussion" | "announcement") || "discussion",
+      kind: scope === "class_room" && (senderRole === "teacher" || senderRole === "admin")
+        ? "announcement"
+        : ((message.kind as "discussion" | "announcement") || "discussion"),
       createdAt: message.createdAt as string,
       readAt: (message.readAt as string | null) ?? null,
       scope
@@ -1355,7 +1359,6 @@ export async function createTeacherClassRoomMessage(input: {
   classId: string;
   courseId?: string | null;
   body: string;
-  kind?: "discussion" | "announcement";
   attachments?: StoredMessageAttachment[];
 }) {
   const access = await getTeacherClassAccess(input.teacherId, input.classId);
@@ -1376,7 +1379,7 @@ export async function createTeacherClassRoomMessage(input: {
     senderId: input.teacherId,
     senderRole: "teacher",
     scope: "class_room",
-    kind: input.kind ?? "discussion",
+    kind: "announcement",
     body: body || (input.attachments?.some((item) => item.kind === "audio") ? "Voice message" : "Attachment"),
     attachments: input.attachments ?? [],
     moderationStatus: "allowed"

@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   Loader2,
-  Megaphone,
   MessageCircle,
   Mic,
   Paperclip,
@@ -69,11 +68,11 @@ export default function TeacherCommunicationsPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [broadcastOpen, setBroadcastOpen] = useState(false);
   const [attachments, setAttachments] = useState<File[]>([]);
   const [recording, setRecording] = useState(false);
   const [courseId, setCourseId] = useState("");
   const threadEndRef = useRef<HTMLDivElement>(null);
+  const threadLogRef = useRef<HTMLDivElement>(null);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const recordingStreamRef = useRef<MediaStream | null>(null);
@@ -117,9 +116,14 @@ export default function TeacherCommunicationsPage() {
   }, [query, threads]);
 
   const active = threads.find((thread) => thread.id === activeId) ?? null;
+  const latestMessageId = active?.messages.at(-1)?.id ?? "";
   useEffect(() => {
-    threadEndRef.current?.scrollIntoView({ block: "end" });
-  }, [active?.messages.length, activeId]);
+    const log = threadLogRef.current;
+    if (!log) return;
+    requestAnimationFrame(() => {
+      log.scrollTop = log.scrollHeight;
+    });
+  }, [activeId, active?.kind, active?.messages.length, latestMessageId]);
   useEffect(() => {
     if (active?.kind === "class_group" && active.teacherRole === "subject_teacher") {
       setCourseId(active.assignedSubjects[0]?.id ?? "");
@@ -145,8 +149,7 @@ export default function TeacherCommunicationsPage() {
               mode: "class_group",
               classId: active.classId,
               courseId: active.teacherRole === "subject_teacher" ? courseId : null,
-              body: draft.trim() || (attachments.some((file) => file.type.startsWith("audio/")) ? "Voice message" : "Attachment"),
-              kind: "discussion"
+              body: draft.trim() || (attachments.some((file) => file.type.startsWith("audio/")) ? "Voice message" : "Attachment")
             }
           : {
               mode: "direct",
@@ -215,7 +218,7 @@ export default function TeacherCommunicationsPage() {
 
       <section className="grid h-[calc(100dvh-7rem)] min-h-[30rem] max-h-[52rem] overflow-hidden rounded-[1.75rem] border border-slate-300 bg-white shadow-xl lg:grid-cols-[23rem_minmax(0,1fr)]">
         <aside className={cn("min-h-0 min-w-0 flex-col border-r border-slate-200 bg-white", active ? "hidden lg:flex" : "flex")}>
-          <div className="flex h-16 shrink-0 items-center justify-between bg-slate-100 px-4">
+          <div className="flex h-16 shrink-0 items-center bg-slate-100 px-4">
             <div className="flex items-center gap-3">
               <span className="grid size-10 place-items-center rounded-full bg-blue-700 text-white"><MessageCircle className="size-5" /></span>
               <div>
@@ -223,15 +226,6 @@ export default function TeacherCommunicationsPage() {
                 <p className="text-xs font-semibold text-slate-500">{classThreads.length} classes · {directThreads.length} learners</p>
               </div>
             </div>
-            <button
-              aria-label="Create announcement"
-              className="grid size-10 place-items-center rounded-full text-slate-600 hover:bg-slate-200"
-              onClick={() => setBroadcastOpen(true)}
-              title="New announcement"
-              type="button"
-            >
-              <Megaphone className="size-5" />
-            </button>
           </div>
 
           <div className="shrink-0 border-b border-slate-200 p-3">
@@ -283,7 +277,7 @@ export default function TeacherCommunicationsPage() {
                 </div>
               </header>
 
-              <div className="min-h-0 overflow-y-auto overscroll-contain bg-[radial-gradient(circle_at_center,rgba(255,255,255,.55)_1px,transparent_1px)] bg-[length:18px_18px] px-3 py-5 sm:px-8" role="log">
+              <div className="min-h-0 overflow-y-auto overscroll-contain bg-[radial-gradient(circle_at_center,rgba(255,255,255,.55)_1px,transparent_1px)] bg-[length:18px_18px] px-3 py-5 sm:px-8" ref={threadLogRef} role="log">
                 <div className="mx-auto grid max-w-4xl gap-1.5">
                   {active.messages.length ? active.messages.map((message, index) => {
                     const previous = active.messages[index - 1];
@@ -297,7 +291,7 @@ export default function TeacherCommunicationsPage() {
                   }) : (
                     <div className="mx-auto mt-16 max-w-md rounded-xl bg-amber-50 p-4 text-center text-sm text-amber-950 shadow-sm">
                       {active.kind === "class_group"
-                        ? "This is the supervised class group chat. Messages here are visible to learners in the class."
+                        ? "This is the supervised class group chat. Messages you send here are shown to the class as announcements."
                         : `Start a private conversation with ${active.name}. Only you and this learner will see it.`}
                     </div>
                   )}
@@ -358,16 +352,6 @@ export default function TeacherCommunicationsPage() {
         </section>
       </section>
 
-      {broadcastOpen ? (
-        <BroadcastDialog
-          classes={data.classes}
-          onClose={() => setBroadcastOpen(false)}
-          onSent={async () => {
-            setBroadcastOpen(false);
-            await load(activeId);
-          }}
-        />
-      ) : null}
     </main>
   );
 }
@@ -411,7 +395,9 @@ function MessageBubble({ message, showSender }: { message: ThreadMessage; showSe
         outgoing ? "rounded-tr-none bg-blue-700 text-white" : "rounded-tl-none bg-white"
       )}>
         {showSender && !outgoing ? <p className="mb-0.5 text-xs font-black text-blue-700">{message.senderName}</p> : null}
-        {message.title ? <p className={cn("mb-1 text-xs font-black", outgoing ? "text-blue-100" : "text-violet-700")}>{message.title}</p> : null}
+        {message.title || (showSender && (message.senderRole === "teacher" || message.senderRole === "admin")) ? (
+          <p className={cn("mb-1 text-xs font-black", outgoing ? "text-blue-100" : "text-violet-700")}>{message.title || "Announcement"}</p>
+        ) : null}
         <ChatMessageText
           body={message.body}
           className={cn("whitespace-pre-wrap break-words text-sm leading-5", outgoing ? "text-white" : "text-slate-900")}
@@ -434,158 +420,6 @@ function AttachmentList({ attachments, outgoing }: { attachments: ThreadMessage[
     : attachment.kind === "audio"
       ? <audio className="max-w-full" controls key={attachment.url} preload="metadata" src={attachment.url} />
       : <a className={cn("inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-black", outgoing ? "border-white/30 text-white" : "border-slate-200 text-blue-700")} download={attachment.name} href={attachment.url} key={attachment.url} rel="noreferrer" target="_blank"><Paperclip className="size-4" /><span className="max-w-48 truncate">{attachment.name}</span></a>)}</div>;
-}
-
-function BroadcastDialog({ classes, onClose, onSent }: {
-  classes: MessagingData["classes"];
-  onClose: () => void;
-  onSent: () => Promise<void>;
-}) {
-  const [audience, setAudience] = useState<"all" | "class" | "selected">("class");
-  const [classId, setClassId] = useState(classes[0]?.id ?? "");
-  const [courseId, setCourseId] = useState("");
-  const [selected, setSelected] = useState<string[]>([]);
-  const [title, setTitle] = useState("");
-  const [body, setBody] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [attachments, setAttachments] = useState<File[]>([]);
-  const [recording, setRecording] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const recorderRef = useRef<MediaRecorder | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-  const learners = useMemo(() => {
-    const map = new Map<string, { id: string; name: string }>();
-    for (const classroom of classes) {
-      for (const student of classroom.students) map.set(student.id, student);
-    }
-    return [...map.values()];
-  }, [classes]);
-  const recipientCount = audience === "all"
-    ? learners.length
-    : audience === "class"
-      ? classes.find((item) => item.id === classId)?.students.length ?? 0
-      : selected.length;
-
-  useEffect(() => () => {
-    if (recorderRef.current?.state === "recording") recorderRef.current.stop();
-    streamRef.current?.getTracks().forEach((track) => track.stop());
-  }, []);
-
-  async function submit(event: React.FormEvent) {
-    event.preventDefault();
-    setBusy(true);
-    setError("");
-    try {
-      const isClassAnnouncement = audience === "class";
-      const selectedClass = classes.find((item) => item.id === classId);
-      const payloadData = isClassAnnouncement
-        ? { mode: "class_group", classId, courseId: selectedClass?.teacherRole === "subject_teacher" ? courseId : null, body: `${title}\n\n${body}`.slice(0, 1000), kind: "announcement" }
-        : {
-            audience,
-            classId: audience === "selected" ? classId || undefined : undefined,
-            studentIds: audience === "selected" ? selected : undefined,
-            title,
-            body: body.trim() || (attachments.some((file) => file.type.startsWith("audio/")) ? "Voice message" : "Attachment")
-          };
-      const form = new FormData();
-      form.set("payload", JSON.stringify(payloadData));
-      attachments.forEach((file) => form.append("attachments", file));
-      const response = await fetch(isClassAnnouncement ? "/api/teacher/communications" : "/api/teacher/communications", {
-        method: "POST",
-        body: form
-      });
-      const payload = await response.json() as { error?: string };
-      if (!response.ok) throw new Error(payload.error || "Unable to send announcement.");
-      await onSent();
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Unable to send announcement.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function toggleRecording() {
-    if (recording) { recorderRef.current?.stop(); setRecording(false); return; }
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      streamRef.current = stream;
-      const mime = MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "audio/mp4";
-      const recorder = new MediaRecorder(stream, { mimeType: mime });
-      chunksRef.current = [];
-      recorder.ondataavailable = (event) => { if (event.data.size) chunksRef.current.push(event.data); };
-      recorder.onstop = () => {
-        setAttachments((current) => [...current.filter((file) => !file.type.startsWith("audio/")), new File([new Blob(chunksRef.current, { type: mime })], `voice-${Date.now()}.webm`, { type: mime })].slice(0, 4));
-        streamRef.current?.getTracks().forEach((track) => track.stop());
-      };
-      recorderRef.current = recorder;
-      recorder.start();
-      setRecording(true);
-    } catch {
-      setError("Microphone access is required to record a voice message.");
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 grid place-items-end bg-slate-950/55 p-3 backdrop-blur-sm sm:place-items-center" onMouseDown={(event) => { if (event.currentTarget === event.target) onClose(); }}>
-      <form aria-labelledby="broadcast-title" aria-modal="true" className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-[1.75rem] bg-white p-5 shadow-2xl sm:p-6" onSubmit={submit} role="dialog">
-        <div className="mb-4 flex items-start justify-between gap-3">
-          <div>
-            <p className="text-xs font-black uppercase tracking-wider text-blue-700">Announcements</p>
-            <h2 className="mt-1 text-2xl font-black" id="broadcast-title">Message learners</h2>
-          </div>
-          <button aria-label="Close" className="grid size-10 place-items-center rounded-xl bg-slate-100" onClick={onClose} type="button"><X className="size-5" /></button>
-        </div>
-        {error ? <p className="mb-3 rounded-xl bg-rose-50 p-3 text-sm font-bold text-rose-800">{error}</p> : null}
-        <div className="grid gap-3">
-          <div className="grid grid-cols-3 gap-2">
-            {(["class", "selected", "all"] as const).map((value) => (
-              <button className={cn("min-h-11 rounded-xl text-sm font-black", audience === value ? "bg-blue-700 text-white" : "bg-slate-100 text-slate-700")} key={value} onClick={() => setAudience(value)} type="button">
-                {value === "class" ? "Class group" : value === "selected" ? "Selected" : "All"}
-              </button>
-            ))}
-          </div>
-          {audience === "class" ? (
-            <div className="grid gap-2">
-              <select className="min-h-12 rounded-xl border border-slate-300 px-3 font-bold" onChange={(event) => { setClassId(event.target.value); setCourseId(""); }} value={classId}>
-                {classes.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.students.length} learners</option>)}
-              </select>
-              {classes.find((item) => item.id === classId)?.teacherRole === "subject_teacher" ? (
-                <select className="min-h-12 rounded-xl border border-slate-300 px-3 font-bold" onChange={(event) => setCourseId(event.target.value)} required value={courseId}>
-                  <option value="">Choose the announcement subject</option>
-                  {classes.find((item) => item.id === classId)?.assignedSubjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}
-                </select>
-              ) : null}
-              <p className="rounded-xl bg-blue-50 p-3 text-xs font-bold leading-5 text-blue-900">This announcement will appear inside the selected class group chat.</p>
-            </div>
-          ) : null}
-          {audience === "selected" ? (
-            <div className="max-h-48 overflow-y-auto rounded-xl border border-slate-200 p-2">
-              {learners.map((contact) => (
-                <label className="flex min-h-11 items-center gap-3 rounded-lg px-2 hover:bg-slate-50" key={contact.id}>
-                  <input checked={selected.includes(contact.id)} onChange={() => setSelected((current) => current.includes(contact.id) ? current.filter((id) => id !== contact.id) : [...current, contact.id])} type="checkbox" />
-                  <span className="text-sm font-bold">{contact.name}</span>
-                </label>
-              ))}
-            </div>
-          ) : null}
-          <input className="min-h-12 rounded-xl border border-slate-300 px-3" maxLength={120} minLength={2} onChange={(event) => setTitle(event.target.value)} placeholder="Announcement title" required value={title} />
-          <textarea className="min-h-36 rounded-xl border border-slate-300 p-3" maxLength={1000} minLength={attachments.length ? undefined : 2} onChange={(event) => setBody(event.target.value)} placeholder="Write your message" required={!attachments.length} value={body} />
-          <input className="hidden" multiple onChange={(event) => setAttachments((current) => [...current, ...Array.from(event.target.files ?? [])].slice(0, 4))} ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif,audio/webm,audio/ogg,audio/mpeg,audio/mp4,audio/wav,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv" />
-          <div className="flex flex-wrap items-center gap-2">
-            <button className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-blue-200 px-3 text-sm font-black text-blue-700" onClick={() => fileInputRef.current?.click()} type="button"><Paperclip className="size-4" />Add images or files</button>
-            <button className={cn("inline-flex min-h-10 items-center gap-2 rounded-xl px-3 text-sm font-black", recording ? "animate-pulse bg-rose-600 text-white" : "border border-blue-200 text-blue-700")} onClick={() => void toggleRecording()} type="button"><Mic className="size-4" />{recording ? "Stop recording" : "Record audio"}</button>
-          </div>
-          {attachments.length ? <div className="flex flex-wrap gap-2">{attachments.map((file, index) => <span className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold" key={`${file.name}-${index}`}>{file.type.startsWith("audio/") ? "Voice message" : file.name}<button onClick={() => setAttachments((current) => current.filter((_, itemIndex) => itemIndex !== index))} type="button"><X className="size-3.5" /></button></span>)}</div> : null}
-          <button className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-blue-700 px-5 font-black text-white hover:bg-blue-800 disabled:opacity-50" disabled={busy || recording || recipientCount === 0 || (!body.trim() && !attachments.length) || (audience === "class" && classes.find((item) => item.id === classId)?.teacherRole === "subject_teacher" && !courseId)} type="submit">
-            {busy ? <Loader2 className="size-5 animate-spin" /> : <Send className="size-5" />}
-            Send to {recipientCount} learner{recipientCount === 1 ? "" : "s"}
-          </button>
-        </div>
-      </form>
-    </div>
-  );
 }
 
 function Avatar({ name, small = false, group = false }: { name: string; small?: boolean; group?: boolean }) {

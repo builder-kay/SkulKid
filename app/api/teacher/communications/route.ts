@@ -3,7 +3,6 @@ import { z } from "zod";
 import {
   createTeacherClassRoomMessage,
   createTeacherDirectMessage,
-  createTeacherNotification,
   getTeacherMessagingData,
   requireTeacher
 } from "@/lib/classes/classroom-server";
@@ -50,29 +49,19 @@ export async function POST(request: Request) {
         mode: z.literal("class_group"),
         classId: z.string().uuid(),
         courseId: z.string().min(1).nullable().optional(),
-        body: z.string().trim().max(1000).default(""),
-        kind: z.enum(["discussion", "announcement"]).default("discussion")
+        body: z.string().trim().max(1000).default("")
       }).parse(raw);
       const message = await createTeacherClassRoomMessage({
         teacherId: teacher.id,
         classId: input.classId,
         courseId: input.courseId,
         body: input.body,
-        kind: input.kind,
         attachments
       });
       return NextResponse.json({ ok: true, message }, { status: 201 });
     }
 
-    const input = z.object({
-      audience: z.enum(["all", "class", "selected", "student"]),
-      classId: z.string().uuid().optional(),
-      studentIds: z.array(z.string().uuid()).max(500).optional(),
-      title: z.string().trim().min(2).max(120),
-      body: z.string().trim().min(2).max(1000)
-    }).parse(raw);
-    const recipientCount = await createTeacherNotification({ teacherId: teacher.id, ...input, attachments });
-    return NextResponse.json({ ok: true, recipientCount }, { status: 201 });
+    throw new Error("Choose a class group or private learner chat to send a message.");
   } catch (error) {
     if (attachments.length) await removeTeacherMessageAttachments(attachments);
     return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to send message." }, { status: 400 });

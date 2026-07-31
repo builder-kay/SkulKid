@@ -35,7 +35,7 @@ export async function GET() {
   }
 }
 
-const postSchema = z.object({ classId: z.string().uuid(), courseId: z.string().min(1).nullable().optional(), body: z.string().trim().min(2).max(1000), kind: z.enum(["discussion", "announcement"]).default("announcement") });
+const postSchema = z.object({ classId: z.string().uuid(), courseId: z.string().min(1).nullable().optional(), body: z.string().trim().min(2).max(1000) });
 export async function POST(request: Request) {
   let attachments = [] as Awaited<ReturnType<typeof uploadTeacherMessageAttachments>>;
   try {
@@ -46,11 +46,11 @@ export async function POST(request: Request) {
     const files = form ? form.getAll("attachments").filter((item): item is File => item instanceof File && item.size > 0) : [];
     attachments = await uploadTeacherMessageAttachments({ teacherId: teacher.id, files });
     const access = await getTeacherClassAccess(teacher.id, input.classId);
-    if (access.role === "subject_teacher" && (!input.courseId || !access.assignedCourseIds.includes(input.courseId))) throw new Error("Choose one of your assigned subjects for this announcement.");
+    if (access.role === "subject_teacher" && (!input.courseId || !access.assignedCourseIds.includes(input.courseId))) throw new Error("Choose one of your assigned subjects for this class message.");
     const safety = analyseClassChatMessage(input.body, { allowLinks: true });
     if (!safety.allowed) throw new Error(safety.reason || "This message was held by the safety filter.");
     const admin = createAdminClient();
-    const { data, error } = await admin.from("ClassMessage").insert({ classId: input.classId, courseId: input.courseId ?? null, teacherId: teacher.id, senderId: teacher.id, senderRole: "teacher", scope: "class_room", kind: input.kind, body: input.body, attachments, moderationStatus: "allowed" }).select("id").single();
+    const { data, error } = await admin.from("ClassMessage").insert({ classId: input.classId, courseId: input.courseId ?? null, teacherId: teacher.id, senderId: teacher.id, senderRole: "teacher", scope: "class_room", kind: "announcement", body: input.body, attachments, moderationStatus: "allowed" }).select("id").single();
     if (error) throw new Error(error.message);
     await admin.from("ClassMessageAudit").insert({ messageId: data.id, classId: input.classId, actorId: teacher.id, action: "created", bodySnapshot: input.body });
     return NextResponse.json({ ok: true }, { status: 201 });

@@ -367,7 +367,7 @@ export function StudentMessagesPage({
                     classId={selectedClassId}
                     className={selectedKind === "direct" ? detail.classroom.teacherName : detail.classroom.name}
                     messages={selectedKind === "direct" ? detail.directMessages : detail.messages}
-                    notifications={selectedKind === "class_group" ? detail.notifications : []}
+                    notifications={[]}
                     onChange={setDraft}
                     onReadAdvice={(adviceId) => void markRead(adviceId)}
                     onReported={() => void loadChat(selectedId, true)}
