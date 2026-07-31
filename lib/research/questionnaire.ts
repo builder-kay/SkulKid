@@ -211,9 +211,10 @@ const teacherForm: FormDef = {
       title: "About your teaching",
       questions: [
         single("t_q1", 1, "What is your current teaching level?", [
+          { value: "p1_2", label: "Primary 1–2" },
           { value: "p3_4", label: "Primary 3–4" },
           { value: "p5_6", label: "Primary 5–6" },
-          { value: "both", label: "Both levels" }
+          { value: "both", label: "More than one level" }
         ]),
         single("t_q2", 2, "How many years of teaching experience do you have?", [
           { value: "lt2", label: "Less than 2 years" },
