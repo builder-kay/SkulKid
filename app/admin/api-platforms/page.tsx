@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 import {
+  BellRing,
   Bot,
   Cable,
   CheckCircle2,
@@ -18,7 +19,7 @@ import { cn } from "@/lib/utils";
 
 type Platform = {
   name: string;
-  category: "Infrastructure" | "Artificial intelligence" | "Messaging";
+  category: "Infrastructure" | "Artificial intelligence" | "Messaging" | "Notifications";
   description: string;
   purpose: string;
   platformUrl: string;
@@ -92,6 +93,20 @@ const platforms: Platform[] = [
     note: "Break Zone is currently disabled, but this integration remains part of the platform."
   },
   {
+    name: "PushAlert",
+    category: "Notifications",
+    description: "Browser push subscription and notification delivery across supported mobile and desktop browsers.",
+    purpose: "Web push notifications",
+    platformUrl: "https://dashboard.pushalert.co/",
+    platformLabel: "Open PushAlert",
+    documentationUrl: "https://pushalert.co/documentation/integration",
+    icon: BellRing,
+    colour: "from-cyan-600 to-blue-800",
+    environmentVariables: [],
+    configured: true,
+    note: "Configured through the site-specific PushAlert script and root service worker. No environment variable is required for the current client integration."
+  },
+  {
     name: "BMS Africa",
     category: "Messaging",
     description: "Primary SMS provider for signup, recovery and verification-code delivery.",
@@ -134,7 +149,7 @@ const platforms: Platform[] = [
   }
 ];
 
-const categories = ["Infrastructure", "Artificial intelligence", "Messaging"] as const;
+const categories = ["Infrastructure", "Artificial intelligence", "Messaging", "Notifications"] as const;
 
 export default function ApiPlatformsPage() {
   const configuredCount = platforms.filter((platform) => platform.configured).length;
@@ -167,7 +182,7 @@ export default function ApiPlatformsPage() {
         <section className="grid gap-4" key={category}>
           <div>
             <p className="text-xs font-black uppercase tracking-[.16em] text-blue-700">{category}</p>
-            <h2 className="mt-1 text-2xl font-black text-slate-950">{category === "Messaging" ? "SMS and verification providers" : `${category} services`}</h2>
+            <h2 className="mt-1 text-2xl font-black text-slate-950">{category === "Messaging" ? "SMS and verification providers" : category === "Notifications" ? "Push notification services" : `${category} services`}</h2>
           </div>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {platforms.filter((platform) => platform.category === category).map((platform) => (
@@ -205,7 +220,9 @@ function PlatformCard({ platform }: { platform: Platform }) {
         <div className="mt-4 rounded-xl bg-slate-50 p-3">
           <p className="flex items-center gap-2 text-[11px] font-black uppercase tracking-wider text-slate-500"><KeyRound className="size-3.5" />Environment readiness</p>
           <div className="mt-2 flex flex-wrap gap-1.5">
-            {platform.environmentVariables.map((variable) => <code className="rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-bold text-slate-700" key={variable}>{variable}</code>)}
+            {platform.environmentVariables.length
+              ? platform.environmentVariables.map((variable) => <code className="rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-bold text-slate-700" key={variable}>{variable}</code>)
+              : <span className="text-xs font-bold text-slate-600">No environment variables required</span>}
           </div>
         </div>
         {platform.note ? <p className="mt-3 text-xs leading-5 text-slate-500">{platform.note}</p> : null}
