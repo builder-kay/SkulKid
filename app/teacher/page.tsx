@@ -57,16 +57,23 @@ export default function AdminDashboardPage() {
       <section className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(20rem,0.55fr)]">
         <LiveCurriculumCoverage />
 
-        <SkulKidCard className="p-5 sm:p-6">
-          <div className="flex items-center gap-3"><span className="grid size-10 place-items-center rounded-xl bg-slate-100 text-slate-700"><TrendingUp className="size-5" /></span><div><p className="text-xs font-black uppercase tracking-wide text-muted">System readiness</p><h2 className="text-xl font-black">Authoring health</h2></div></div>
-          <div className="mt-5 space-y-3">
-            <StatusRow ready label="Lesson validation" detail="Strict schemas active" />
-            <StatusRow ready label="Official curriculum" detail={`${ghanaPrimaryCurriculum.length} source records`} />
-            <StatusRow ready={geminiConfigured} label="Gemini generation" detail={geminiConfigured ? "API connected" : "API key required"} />
-            <StatusRow ready={false} label="Teacher authentication" detail="Required before production" />
-            <StatusRow ready={false} label="Database publishing" detail="Approval workflow pending" />
+        <SkulKidCard className="overflow-hidden p-0">
+          <div className="bg-gradient-to-br from-blue-700 to-indigo-800 p-5 text-white sm:p-6">
+            <div className="flex items-start gap-3">
+              <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-white/15 ring-1 ring-white/20"><TrendingUp className="size-5" /></span>
+              <div><p className="text-xs font-black uppercase tracking-[.14em] text-blue-100">Teaching tools</p><h2 className="mt-1 text-2xl font-black">Ready when you are</h2><p className="mt-2 text-sm leading-5 text-blue-100/85">A quick look at the tools available for preparing and sharing learning.</p></div>
+            </div>
           </div>
-          <Link href="/teacher/settings" className="mt-5 flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-bold hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"><Settings2 className="size-4" />Dashboard settings</Link>
+          <div className="p-4 sm:p-5">
+            <div className="grid gap-2">
+              <StatusRow ready label="Lesson quality checks" detail="Your lesson is checked for missing information before publishing." />
+              <StatusRow ready label="NaCCA curriculum library" detail={`${ghanaPrimaryCurriculum.length} official curriculum documents are ready to browse.`} />
+              <StatusRow ready={geminiConfigured} label="AI lesson assistant" detail={geminiConfigured ? "Ready to turn lesson notes into editable drafts." : "Temporarily unavailable. You can still create lessons manually."} />
+              <StatusRow ready label="Secure teacher account" detail="You are signed in and your workspace is protected." />
+              <StatusRow ready label="Save and publish" detail="Keep work private as a draft, then publish when it is ready." />
+            </div>
+            <Link href="/teacher/settings" className="mt-4 flex min-h-11 items-center justify-between gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 text-sm font-black text-blue-900 transition hover:border-blue-400 hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"><span className="inline-flex items-center gap-2"><Settings2 className="size-4" />Teaching preferences</span><ArrowRight className="size-4" /></Link>
+          </div>
         </SkulKidCard>
       </section>
 
@@ -98,7 +105,7 @@ export default function AdminDashboardPage() {
 }
 
 function StatusRow({ ready, label, detail }: { ready: boolean; label: string; detail: string }) {
-  return <div className="flex items-center gap-3 rounded-xl bg-slate-50 p-3"><span className={`grid size-8 shrink-0 place-items-center rounded-full ${ready ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-900"}`}>{ready ? <CheckCircle2 className="size-4" /> : <CircleAlert className="size-4" />}</span><div className="min-w-0"><p className="text-sm font-bold">{label}</p><p className="truncate text-xs text-muted">{detail}</p></div></div>;
+  return <div className={`flex items-start gap-3 rounded-xl border p-3 ${ready ? "border-slate-200 bg-white" : "border-amber-200 bg-amber-50"}`}><span className={`mt-0.5 grid size-8 shrink-0 place-items-center rounded-full ${ready ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-800"}`}>{ready ? <CheckCircle2 className="size-4" /> : <CircleAlert className="size-4" />}</span><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center justify-between gap-2"><p className="text-sm font-black text-slate-900">{label}</p><span className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${ready ? "bg-emerald-50 text-emerald-700" : "bg-amber-100 text-amber-800"}`}>{ready ? "Ready" : "Unavailable"}</span></div><p className="mt-1 text-xs leading-5 text-slate-600">{detail}</p></div></div>;
 }
 
 function QuickAction({ eyebrow, href, icon: Icon, title, text, tone }: { eyebrow: string; href: string; icon: LucideIcon; title: string; text: string; tone: "violet" | "blue" | "amber" | "indigo" | "emerald" }) {
