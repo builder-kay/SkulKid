@@ -173,16 +173,6 @@ export function TeacherClassesPage({ initialCreate = false }: { initialCreate?: 
                 {classes.length ? "Open a room to teach" : "Start with your first class"}
               </h2>
             </div>
-            {classes.length ? (
-              <button
-                className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 text-sm font-black text-slate-800 hover:bg-slate-50"
-                onClick={() => setShowCreate(true)}
-                type="button"
-              >
-                <Plus className="size-4" />
-                New class
-              </button>
-            ) : null}
           </div>
 
           {error && !showCreate ? (
