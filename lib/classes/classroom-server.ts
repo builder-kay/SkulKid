@@ -6,6 +6,7 @@ import { calculateStars } from "@/lib/gamification/calculate-stars";
 import { calculateLevel } from "@/lib/gamification/calculate-level";
 import { classJoinPath, generateJoinCode, normalizeJoinCode } from "@/lib/classes/join-code";
 import { analyseClassChatMessage, childFriendlyChatRules } from "@/lib/classes/class-chat-safety";
+import { signMessageAttachments, type StoredMessageAttachment } from "@/lib/classes/message-attachments";
 import type {
   AdviceSuggestionType,
   ClassAdviceView,
@@ -1113,12 +1114,12 @@ export async function getTeacherMessagingData(teacherId: string) {
   })));
   const [{ data: messages, error }, { data: notifications, error: notificationError }] = await Promise.all([
     admin.from("ClassMessage")
-      .select("id,classId,studentId,body,createdAt,readAt")
+      .select("id,classId,studentId,body,attachments,createdAt,readAt")
       .eq("teacherId", teacherId)
       .order("createdAt", { ascending: false })
       .limit(300),
     admin.from("TeacherNotification")
-      .select("id,classId,title,body,createdAt")
+      .select("id,classId,title,body,attachments,createdAt")
       .eq("teacherId", teacherId)
       .order("createdAt", { ascending: false })
       .limit(200)
@@ -1141,6 +1142,11 @@ export async function getTeacherMessagingData(teacherId: string) {
     ]))
   );
   const notificationById = new Map((notifications ?? []).map((notification) => [notification.id as string, notification]));
+  const attachmentEntries = await Promise.all([
+    ...(messages ?? []).map(async (message) => [String(message.id), await signMessageAttachments(message.attachments)] as const),
+    ...(notifications ?? []).map(async (notification) => [String(notification.id), await signMessageAttachments(notification.attachments)] as const)
+  ]);
+  const attachmentsById = new Map(attachmentEntries);
   const incoming = (messages ?? []).map((message) => ({
     id: message.id as string,
     classId: message.classId as string,
@@ -1149,6 +1155,7 @@ export async function getTeacherMessagingData(teacherId: string) {
     studentName: studentById.get(message.studentId as string)?.displayName ?? "Student",
     title: null,
     body: message.body as string,
+    attachments: attachmentsById.get(String(message.id)) ?? [],
     direction: "incoming" as const,
     createdAt: message.createdAt as string,
     readAt: (message.readAt as string | null) ?? null
@@ -1166,6 +1173,7 @@ export async function getTeacherMessagingData(teacherId: string) {
       studentName: studentById.get(recipient.studentId as string)?.displayName ?? "Student",
       title: notification.title as string,
       body: notification.body as string,
+      attachments: attachmentsById.get(String(notification.id)) ?? [],
       direction: "outgoing" as const,
       createdAt: notification.createdAt as string,
       readAt: notification.createdAt as string
@@ -1197,6 +1205,7 @@ export async function createTeacherNotification(input: {
   studentIds?: string[];
   title: string;
   body: string;
+  attachments?: StoredMessageAttachment[];
 }) {
   const data = await getTeacherMessagingData(input.teacherId);
   const allowedAll = new Set(data.classes.flatMap((item) => item.students.map((student) => student.id)));
@@ -1219,6 +1228,7 @@ export async function createTeacherNotification(input: {
     classId: input.audience === "class" ? input.classId : null,
     title: input.title.trim(),
     body: input.body.trim(),
+    attachments: input.attachments ?? [],
     audience: input.audience
   }).select("id").single();
   if (error) throw new Error(error.message);
@@ -1423,7 +1433,7 @@ export async function getStudentClassDetail(studentId: string, classId: string) 
     admin.from("ClassQuizAttempt").select("quizId,attemptNumber,scorePercentage,passed,starsAwarded,xpAwarded,submittedAt").eq("studentId", studentId).order("attemptNumber", { ascending: true }),
     admin.from("ClassAdvice").select("id,classId,message,suggestionType,createdAt,readAt,teacherId,title,feedbackCategory,priority,recommendedActions,evidenceSnapshot,followUpStatus,dueAt,acknowledgedAt,resolvedAt,resolutionNote").eq("classId", classId).eq("studentId", studentId).order("createdAt", { ascending: false }),
     admin.from("PointDeduction").select("id,classId,amount,reason,balanceBefore,balanceAfter,status,createdAt,teacherId").eq("classId", classId).eq("studentId", studentId).order("createdAt", { ascending: false }),
-    admin.from("ClassMessage").select("id,body,createdAt,senderId,senderRole,kind,editedAt").eq("classId", classId).eq("scope", "class_room").eq("moderationStatus", "allowed").is("deletedAt", null).order("createdAt", { ascending: true }).limit(500),
+    admin.from("ClassMessage").select("id,body,attachments,createdAt,senderId,senderRole,kind,editedAt").eq("classId", classId).eq("scope", "class_room").eq("moderationStatus", "allowed").is("deletedAt", null).order("createdAt", { ascending: true }).limit(500),
     admin.from("ClassChatSetting").select("enabled,locked,postingStartsAt,postingEndsAt,timezone,guardianConsentRequired,rulesVersion").eq("classId", classId).maybeSingle(),
     admin.from("ClassChatConsent").select("active,guardianConfirmedAt,rulesAcceptedAt,rulesVersion").eq("classId", classId).eq("studentId", studentId).maybeSingle(),
     admin.from("ClassChatMute").select("mutedStudentId").eq("classId", classId).eq("studentId", studentId),
@@ -1454,13 +1464,18 @@ export async function getStudentClassDetail(studentId: string, classId: string) 
     .eq("studentId", studentId);
   const notificationIds = (receiptRows ?? []).map((row) => row.notificationId as string);
   const { data: notificationRows } = notificationIds.length
-    ? await admin.from("TeacherNotification").select("id,teacherId,classId,title,body,audience,createdAt").in("id", notificationIds).eq("teacherId", classroom.teacherId)
+    ? await admin.from("TeacherNotification").select("id,teacherId,classId,title,body,attachments,audience,createdAt").in("id", notificationIds)
     : { data: [] };
   const deductionIds = (deductionRows ?? []).map((row) => row.id as string);
   const { data: disputeRows } = deductionIds.length
     ? await admin.from("PointDeductionDispute").select("id,deductionId,message,status,createdAt,resolutionNote").in("deductionId", deductionIds)
     : { data: [] };
   const disputeByDeduction = new Map((disputeRows ?? []).map((row) => [row.deductionId as string, row]));
+  const studentAttachmentEntries = await Promise.all([
+    ...visibleMessageRows.map(async (message) => [String(message.id), await signMessageAttachments(message.attachments)] as const),
+    ...(notificationRows ?? []).map(async (notification) => [String(notification.id), await signMessageAttachments(notification.attachments)] as const)
+  ]);
+  const studentAttachmentsById = new Map(studentAttachmentEntries);
 
   const courseIds = (courses ?? []).map((row) => row.courseId as string);
   const [{ data: subjects }, { data: courseUnits }, { data: courseLessons }] = courseIds.length
@@ -1637,6 +1652,7 @@ export async function getStudentClassDetail(studentId: string, classId: string) 
     messages: visibleMessageRows.map((row) => ({
       id: row.id as string,
       body: row.body as string,
+      attachments: studentAttachmentsById.get(String(row.id)) ?? [],
       createdAt: row.createdAt as string,
       fromStudent: row.senderId === studentId,
       senderId: row.senderId as string,
@@ -1663,6 +1679,7 @@ export async function getStudentClassDetail(studentId: string, classId: string) 
         id: row.id as string,
         title: row.title as string,
         body: row.body as string,
+        attachments: studentAttachmentsById.get(String(row.id)) ?? [],
         audience: row.audience as string,
         createdAt: row.createdAt as string
       })),

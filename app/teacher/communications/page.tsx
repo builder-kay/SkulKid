@@ -8,7 +8,9 @@ import {
   Loader2,
   Megaphone,
   MessageCircle,
+  Mic,
   MoreVertical,
+  Paperclip,
   Search,
   Send,
   UserRound,
@@ -28,6 +30,7 @@ type Message = {
   direction: "incoming" | "outgoing";
   createdAt: string;
   readAt: string | null;
+  attachments: Array<{ name: string; mime: string; size: number; kind: "image" | "audio" | "file"; url: string }>;
 };
 
 type MessagingData = {
@@ -53,7 +56,13 @@ export default function TeacherCommunicationsPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [broadcastOpen, setBroadcastOpen] = useState(false);
+  const [attachments, setAttachments] = useState<File[]>([]);
+  const [recording, setRecording] = useState(false);
   const threadEndRef = useRef<HTMLDivElement>(null);
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const recordingStreamRef = useRef<MediaStream | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
 
   async function load(preferredStudentId?: string) {
     const response = await fetch("/api/teacher/communications", { cache: "no-store" });
@@ -137,23 +146,26 @@ export default function TeacherCommunicationsPage() {
 
   async function sendPrivateMessage(event: React.FormEvent) {
     event.preventDefault();
-    if (!active || !draft.trim()) return;
+    if (!active || (!draft.trim() && !attachments.length)) return;
     setBusy(true);
     setError("");
     try {
-      const response = await fetch("/api/teacher/communications", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const form = new FormData();
+      form.set("payload", JSON.stringify({
           audience: "student",
           studentIds: [active.id],
           title: "Message from your teacher",
-          body: draft
-        })
+          body: draft.trim() || (attachments.some((file) => file.type.startsWith("audio/")) ? "Voice message" : "Attachment")
+      }));
+      attachments.forEach((file) => form.append("attachments", file));
+      const response = await fetch("/api/teacher/communications", {
+        method: "POST",
+        body: form
       });
       const payload = await response.json() as { error?: string };
       if (!response.ok) throw new Error(payload.error || "Unable to send message.");
       setDraft("");
+      setAttachments([]);
       await load(active.id);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to send message.");
@@ -161,6 +173,38 @@ export default function TeacherCommunicationsPage() {
       setBusy(false);
     }
   }
+
+  async function toggleRecording() {
+    if (recording) {
+      recorderRef.current?.stop();
+      setRecording(false);
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      recordingStreamRef.current = stream;
+      audioChunksRef.current = [];
+      recorder.ondataavailable = (event) => { if (event.data.size) audioChunksRef.current.push(event.data); };
+      recorder.onstop = () => {
+        const mime = recorder.mimeType || "audio/webm";
+        const blob = new Blob(audioChunksRef.current, { type: mime });
+        setAttachments((current) => [...current.filter((file) => !file.type.startsWith("audio/")), new File([blob], `voice-${Date.now()}.webm`, { type: mime })].slice(0, 4));
+        recordingStreamRef.current?.getTracks().forEach((track) => track.stop());
+        recordingStreamRef.current = null;
+      };
+      recorder.start();
+      recorderRef.current = recorder;
+      setRecording(true);
+    } catch {
+      setError("Microphone access is required to record a voice message.");
+    }
+  }
+
+  useEffect(() => () => {
+    if (recorderRef.current?.state === "recording") recorderRef.current.stop();
+    recordingStreamRef.current?.getTracks().forEach((track) => track.stop());
+  }, []);
 
   return (
     <main className="mx-auto w-full max-w-[96rem]">
@@ -268,6 +312,11 @@ export default function TeacherCommunicationsPage() {
               </div>
 
               <form className="flex items-end gap-2 border-t border-slate-200 bg-slate-100 p-3" onSubmit={sendPrivateMessage}>
+                <input className="hidden" multiple onChange={(event) => setAttachments((current) => [...current, ...Array.from(event.target.files ?? [])].slice(0, 4))} ref={attachmentInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif,audio/webm,audio/ogg,audio/mpeg,audio/mp4,audio/wav,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv" />
+                <button aria-label="Attach images or files" className="grid size-11 shrink-0 place-items-center rounded-full text-blue-700 hover:bg-blue-100" onClick={() => attachmentInputRef.current?.click()} type="button"><Paperclip className="size-5" /></button>
+                <button aria-label={recording ? "Stop voice recording" : "Record voice message"} className={cn("grid size-11 shrink-0 place-items-center rounded-full", recording ? "animate-pulse bg-rose-600 text-white" : "text-blue-700 hover:bg-blue-100")} onClick={() => void toggleRecording()} type="button"><Mic className="size-5" /></button>
+                <div className="min-w-0 flex-1">
+                  {attachments.length ? <div className="mb-2 flex gap-2 overflow-x-auto">{attachments.map((file, index) => <span className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 shadow-sm" key={`${file.name}-${index}`}><span className="max-w-36 truncate">{file.type.startsWith("audio/") ? "Voice message" : file.name}</span><button aria-label={`Remove ${file.name}`} onClick={() => setAttachments((current) => current.filter((_, itemIndex) => itemIndex !== index))} type="button"><X className="size-3.5" /></button></span>)}</div> : null}
                 <textarea
                   aria-label={`Message ${active.name}`}
                   className="max-h-32 min-h-11 flex-1 resize-none rounded-xl border-0 bg-white px-4 py-3 text-sm leading-5 shadow-sm outline-none focus:ring-2 focus:ring-blue-600"
@@ -283,10 +332,11 @@ export default function TeacherCommunicationsPage() {
                   rows={1}
                   value={draft}
                 />
+                </div>
                 <button
                   aria-label="Send message"
                   className="grid size-11 shrink-0 place-items-center rounded-full bg-blue-700 text-white transition hover:bg-blue-800 disabled:opacity-50"
-                  disabled={busy || !draft.trim()}
+                  disabled={busy || recording || (!draft.trim() && !attachments.length)}
                   type="submit"
                 >
                   {busy ? <Loader2 className="size-5 animate-spin" /> : <Send className="size-5" />}
@@ -328,6 +378,7 @@ function MessageBubble({ message }: { message: Message }) {
       )}>
         {message.title && message.title !== "Message from your teacher" ? <p className={cn("mb-1 text-xs font-black", outgoing ? "text-blue-100" : "text-blue-800")}>{message.title}</p> : null}
         <p className={cn("whitespace-pre-wrap break-words text-sm leading-5", outgoing ? "text-white" : "text-slate-900")}>{message.body}</p>
+        <AttachmentList attachments={message.attachments ?? []} outgoing={outgoing} />
         <div className="mt-1 flex items-center justify-end gap-1 pl-8">
           <time className={cn("text-[10px]", outgoing ? "text-blue-100" : "text-slate-500")}>{messageTime(message.createdAt)}</time>
           {outgoing ? <CheckCheck className="size-4 text-sky-200" /> : null}
@@ -335,6 +386,15 @@ function MessageBubble({ message }: { message: Message }) {
       </article>
     </div>
   );
+}
+
+function AttachmentList({ attachments, outgoing }: { attachments: Message["attachments"]; outgoing: boolean }) {
+  if (!attachments.length) return null;
+  return <div className="mt-2 grid gap-2">{attachments.map((attachment) => attachment.kind === "image"
+    ? <a href={attachment.url} key={attachment.url} rel="noreferrer" target="_blank"><img alt={attachment.name} className="max-h-72 w-full rounded-lg object-cover" loading="lazy" src={attachment.url} /></a>
+    : attachment.kind === "audio"
+      ? <audio className="max-w-full" controls key={attachment.url} preload="metadata" src={attachment.url} />
+      : <a className={cn("inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-black", outgoing ? "border-white/30 text-white" : "border-slate-200 text-blue-700")} download={attachment.name} href={attachment.url} key={attachment.url} rel="noreferrer" target="_blank"><Paperclip className="size-4" /><span className="max-w-48 truncate">{attachment.name}</span></a>)}</div>;
 }
 
 function BroadcastDialog({ classes, contacts, onClose, onSent }: {
@@ -351,11 +411,21 @@ function BroadcastDialog({ classes, contacts, onClose, onSent }: {
   const [body, setBody] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [attachments, setAttachments] = useState<File[]>([]);
+  const [recording, setRecording] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
   const recipientCount = audience === "all"
     ? contacts.length
     : audience === "class"
       ? classes.find((item) => item.id === classId)?.students.length ?? 0
       : selected.length;
+  useEffect(() => () => {
+    if (recorderRef.current?.state === "recording") recorderRef.current.stop();
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+  }, []);
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -364,17 +434,20 @@ function BroadcastDialog({ classes, contacts, onClose, onSent }: {
     try {
       const isClassAnnouncement = audience === "class";
       const selectedClass = classes.find((item) => item.id === classId);
-      const response = await fetch(isClassAnnouncement ? "/api/teacher/class-safety" : "/api/teacher/communications", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(isClassAnnouncement
+      const payloadData = isClassAnnouncement
           ? { classId, courseId: selectedClass?.teacherRole === "subject_teacher" ? courseId : null, body: `${title}\n\n${body}`.slice(0, 1000), kind: "announcement" }
           : {
               audience,
               studentIds: audience === "selected" ? selected : undefined,
               title,
-              body
-            })
+              body: body.trim() || (attachments.some((file) => file.type.startsWith("audio/")) ? "Voice message" : "Attachment")
+            };
+      const form = new FormData();
+      form.set("payload", JSON.stringify(payloadData));
+      attachments.forEach((file) => form.append("attachments", file));
+      const response = await fetch(isClassAnnouncement ? "/api/teacher/class-safety" : "/api/teacher/communications", {
+        method: "POST",
+        body: form
       });
       const payload = await response.json() as { error?: string };
       if (!response.ok) throw new Error(payload.error || (isClassAnnouncement ? "Unable to post announcement." : "Unable to send broadcast."));
@@ -384,6 +457,22 @@ function BroadcastDialog({ classes, contacts, onClose, onSent }: {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function toggleRecording() {
+    if (recording) { recorderRef.current?.stop(); setRecording(false); return; }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      streamRef.current = stream; chunksRef.current = [];
+      recorder.ondataavailable = (event) => { if (event.data.size) chunksRef.current.push(event.data); };
+      recorder.onstop = () => {
+        const mime = recorder.mimeType || "audio/webm";
+        setAttachments((current) => [...current.filter((file) => !file.type.startsWith("audio/")), new File([new Blob(chunksRef.current, { type: mime })], `voice-${Date.now()}.webm`, { type: mime })].slice(0, 4));
+        streamRef.current?.getTracks().forEach((track) => track.stop());
+      };
+      recorder.start(); recorderRef.current = recorder; setRecording(true);
+    } catch { setError("Microphone access is required to record a voice message."); }
   }
 
   return (
@@ -407,8 +496,11 @@ function BroadcastDialog({ classes, contacts, onClose, onSent }: {
           {audience === "class" ? <div className="grid gap-2"><select className="min-h-12 rounded-xl border border-slate-300 px-3 font-bold" onChange={(event) => { setClassId(event.target.value); setCourseId(""); }} value={classId}>{classes.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.students.length} learners</option>)}</select>{classes.find((item) => item.id === classId)?.teacherRole === "subject_teacher" ? <select className="min-h-12 rounded-xl border border-slate-300 px-3 font-bold" onChange={(event) => setCourseId(event.target.value)} required value={courseId}><option value="">Choose the announcement subject</option>{classes.find((item) => item.id === classId)?.assignedSubjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}</select> : null}<p className="rounded-xl bg-blue-50 p-3 text-xs font-bold leading-5 text-blue-900">This announcement will appear inside the selected class group chat.</p></div> : null}
           {audience === "selected" ? <div className="max-h-48 overflow-y-auto rounded-xl border border-slate-200 p-2">{contacts.map((contact) => <label className="flex min-h-11 items-center gap-3 rounded-lg px-2 hover:bg-slate-50" key={contact.id}><input checked={selected.includes(contact.id)} onChange={() => setSelected((current) => current.includes(contact.id) ? current.filter((id) => id !== contact.id) : [...current, contact.id])} type="checkbox" /><span className="text-sm font-bold">{contact.name}</span></label>)}</div> : null}
           <input className="min-h-12 rounded-xl border border-slate-300 px-3" maxLength={120} minLength={2} onChange={(event) => setTitle(event.target.value)} placeholder="Announcement title" required value={title} />
-          <textarea className="min-h-36 rounded-xl border border-slate-300 p-3" maxLength={1000} minLength={2} onChange={(event) => setBody(event.target.value)} placeholder="Write your message" required value={body} />
-          <button className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-blue-700 px-5 font-black text-white hover:bg-blue-800 disabled:opacity-50" disabled={busy || recipientCount === 0 || (audience === "class" && classes.find((item) => item.id === classId)?.teacherRole === "subject_teacher" && !courseId)} type="submit">{busy ? <Loader2 className="size-5 animate-spin" /> : <Send className="size-5" />}Send to {recipientCount} learner{recipientCount === 1 ? "" : "s"}</button>
+          <textarea className="min-h-36 rounded-xl border border-slate-300 p-3" maxLength={1000} minLength={attachments.length ? undefined : 2} onChange={(event) => setBody(event.target.value)} placeholder="Write your message" required={!attachments.length} value={body} />
+          <input className="hidden" multiple onChange={(event) => setAttachments((current) => [...current, ...Array.from(event.target.files ?? [])].slice(0, 4))} ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif,audio/webm,audio/ogg,audio/mpeg,audio/mp4,audio/wav,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv" />
+          <div className="flex flex-wrap items-center gap-2"><button className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-blue-200 px-3 text-sm font-black text-blue-700" onClick={() => fileInputRef.current?.click()} type="button"><Paperclip className="size-4" />Add images or files</button><button className={cn("inline-flex min-h-10 items-center gap-2 rounded-xl px-3 text-sm font-black", recording ? "animate-pulse bg-rose-600 text-white" : "border border-blue-200 text-blue-700")} onClick={() => void toggleRecording()} type="button"><Mic className="size-4" />{recording ? "Stop recording" : "Record audio"}</button></div>
+          {attachments.length ? <div className="flex flex-wrap gap-2">{attachments.map((file, index) => <span className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold" key={`${file.name}-${index}`}>{file.type.startsWith("audio/") ? "Voice message" : file.name}<button onClick={() => setAttachments((current) => current.filter((_, itemIndex) => itemIndex !== index))} type="button"><X className="size-3.5" /></button></span>)}</div> : null}
+          <button className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-blue-700 px-5 font-black text-white hover:bg-blue-800 disabled:opacity-50" disabled={busy || recording || recipientCount === 0 || (!body.trim() && !attachments.length) || (audience === "class" && classes.find((item) => item.id === classId)?.teacherRole === "subject_teacher" && !courseId)} type="submit">{busy ? <Loader2 className="size-5 animate-spin" /> : <Send className="size-5" />}Send to {recipientCount} learner{recipientCount === 1 ? "" : "s"}</button>
         </div>
       </form>
     </div>

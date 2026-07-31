@@ -5,6 +5,7 @@ import {
   getTeacherMessagingData,
   requireTeacher
 } from "@/lib/classes/classroom-server";
+import { removeTeacherMessageAttachments, uploadTeacherMessageAttachments } from "@/lib/classes/message-attachments";
 
 const schema = z.object({
   audience: z.enum(["all", "class", "selected", "student"]),
@@ -24,12 +25,18 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  let attachments = [] as Awaited<ReturnType<typeof uploadTeacherMessageAttachments>>;
   try {
     const teacher = await requireTeacher();
-    const input = schema.parse(await request.json());
-    const recipientCount = await createTeacherNotification({ teacherId: teacher.id, ...input });
+    const isMultipart = request.headers.get("content-type")?.includes("multipart/form-data");
+    const form = isMultipart ? await request.formData() : null;
+    const input = schema.parse(form ? JSON.parse(String(form.get("payload") || "{}")) : await request.json());
+    const files = form ? form.getAll("attachments").filter((item): item is File => item instanceof File && item.size > 0) : [];
+    attachments = await uploadTeacherMessageAttachments({ teacherId: teacher.id, files });
+    const recipientCount = await createTeacherNotification({ teacherId: teacher.id, ...input, attachments });
     return NextResponse.json({ ok: true, recipientCount }, { status: 201 });
   } catch (error) {
+    if (attachments.length) await removeTeacherMessageAttachments(attachments);
     return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to send notification." }, { status: 400 });
   }
 }

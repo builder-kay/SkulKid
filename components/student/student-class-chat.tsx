@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CheckCheck, Clock3, Flag, Loader2, LockKeyhole, Send, ShieldCheck, Users } from "lucide-react";
+import { CheckCheck, Clock3, Flag, Loader2, LockKeyhole, Paperclip, Send, ShieldCheck, Users } from "lucide-react";
 import type { AdviceSuggestionType } from "@/lib/classes/types";
 import { cn } from "@/lib/utils";
 
@@ -21,6 +21,7 @@ type ChatItem = {
   followUpStatus?: "not_required" | "open" | "acknowledged" | "resolved";
   dueAt?: string | null;
   resolutionNote?: string | null;
+  attachments?: Array<{ name: string; kind: "image" | "audio" | "file"; url: string }>;
 };
 
 type ChatState = {
@@ -44,8 +45,8 @@ export function StudentClassChat({
   classId: string;
   className: string;
   chat: ChatState;
-  messages: Array<{ id: string; body: string; createdAt: string; fromStudent: boolean; senderName: string; senderRole: "student" | "teacher" | "admin"; kind: "discussion" | "announcement"; editedAt: string | null }>;
-  notifications: Array<{ id: string; title: string; body: string; audience: string; createdAt: string }>;
+  messages: Array<{ id: string; body: string; attachments?: Array<{ name: string; kind: "image" | "audio" | "file"; url: string }>; createdAt: string; fromStudent: boolean; senderName: string; senderRole: "student" | "teacher" | "admin"; kind: "discussion" | "announcement"; editedAt: string | null }>;
+  notifications: Array<{ id: string; title: string; body: string; attachments?: Array<{ name: string; kind: "image" | "audio" | "file"; url: string }>; audience: string; createdAt: string }>;
   advice: Array<{ id: string; message: string; suggestionType: AdviceSuggestionType; createdAt: string; readAt: string | null; title?: string | null; feedbackCategory?: "celebration" | "practice" | "intervention" | null; recommendedActions?: Array<{ label: string; href?: string }>; followUpStatus?: "not_required" | "open" | "acknowledged" | "resolved"; dueAt?: string | null; resolutionNote?: string | null }>;
   value: string;
   sending: boolean;
@@ -65,11 +66,13 @@ export function StudentClassChat({
       kind: item.kind === "announcement" ? "announcement" as const : "message" as const,
       title: item.kind === "announcement" ? "Teacher announcement" : undefined,
       messageId: item.id, senderName: item.senderName,
+      attachments: item.attachments,
       canReport: !item.fromStudent && item.senderRole === "student"
     })),
     ...notifications.map((item) => ({
       id: `notification-${item.id}`, title: item.title, body: item.body, createdAt: item.createdAt,
       direction: "incoming" as const, kind: "announcement" as const
+      ,attachments: item.attachments
     })),
     ...advice.map((item) => ({
       id: `advice-${item.id}`, title: item.title || adviceLabel(item.suggestionType), body: item.message, createdAt: item.createdAt,
@@ -177,6 +180,7 @@ function Bubble({ item, onAcknowledge, onReport, reporting }: { item: ChatItem; 
       {item.senderName && !outgoing ? <p className="mb-0.5 text-xs font-black text-blue-700">{item.senderName}</p> : null}
       {item.title ? <p className={cn("mb-1 text-xs font-black", outgoing ? "text-blue-100" : item.kind === "announcement" ? "text-violet-700" : "text-blue-700")}>{item.title}</p> : null}
       <p className={cn("whitespace-pre-wrap break-words text-sm leading-5", outgoing ? "text-white" : "text-slate-900")}>{item.body}</p>
+      {item.attachments?.length ? <div className="mt-2 grid gap-2">{item.attachments.map((attachment) => attachment.kind === "image" ? <a href={attachment.url} key={attachment.url} rel="noreferrer" target="_blank"><img alt={attachment.name} className="max-h-72 w-full rounded-xl object-cover" loading="lazy" src={attachment.url} /></a> : attachment.kind === "audio" ? <audio className="max-w-full" controls key={attachment.url} preload="metadata" src={attachment.url} /> : <a className={cn("inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-black", outgoing ? "border-white/30 text-white" : "border-slate-200 text-blue-700")} download={attachment.name} href={attachment.url} key={attachment.url} rel="noreferrer" target="_blank"><Paperclip className="size-4" /><span className="max-w-48 truncate">{attachment.name}</span></a>)}</div> : null}
       {item.recommendedActions?.length ? <div className="mt-3 grid gap-1.5">{item.recommendedActions.map((action) => action.href ? <a className="rounded-lg bg-blue-50 px-3 py-2 text-xs font-black text-blue-800 hover:bg-blue-100" href={action.href} key={action.label}>→ {action.label}</a> : <p className="rounded-lg bg-blue-50 px-3 py-2 text-xs font-bold text-blue-950" key={action.label}>→ {action.label}</p>)}</div> : null}
       {item.dueAt ? <p className="mt-2 flex items-center gap-1 text-[11px] font-bold text-amber-800"><Clock3 className="size-3" />Suggested by {new Date(item.dueAt).toLocaleDateString()}</p> : null}
       {item.kind === "advice" && item.followUpStatus ? <div className="mt-3 flex flex-wrap items-center gap-2">

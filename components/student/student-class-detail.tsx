@@ -79,13 +79,13 @@ type Detail = {
     resolutionNote?: string | null;
   }>;
   deductions: PointDeductionView[];
-  messages: Array<{ id: string; body: string; createdAt: string; fromStudent: boolean; senderId: string; senderName: string; senderRole: "student" | "teacher" | "admin"; kind: "discussion" | "announcement"; editedAt: string | null }>;
+  messages: Array<{ id: string; body: string; attachments?: Array<{ name: string; kind: "image" | "audio" | "file"; url: string }>; createdAt: string; fromStudent: boolean; senderId: string; senderName: string; senderRole: "student" | "teacher" | "admin"; kind: "discussion" | "announcement"; editedAt: string | null }>;
   chat: {
     enabled: boolean; locked: boolean; postingStartsAt: string | null; postingEndsAt: string | null;
     timezone: string; guardianConsentRequired: boolean; consentReady: boolean; withinHours: boolean;
     canPost: boolean; rules: string[];
   };
-  notifications: Array<{ id: string; title: string; body: string; audience: string; createdAt: string }>;
+  notifications: Array<{ id: string; title: string; body: string; attachments?: Array<{ name: string; kind: "image" | "audio" | "file"; url: string }>; audience: string; createdAt: string }>;
   leaderboard: ClassLeaderboardEntry[];
 };
 
