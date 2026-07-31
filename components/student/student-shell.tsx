@@ -15,6 +15,12 @@ import { getStudentLevel } from "@/lib/gamification/calculate-level";
 import { cn } from "@/lib/utils";
 import { useStudentGame } from "@/lib/gamification/student-game";
 import { useStudentProfile } from "@/lib/student/student-profile";
+import {
+  BUTTON_SOUND_CHANGE_EVENT,
+  installButtonClickSounds,
+  isButtonSoundEnabled,
+  playButtonClickSound
+} from "@/lib/student/ui-sounds";
 import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 
 export type StudentNavItem = "dashboard" | "courses" | "classes" | "messages" | "pasco" | "break-zone" | "mathematics" | "preview" | "leaderboard" | "achievements" | "profile";
@@ -55,6 +61,7 @@ export function StudentShell({ activeItem, children, mobileAside }: StudentShell
   const [unreadClassMessages, setUnreadClassMessages] = useState(0);
   const [chatAlert, setChatAlert] = useState<{ classId: string; body: string } | null>(null);
   const soundEnabledRef = useRef(true);
+  const buttonSoundEnabledRef = useRef(true);
   const audioContextRef = useRef<AudioContext | null>(null);
   const morePanelRef = useRef<HTMLDivElement>(null);
   const moreButtonRef = useRef<HTMLButtonElement>(null);
@@ -74,6 +81,22 @@ export function StudentShell({ activeItem, children, mobileAside }: StudentShell
     }
     window.addEventListener("skulkid:class-chat-sound-change", updateSound);
     return () => window.removeEventListener("skulkid:class-chat-sound-change", updateSound);
+  }, []);
+
+  useEffect(() => {
+    buttonSoundEnabledRef.current = isButtonSoundEnabled();
+    function updateButtonSound(event: Event) {
+      const enabled = (event as CustomEvent<{ enabled?: boolean }>).detail?.enabled;
+      if (typeof enabled !== "boolean") return;
+      buttonSoundEnabledRef.current = enabled;
+      if (enabled) playButtonClickSound();
+    }
+    window.addEventListener(BUTTON_SOUND_CHANGE_EVENT, updateButtonSound);
+    const uninstall = installButtonClickSounds(() => buttonSoundEnabledRef.current);
+    return () => {
+      window.removeEventListener(BUTTON_SOUND_CHANGE_EVENT, updateButtonSound);
+      uninstall();
+    };
   }, []);
 
   useEffect(() => {

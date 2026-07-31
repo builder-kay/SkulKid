@@ -34,6 +34,7 @@ import { getStudentLevel } from "@/lib/gamification/calculate-level";
 import { avatarShopAssets, type AvatarAsset } from "@/lib/student/avatar-shop";
 import { useStudentGame } from "@/lib/gamification/student-game";
 import { defaultAvatar, useStudentProfile, type AvatarConfig, type StudentProfileData } from "@/lib/student/student-profile";
+import { isButtonSoundEnabled, setButtonSoundEnabled } from "@/lib/student/ui-sounds";
 
 export function ProfilePage() {
   const { profile, save } = useStudentProfile();
@@ -44,6 +45,7 @@ export function ProfilePage() {
   const [saveError, setSaveError] = useState("");
   const [activeTab, setActiveTab] = useState<"avatar" | "about" | "settings">("avatar");
   const [classChatSound, setClassChatSound] = useState(true);
+  const [buttonSound, setButtonSound] = useState(true);
   const [studioTab, setStudioTab] = useState<"body" | "head" | "hair" | "face" | "shirt" | "bottoms" | "shoes">("body");
   const [shopCategory, setShopCategory] = useState<AvatarAsset["category"]>("shirt");
   const level = getStudentLevel(state.xp);
@@ -63,12 +65,18 @@ export function ProfilePage() {
   useEffect(() => setForm(profile), [profile]);
   useEffect(() => {
     setClassChatSound(window.localStorage.getItem("skulkid:class-chat-sound") !== "off");
+    setButtonSound(isButtonSoundEnabled());
   }, []);
 
   function updateClassChatSound(enabled: boolean) {
     setClassChatSound(enabled);
     window.localStorage.setItem("skulkid:class-chat-sound", enabled ? "on" : "off");
     window.dispatchEvent(new CustomEvent("skulkid:class-chat-sound-change", { detail: { enabled } }));
+  }
+
+  function updateButtonSound(enabled: boolean) {
+    setButtonSound(enabled);
+    setButtonSoundEnabled(enabled);
   }
 
   const update = <K extends keyof StudentProfileData>(field: K, value: StudentProfileData[K]) => {
@@ -375,7 +383,27 @@ export function ProfilePage() {
               <h2 className="mt-3 text-2xl font-black sm:text-3xl">Student settings</h2>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-blue-100">Choose how SkulKid behaves on this device.</p>
             </div>
-            <div className="p-5 sm:p-7">
+            <div className="grid gap-4 p-5 sm:p-7">
+              <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+                <div className="flex min-w-0 items-start gap-3">
+                  <span className={`grid size-12 shrink-0 place-items-center rounded-2xl ${buttonSound ? "bg-violet-100 text-violet-700" : "bg-slate-200 text-slate-600"}`}>
+                    {buttonSound ? <Volume2 className="size-6" /> : <VolumeX className="size-6" />}
+                  </span>
+                  <div>
+                    <h3 className="font-black text-slate-950">Button tap sounds</h3>
+                    <p className="mt-1 text-sm leading-6 text-slate-600">Play a quick confirmation blip when you tap buttons, choices, and links.</p>
+                  </div>
+                </div>
+                <button
+                  aria-pressed={buttonSound}
+                  className={`inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-xl px-5 font-black transition ${buttonSound ? "bg-violet-700 text-white hover:bg-violet-800" : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-100"}`}
+                  onClick={() => updateButtonSound(!buttonSound)}
+                  type="button"
+                >
+                  {buttonSound ? <Volume2 className="size-5" /> : <VolumeX className="size-5" />}
+                  {buttonSound ? "Sound on" : "Sound off"}
+                </button>
+              </div>
               <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
                 <div className="flex min-w-0 items-start gap-3">
                   <span className={`grid size-12 shrink-0 place-items-center rounded-2xl ${classChatSound ? "bg-blue-100 text-blue-700" : "bg-slate-200 text-slate-600"}`}>
