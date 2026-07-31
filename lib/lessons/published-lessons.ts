@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import type { Lesson } from "@/types/lesson";
+import { cacheLessonContent, readCachedLesson } from "@/lib/network/content-cache";
+import { fetchWithRetry } from "@/lib/network/fetch-retry";
 
 let lessonIndex: Lesson[] | null = null;
 let lessonIndexRequest: Promise<Lesson[]> | null = null;
@@ -9,7 +11,7 @@ const fullLessons = new Map<string, Lesson>();
 const fullLessonRequests = new Map<string, Promise<Lesson | null>>();
 
 async function fetchJson<T>(url: string): Promise<T> {
-  const response = await fetch(url, { cache: "no-store" });
+  const response = await fetchWithRetry(url, { cache: "no-store" });
   const payload = await response.json() as T & { error?: string };
   if (!response.ok) throw new Error(payload.error ?? "Learning content could not be loaded.");
   return payload;
@@ -23,6 +25,18 @@ async function readLessonIndex() {
       lessonIndex = payload.lessons;
       return payload.lessons;
     })
+    .catch(async (error) => {
+      const cached = await readCachedLesson<Lesson[]>("__index__");
+      if (cached) {
+        lessonIndex = cached;
+        return cached;
+      }
+      throw error;
+    })
+    .then(async (lessons) => {
+      await cacheLessonContent("__index__", lessons);
+      return lessons;
+    })
     .finally(() => { lessonIndexRequest = null; });
   return lessonIndexRequest;
 }
@@ -32,9 +46,20 @@ async function readPublishedLesson(lessonId: string) {
   const pending = fullLessonRequests.get(lessonId);
   if (pending) return pending;
   const request = fetchJson<{ lesson: Lesson | null }>(`/api/student/lessons?id=${encodeURIComponent(lessonId)}`)
-    .then((payload) => {
-      if (payload.lesson) fullLessons.set(lessonId, payload.lesson);
+    .then(async (payload) => {
+      if (payload.lesson) {
+        fullLessons.set(lessonId, payload.lesson);
+        await cacheLessonContent(lessonId, payload.lesson);
+      }
       return payload.lesson;
+    })
+    .catch(async () => {
+      const cached = await readCachedLesson<Lesson>(lessonId);
+      if (cached) {
+        fullLessons.set(lessonId, cached);
+        return cached;
+      }
+      return null;
     })
     .finally(() => { fullLessonRequests.delete(lessonId); });
   fullLessonRequests.set(lessonId, request);

@@ -13,6 +13,16 @@ import {
   type DailyQuestId
 } from "@/lib/gamification/daily-quests";
 import { dispatchSuccessMoment } from "@/lib/student/success-moments";
+import { fetchWithRetry } from "@/lib/network/fetch-retry";
+import {
+  enqueueGameStateWrite,
+  isBrowserOffline
+} from "@/lib/network/offline-queue";
+import {
+  markSaved,
+  markSaving,
+  markSyncError
+} from "@/lib/network/sync-status";
 
 export const gameChangedEvent = "skulkid:student-game-changed";
 export const DAILY_LEARNING_XP_GOAL = 30;
@@ -200,16 +210,30 @@ function save(state: GameState) {
   currentGameState = state;
   gameStateHydrated = true;
   window.dispatchEvent(new CustomEvent(gameChangedEvent, { detail: state }));
-  const payload = JSON.stringify(state);
+  const snapshot = JSON.parse(JSON.stringify(state)) as GameState;
   saveQueue = saveQueue
     .catch(() => undefined)
     .then(async () => {
-      const response = await fetch("/api/student/game-state", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: payload
-      });
-      if (!response.ok) throw new Error("Student progress could not be saved.");
+      markSaving();
+      if (isBrowserOffline()) {
+        await enqueueGameStateWrite(snapshot);
+        return;
+      }
+      try {
+        const response = await fetchWithRetry("/api/student/game-state", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(snapshot)
+        });
+        if (!response.ok) throw new Error("Student progress could not be saved.");
+        markSaved();
+      } catch (error) {
+        await enqueueGameStateWrite(snapshot);
+        markSyncError(
+          error instanceof Error ? error.message : "Student progress could not be saved.",
+          true
+        );
+      }
     });
 }
 

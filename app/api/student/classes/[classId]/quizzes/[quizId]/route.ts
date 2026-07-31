@@ -14,6 +14,7 @@ export async function GET(_: Request, context: { params: Promise<{ classId: stri
 }
 
 const submitSchema = z.object({
+  clientAttemptId: z.string().min(8).max(80).optional(),
   answers: z.array(z.object({
     questionId: z.string().min(1),
     selectedIndex: z.number().int().min(0).max(5)
@@ -29,7 +30,8 @@ export async function POST(request: Request, context: { params: Promise<{ classI
       studentId: student.id,
       classId,
       quizId,
-      answers: input.answers
+      answers: input.answers,
+      clientAttemptId: input.clientAttemptId
     });
     return NextResponse.json(result);
   } catch (error) {

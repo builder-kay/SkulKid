@@ -4,6 +4,7 @@ import { Archive, CalendarClock, ClipboardList, Copy, Gift, Loader2, Plus, Searc
 import type { ClassQuizQuestion, TeacherClassSummary } from "@/lib/classes/types";
 import { QuizEditorDialog } from "@/components/teacher/quiz-editor-dialog";
 import { TeacherGuideLink } from "@/components/teacher/teacher-guide-link";
+import { useOnlineStatus } from "@/lib/network/use-online";
 
 export type Quiz = {
   id:string; title:string; description:string; subject:string; gradeLevels:number[]; questions:ClassQuizQuestion[];
@@ -34,7 +35,9 @@ function newQuiz():Quiz{return{id:"",title:"",description:"",subject:"mathematic
 function Stat({n,l}:{n:number|string;l:string}){return <div className="rounded-xl bg-slate-50 p-2"><b className="block text-lg">{n}</b><span>{l}</span></div>}
 function AssignDialog({quiz,classes,onClose,onDone}:{quiz:Quiz;classes:TeacherClassSummary[];onClose:()=>void;onDone:()=>void}){
  const [ids,setIds]=useState<string[]>([]),[startAt,setStartAt]=useState(""),[deadline,setDeadline]=useState(""),[reward,setReward]=useState(""),[error,setError]=useState(""),[sending,setSending]=useState(false),[assigned,setAssigned]=useState(false);
+ const online=useOnlineStatus();
  async function submit(){
+  if(!online) return;
   setSending(true);setError("");
   try{
    const r=await fetch(`/api/teacher/quizzes/${quiz.id}/assignments`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({classIds:ids,startAt:startAt?new Date(startAt).toISOString():null,deadline:deadline?new Date(deadline).toISOString():null,offPlatformReward:reward})});
@@ -51,6 +54,6 @@ function AssignDialog({quiz,classes,onClose,onDone}:{quiz:Quiz;classes:TeacherCl
   <section className="rounded-2xl border border-blue-200 bg-blue-50 p-4"><div className="flex gap-3"><CalendarClock className="size-5 shrink-0 text-blue-700"/><div><h3 className="font-black text-blue-950">Optional quiz schedule</h3><p className="mt-1 text-xs leading-5 text-blue-800">Leave both empty to open the quiz now until you close it. Add only an end time for a “take by” deadline.</p></div></div><div className="mt-4 grid gap-4 sm:grid-cols-2"><label className="grid gap-1.5 text-sm font-black">Starts at <input type="datetime-local" className="min-h-11 rounded-xl border border-blue-200 bg-white px-3" value={startAt} onChange={e=>setStartAt(e.target.value)}/></label><label className="grid gap-1.5 text-sm font-black">Ends / take by <input type="datetime-local" className="min-h-11 rounded-xl border border-blue-200 bg-white px-3" value={deadline} onChange={e=>setDeadline(e.target.value)}/></label></div>{invalidWindow?<p className="mt-2 text-xs font-bold text-rose-700">The end time must be after the start time.</p>:null}</section>
   <label className="rounded-2xl border border-amber-200 bg-amber-50 p-4"><span className="flex items-center gap-2 font-black text-amber-950"><Gift className="size-5 text-amber-700"/>Real-world reward (optional)</span><span className="mt-1 block text-xs leading-5 text-amber-800">Describe any classroom reward learners can earn, such as a standing clap, class privilege or no sweeping for a week.</span><textarea className="mt-3 min-h-24 w-full rounded-xl border border-amber-200 bg-white p-3" maxLength={500} placeholder="e.g. The highest score receives a standing clap and chooses Friday's class activity." value={reward} onChange={e=>setReward(e.target.value)}/><span className="mt-1 block text-right text-xs font-bold text-amber-700">{reward.length}/500</span></label>
   {error?<p className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm font-bold text-rose-800">{error}</p>:null}
-  {assigned?<button className="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-slate-900 p-3 font-black text-white" onClick={onDone} type="button">Close and refresh quizzes</button>:<button disabled={!ids.length||invalidWindow||sending} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-violet-700 p-3 font-black text-white shadow-lg disabled:opacity-50" onClick={()=>void submit()}>{sending?<Loader2 className="size-4 animate-spin"/>:<Send className="size-4"/>}{sending?"Publishing and sending SMS…":`Assign and notify ${ids.length} class${ids.length===1?"":"es"}`}</button>}
+  {assigned?<button className="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-slate-900 p-3 font-black text-white" onClick={onDone} type="button">Close and refresh quizzes</button>:<button disabled={!ids.length||invalidWindow||sending||!online} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-violet-700 p-3 font-black text-white shadow-lg disabled:opacity-50" onClick={()=>void submit()}>{sending?<Loader2 className="size-4 animate-spin"/>:<Send className="size-4"/>}{sending?"Publishing and sending SMS…":`Assign and notify ${ids.length} class${ids.length===1?"":"es"}`}</button>}
  </div></div></div>
 }

@@ -2480,9 +2480,77 @@ export async function submitClassQuiz(input: {
   classId: string;
   quizId: string;
   answers: Array<{ questionId: string; selectedIndex: number }>;
+  clientAttemptId?: string;
 }) {
   await assertActiveMember(input.studentId, input.classId);
   const admin = createAdminClient();
+
+  if (input.clientAttemptId) {
+    const { data: existing } = await admin
+      .from("ClassQuizAttempt")
+      .select("quizId,attemptNumber,scorePercentage,passed,starsAwarded,xpAwarded,answers")
+      .eq("studentId", input.studentId)
+      .eq("clientAttemptId", input.clientAttemptId)
+      .maybeSingle();
+    if (existing && existing.quizId === input.quizId) {
+      const { data: quizMeta } = await admin
+        .from("ClassQuiz")
+        .select("maxAttempts,startAt,deadline,status,questions,passingScore,title")
+        .eq("id", input.quizId)
+        .maybeSingle();
+      const { data: allAttempts } = await admin
+        .from("ClassQuizAttempt")
+        .select("attemptNumber,scorePercentage")
+        .eq("quizId", input.quizId)
+        .eq("studentId", input.studentId)
+        .order("attemptNumber", { ascending: true });
+      const maxAttempts = Number(quizMeta?.maxAttempts ?? 3);
+      const attemptsUsed = allAttempts?.length ?? 0;
+      const bestScore = Math.max(
+        Number(existing.scorePercentage),
+        ...(allAttempts ?? []).map((attempt) => Number(attempt.scorePercentage))
+      );
+      const canRetake = canRetakeQuiz({
+        status: (quizMeta?.status as QuizStatus) ?? "published",
+        startAt: (quizMeta?.startAt as string | null) ?? null,
+        deadline: (quizMeta?.deadline as string | null) ?? null,
+        attemptsUsed,
+        maxAttempts
+      });
+      const passed = Boolean(existing.passed);
+      const questions = (quizMeta?.questions as ClassQuizQuestion[]) ?? [];
+      const review = passed || !canRetake
+        ? questions.map((question) => ({
+            questionId: question.id,
+            prompt: question.prompt,
+            correctIndex: question.correctIndex,
+            correctAnswer: question.options[question.correctIndex],
+            explanation: question.explanation ?? ""
+          }))
+        : undefined;
+      const { data: gameRow } = await admin
+        .from("StudentGameState")
+        .select("state")
+        .eq("userId", input.studentId)
+        .maybeSingle();
+      return {
+        scorePercentage: Number(existing.scorePercentage),
+        passed,
+        starsAwarded: Number(existing.starsAwarded),
+        xpAwarded: Number(existing.xpAwarded),
+        attemptNumber: Number(existing.attemptNumber ?? 1),
+        attemptsUsed,
+        maxAttempts,
+        canRetake,
+        bestScore,
+        gameState: (gameRow?.state as Record<string, unknown> | undefined) ?? undefined,
+        appliesToPlatform: true as const,
+        replayed: true as const,
+        review
+      };
+    }
+  }
+
   const { data: quiz, error } = await admin
     .from("ClassQuiz")
     .select("id,questions,startAt,deadline,offPlatformReward,baseXpReward,passingScore,maxAttempts,status,title")
@@ -2539,13 +2607,33 @@ export async function submitClassQuiz(input: {
     quizId: input.quizId,
     studentId: input.studentId,
     attemptNumber,
+    clientAttemptId: input.clientAttemptId ?? null,
     answers: graded,
     scorePercentage,
     starsAwarded,
     xpAwarded,
     passed
   });
-  if (attemptError) throw new Error(attemptError.message);
+  if (attemptError) {
+    if (input.clientAttemptId && /duplicate|unique/i.test(attemptError.message)) {
+      const { data: raced } = await admin
+        .from("ClassQuizAttempt")
+        .select("id")
+        .eq("studentId", input.studentId)
+        .eq("clientAttemptId", input.clientAttemptId)
+        .maybeSingle();
+      if (raced) {
+        return submitClassQuiz({
+          studentId: input.studentId,
+          classId: input.classId,
+          quizId: input.quizId,
+          answers: input.answers,
+          clientAttemptId: input.clientAttemptId
+        });
+      }
+    }
+    throw new Error(attemptError.message);
+  }
 
   const nextAttemptsUsed = attemptsUsed + 1;
   const bestScore = Math.max(

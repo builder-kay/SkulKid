@@ -2,6 +2,11 @@
 
 import { useEffect, useState } from "react";
 import type { StudentClassCourse } from "@/lib/classes/types";
+import {
+  cacheClassCourseContent,
+  readCachedClassCourse
+} from "@/lib/network/content-cache";
+import { fetchWithRetry } from "@/lib/network/fetch-retry";
 
 export function useStudentClassCourse(classId?: string, courseSlug?: string) {
   const enabled = Boolean(classId && courseSlug);
@@ -20,15 +25,23 @@ export function useStudentClassCourse(classId?: string, courseSlug?: string) {
     setData(null);
     setLoading(true);
     setError(null);
-    void fetch(`/api/student/classes/${encodeURIComponent(classId)}/courses/${encodeURIComponent(courseSlug)}`, {
-      cache: "no-store"
-    })
+    void fetchWithRetry(
+      `/api/student/classes/${encodeURIComponent(classId)}/courses/${encodeURIComponent(courseSlug)}`,
+      { cache: "no-store" }
+    )
       .then(async (response) => {
         const payload = await response.json() as StudentClassCourse & { error?: string };
         if (!response.ok) throw new Error(payload.error ?? "Unable to load this class subject.");
+        await cacheClassCourseContent(classId, courseSlug, payload);
         if (active) setData(payload);
       })
-      .catch((cause) => {
+      .catch(async (cause) => {
+        const cached = await readCachedClassCourse<StudentClassCourse>(classId, courseSlug);
+        if (cached && active) {
+          setData(cached);
+          setError(null);
+          return;
+        }
         if (active) setError(cause instanceof Error ? cause.message : "Unable to load this class subject.");
       })
       .finally(() => {

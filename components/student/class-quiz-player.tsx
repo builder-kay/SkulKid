@@ -1,7 +1,7 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
 import { ArrowLeft, ArrowRight, CheckCircle2, Clock3, Loader2, Star, Trophy } from "lucide-react";
 import { CharacterAvatar } from "@/components/student/character-avatar";
 import { StudentShell } from "@/components/student/student-shell";
@@ -11,6 +11,18 @@ import type { ClassQuizAttemptSummary } from "@/lib/classes/types";
 import type { GameState } from "@/lib/gamification/student-game";
 import type { StudentCelebrationInput } from "@/lib/gamification/student-celebration";
 import { useStudentProfile } from "@/lib/student/student-profile";
+import {
+  cacheClassQuizContent,
+  readCachedClassQuiz
+} from "@/lib/network/content-cache";
+import { fetchWithRetry } from "@/lib/network/fetch-retry";
+import {
+  createClientAttemptId,
+  enqueueClassQuizWrite,
+  isBrowserOffline,
+  OFFLINE_QUEUE_FLUSHED_EVENT
+} from "@/lib/network/offline-queue";
+import { markSaved, markSaving, markSyncError } from "@/lib/network/sync-status";
 
 type QuizPayload = {
   quiz: {
@@ -47,8 +59,38 @@ type SubmitResult = {
   gameState?: Partial<GameState>;
   celebration?: StudentCelebrationInput;
   appliesToPlatform?: boolean;
-  review?: Array<{questionId:string;prompt:string;correctAnswer:string;explanation:string}>;
+  review?: Array<{ questionId: string; prompt: string; correctAnswer: string; explanation: string }>;
 };
+
+function applySubmitResult(
+  data: SubmitResult,
+  setResult: (value: SubmitResult) => void,
+  setRetaking: (value: boolean) => void,
+  setPayload: Dispatch<SetStateAction<QuizPayload | null>>
+) {
+  setResult(data);
+  setRetaking(false);
+  setPayload((current) =>
+    current
+      ? {
+          ...current,
+          attemptsUsed: data.attemptsUsed,
+          canRetake: data.canRetake,
+          bestAttempt: {
+            attemptNumber: data.attemptNumber,
+            scorePercentage: data.bestScore,
+            passed: data.passed || (current.bestAttempt?.passed ?? false),
+            starsAwarded: data.starsAwarded,
+            xpAwarded: data.xpAwarded,
+            submittedAt: new Date().toISOString()
+          }
+        }
+      : current
+  );
+  if (data.gameState) {
+    applyServerGameState(data.gameState, data.celebration);
+  }
+}
 
 export function ClassQuizPlayer({ classId, quizId }: { classId: string; quizId: string }) {
   const { profile } = useStudentProfile();
@@ -65,53 +107,73 @@ export function ClassQuizPlayer({ classId, quizId }: { classId: string; quizId: 
   useEffect(() => {
     void (async () => {
       try {
-        const response = await fetch(`/api/student/classes/${classId}/quizzes/${quizId}`, { cache: "no-store" });
-        const data = await response.json() as QuizPayload & { error?: string };
+        const response = await fetchWithRetry(`/api/student/classes/${classId}/quizzes/${quizId}`, {
+          cache: "no-store"
+        });
+        const data = (await response.json()) as QuizPayload & { error?: string };
         if (!response.ok) throw new Error(data.error || "Unable to load quiz.");
-        setPayload({
+        const next = {
           ...data,
           attempts: data.attempts ?? [],
           attemptsUsed: data.attemptsUsed ?? data.attempts?.length ?? 0,
           canRetake: Boolean(data.canRetake),
           bestAttempt: data.bestAttempt ?? null
-        });
-        if ((data.attemptsUsed ?? data.attempts?.length ?? 0) > 0 && !data.canRetake) {
-          const best = data.bestAttempt ?? data.attempt;
+        };
+        setPayload(next);
+        await cacheClassQuizContent(classId, quizId, next);
+        if ((next.attemptsUsed ?? 0) > 0) {
+          const best = next.bestAttempt ?? next.attempt;
           if (best) {
             setResult({
               scorePercentage: best.scorePercentage,
               passed: best.passed,
               starsAwarded: best.starsAwarded,
               xpAwarded: best.xpAwarded,
-              attemptNumber: "attemptNumber" in best ? Number(best.attemptNumber) : data.attemptsUsed,
-              attemptsUsed: data.attemptsUsed,
-              maxAttempts: data.quiz.maxAttempts,
-              canRetake: false,
-              bestScore: best.scorePercentage
-            });
-          }
-        } else if ((data.attemptsUsed ?? 0) > 0 && data.canRetake && !retaking) {
-          const best = data.bestAttempt ?? data.attempt;
-          if (best) {
-            setResult({
-              scorePercentage: best.scorePercentage,
-              passed: best.passed,
-              starsAwarded: best.starsAwarded,
-              xpAwarded: best.xpAwarded,
-              attemptNumber: "attemptNumber" in best ? Number(best.attemptNumber) : data.attemptsUsed,
-              attemptsUsed: data.attemptsUsed,
-              maxAttempts: data.quiz.maxAttempts,
-              canRetake: true,
+              attemptNumber: "attemptNumber" in best ? Number(best.attemptNumber) : next.attemptsUsed,
+              attemptsUsed: next.attemptsUsed,
+              maxAttempts: next.quiz.maxAttempts,
+              canRetake: next.canRetake,
               bestScore: best.scorePercentage
             });
           }
         }
       } catch (cause) {
-        setError(cause instanceof Error ? cause.message : "Unable to load quiz.");
+        const cached = await readCachedClassQuiz<QuizPayload>(classId, quizId);
+        if (cached) {
+          setPayload({
+            ...cached,
+            attempts: cached.attempts ?? [],
+            attemptsUsed: cached.attemptsUsed ?? cached.attempts?.length ?? 0,
+            canRetake: Boolean(cached.canRetake),
+            bestAttempt: cached.bestAttempt ?? null
+          });
+          setError("");
+        } else {
+          setError(cause instanceof Error ? cause.message : "Unable to load quiz.");
+        }
       } finally {
         setLoading(false);
       }
     })();
+  }, [classId, quizId]);
+
+  useEffect(() => {
+    function onFlushed(event: Event) {
+      const detail = (
+        event as CustomEvent<{
+          kind: string;
+          classId: string;
+          quizId: string;
+          result: SubmitResult;
+        }>
+      ).detail;
+      if (detail?.kind !== "class-quiz") return;
+      if (detail.classId !== classId || detail.quizId !== quizId) return;
+      applySubmitResult(detail.result, setResult, setRetaking, setPayload);
+      setError("");
+    }
+    window.addEventListener(OFFLINE_QUEUE_FLUSHED_EVENT, onFlushed);
+    return () => window.removeEventListener(OFFLINE_QUEUE_FLUSHED_EVENT, onFlushed);
   }, [classId, quizId]);
 
   async function submit(event: React.FormEvent) {
@@ -119,47 +181,82 @@ export function ClassQuizPlayer({ classId, quizId }: { classId: string; quizId: 
     if (!payload) return;
     setSubmitting(true);
     setError("");
+    const answerPayload = payload.quiz.questions.map((question) => ({
+      questionId: question.id,
+      selectedIndex: answers[question.id] ?? -1
+    }));
+    if (answerPayload.some((answer) => answer.selectedIndex < 0)) {
+      setError("Answer every question before submitting.");
+      setSubmitting(false);
+      return;
+    }
+
+    const clientAttemptId = createClientAttemptId();
+    markSaving();
+
+    if (isBrowserOffline()) {
+      await enqueueClassQuizWrite({
+        classId,
+        quizId,
+        clientAttemptId,
+        answers: answerPayload
+      });
+      setResult({
+        scorePercentage: 0,
+        passed: false,
+        starsAwarded: 0,
+        xpAwarded: 0,
+        attemptNumber: (payload.attemptsUsed ?? 0) + 1,
+        attemptsUsed: (payload.attemptsUsed ?? 0) + 1,
+        maxAttempts: payload.quiz.maxAttempts,
+        canRetake: false,
+        bestScore: payload.bestAttempt?.scorePercentage ?? 0
+      });
+      setRetaking(false);
+      setSubmitting(false);
+      return;
+    }
+
     try {
-      const response = await fetch(`/api/student/classes/${classId}/quizzes/${quizId}`, {
+      const response = await fetchWithRetry(`/api/student/classes/${classId}/quizzes/${quizId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          answers: payload.quiz.questions.map((question) => ({
-            questionId: question.id,
-            selectedIndex: answers[question.id] ?? -1
-          }))
+          clientAttemptId,
+          answers: answerPayload
         })
       });
-      const data = await response.json() as SubmitResult & { error?: string };
+      const data = (await response.json()) as SubmitResult & { error?: string };
       if (!response.ok) throw new Error(data.error || "Unable to submit quiz.");
-      setResult(data);
-      setRetaking(false);
-      setPayload((current) => current
-        ? {
-            ...current,
-            attemptsUsed: data.attemptsUsed,
-            canRetake: data.canRetake,
-            bestAttempt: {
-              attemptNumber: data.attemptNumber,
-              scorePercentage: data.bestScore,
-              passed: data.passed || (current.bestAttempt?.passed ?? false),
-              starsAwarded: data.starsAwarded,
-              xpAwarded: data.xpAwarded,
-              submittedAt: new Date().toISOString()
-            }
-          }
-        : current);
-      if (data.gameState) {
-        applyServerGameState(data.gameState, data.celebration);
-      } else {
-        const refreshed = await fetch("/api/student/game-state", { cache: "no-store" });
+      applySubmitResult(data, setResult, setRetaking, setPayload);
+      if (!data.gameState) {
+        const refreshed = await fetchWithRetry("/api/student/game-state", { cache: "no-store" });
         if (refreshed.ok) {
-          const body = await refreshed.json() as { state: Partial<GameState> | null };
+          const body = (await refreshed.json()) as { state: Partial<GameState> | null };
           applyServerGameState(body.state);
         }
       }
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Unable to submit quiz.");
+      markSaved();
+    } catch {
+      await enqueueClassQuizWrite({
+        classId,
+        quizId,
+        clientAttemptId,
+        answers: answerPayload
+      });
+      setResult({
+        scorePercentage: 0,
+        passed: false,
+        starsAwarded: 0,
+        xpAwarded: 0,
+        attemptNumber: (payload.attemptsUsed ?? 0) + 1,
+        attemptsUsed: (payload.attemptsUsed ?? 0) + 1,
+        maxAttempts: payload.quiz.maxAttempts,
+        canRetake: false,
+        bestScore: payload.bestAttempt?.scorePercentage ?? 0
+      });
+      setRetaking(false);
+      markSyncError("Unable to submit quiz.", true);
     } finally {
       setSubmitting(false);
     }
@@ -174,7 +271,13 @@ export function ClassQuizPlayer({ classId, quizId }: { classId: string; quizId: 
   }
 
   if (loading) {
-    return <StudentShell activeItem="classes"><div className="grid place-items-center p-16 text-slate-500"><Loader2 className="size-7 animate-spin" /></div></StudentShell>;
+    return (
+      <StudentShell activeItem="classes">
+        <div className="grid place-items-center p-16 text-slate-500">
+          <Loader2 className="size-7 animate-spin" />
+        </div>
+      </StudentShell>
+    );
   }
 
   if (!payload) {
@@ -183,16 +286,39 @@ export function ClassQuizPlayer({ classId, quizId }: { classId: string; quizId: 
       <StudentShell activeItem="classes">
         <div className="rounded-[1.5rem] border border-amber-200 bg-amber-50 p-6">
           <p className="text-xl font-black text-amber-950">{error || "Quiz not found."}</p>
-          <p className="mt-2 text-sm text-amber-900">{ended ? "This challenge has moved to PASCO, where you can review every answer and practise again." : "Return to your class and choose another activity."}</p>
-          <div className="mt-4 flex flex-wrap gap-3">{ended ? <Link className="inline-flex min-h-11 items-center rounded-xl bg-orange-600 px-4 text-sm font-black text-white" href={`/pasco/${quizId}`}>Open in PASCO</Link> : null}<Link className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-amber-300 bg-white px-4 text-sm font-bold text-primary" href={`/classes/${classId}`}><ArrowLeft className="size-4" />Back to class</Link></div>
+          <p className="mt-2 text-sm text-amber-900">
+            {ended
+              ? "This challenge has moved to PASCO, where you can review every answer and practise again."
+              : "Return to your class and choose another activity."}
+          </p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            {ended ? (
+              <Link
+                className="inline-flex min-h-11 items-center rounded-xl bg-orange-600 px-4 text-sm font-black text-white"
+                href={`/pasco/${quizId}`}
+              >
+                Open in PASCO
+              </Link>
+            ) : null}
+            <Link
+              className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-amber-300 bg-white px-4 text-sm font-bold text-primary"
+              href={`/classes/${classId}`}
+            >
+              <ArrowLeft className="size-4" />
+              Back to class
+            </Link>
+          </div>
         </div>
       </StudentShell>
     );
   }
 
-  const nextAttemptNumber = (result?.attemptsUsed ?? payload.attemptsUsed) + (retaking || !result ? 1 : 0);
+  const nextAttemptNumber =
+    (result?.attemptsUsed ?? payload.attemptsUsed) + (retaking || !result ? 1 : 0);
   const showForm = !result || retaking;
-  const progressPercent = showForm ? ((questionIndex + 1) / payload.quiz.questions.length) * 100 : 100;
+  const progressPercent = showForm
+    ? ((questionIndex + 1) / payload.quiz.questions.length) * 100
+    : 100;
   const endLabel = payload.quiz.deadline
     ? `Ends ${new Date(payload.quiz.deadline).toLocaleString()}`
     : "Teacher ends quiz";
@@ -201,36 +327,44 @@ export function ClassQuizPlayer({ classId, quizId }: { classId: string; quizId: 
     <StudentShell activeItem="classes">
       <main className="mx-auto grid w-full max-w-3xl gap-5">
         <header
-          className={`overflow-hidden border border-slate-200 bg-white shadow-sm transition-[padding,border-radius,box-shadow] duration-200 motion-reduce:transition-none ${headerCompact ? "rounded-2xl px-4 py-3" : "rounded-[1.75rem] p-5"}`}
-          data-compact={headerCompact}
+          className={`overflow-hidden border border-slate-200 bg-white shadow-sm ${headerCompact ? "rounded-2xl px-4 py-3" : "rounded-[1.75rem] p-5"}`}
         >
-          <div className={`grid transition-[grid-template-rows,opacity] duration-200 motion-reduce:transition-none ${headerCompact ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`} aria-hidden={!headerCompact}>
-            <div className="min-h-0 overflow-hidden">
-              <div className="flex items-center justify-between gap-3">
-                <p className="inline-flex min-w-0 items-center gap-1.5 truncate text-xs font-black text-amber-800 sm:text-sm">
-                  <Clock3 aria-hidden="true" className="size-4 shrink-0" />
-                  <span className="truncate">{endLabel}</span>
-                </p>
-                <span className="shrink-0 text-xs font-black text-slate-700">
-                  {showForm ? `${questionIndex + 1}/${payload.quiz.questions.length}` : "Complete"}
-                </span>
-              </div>
+          <div className={headerCompact ? "" : "hidden"} aria-hidden={!headerCompact}>
+            <div className="flex items-center justify-between gap-3">
+              <p className="inline-flex min-w-0 items-center gap-1.5 truncate text-xs font-black text-amber-800 sm:text-sm">
+                <Clock3 aria-hidden="true" className="size-4 shrink-0" />
+                <span className="truncate">{endLabel}</span>
+              </p>
+              <span className="shrink-0 text-xs font-black text-slate-700">
+                {showForm ? `${questionIndex + 1}/${payload.quiz.questions.length}` : "Complete"}
+              </span>
             </div>
           </div>
-          <div className={`grid transition-[grid-template-rows,opacity] duration-200 motion-reduce:transition-none ${headerCompact ? "grid-rows-[0fr] opacity-0" : "grid-rows-[1fr] opacity-100"}`} aria-hidden={headerCompact}>
-            <div className="min-h-0 overflow-hidden">
-          <p className="text-xs font-black uppercase tracking-wider text-blue-700">Class quiz</p>
-          <h1 className="mt-1 text-3xl font-black text-slate-950">{payload.quiz.title}</h1>
-          <p className="mt-2 text-sm text-slate-600">{payload.quiz.description || `${payload.quiz.baseXpReward} XP · pass ${payload.quiz.passingScore}%`}</p>
-          <p className="mt-2 text-sm font-bold text-slate-700">
-            {showForm
-              ? `Attempt ${Math.min(nextAttemptNumber, payload.quiz.maxAttempts)} of ${payload.quiz.maxAttempts}`
-              : `Attempts used ${result?.attemptsUsed ?? payload.attemptsUsed} of ${payload.quiz.maxAttempts}`}
-          </p>
-          {payload.quiz.deadline ? <p className="mt-2 text-sm font-bold text-amber-700">Deadline {new Date(payload.quiz.deadline).toLocaleString()}</p> : null}
-          {!payload.quiz.deadline ? <p className="mt-2 text-sm font-bold text-sky-700">Available until your teacher ends it</p> : null}
-          {payload.quiz.offPlatformReward ? <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950"><Trophy className="mr-2 inline size-4 text-amber-600" /><b>Class reward:</b> {payload.quiz.offPlatformReward}</div> : null}
-            </div>
+          <div className={headerCompact ? "hidden" : ""} aria-hidden={headerCompact}>
+            <p className="text-xs font-black uppercase tracking-wider text-blue-700">Class quiz</p>
+            <h1 className="mt-1 text-3xl font-black text-slate-950">{payload.quiz.title}</h1>
+            <p className="mt-2 text-sm text-slate-600">
+              {payload.quiz.description || `${payload.quiz.baseXpReward} XP · pass ${payload.quiz.passingScore}%`}
+            </p>
+            <p className="mt-2 text-sm font-bold text-slate-700">
+              {showForm
+                ? `Attempt ${Math.min(nextAttemptNumber, payload.quiz.maxAttempts)} of ${payload.quiz.maxAttempts}`
+                : `Attempts used ${result?.attemptsUsed ?? payload.attemptsUsed} of ${payload.quiz.maxAttempts}`}
+            </p>
+            {payload.quiz.deadline ? (
+              <p className="mt-2 text-sm font-bold text-amber-700">
+                Deadline {new Date(payload.quiz.deadline).toLocaleString()}
+              </p>
+            ) : null}
+            {!payload.quiz.deadline ? (
+              <p className="mt-2 text-sm font-bold text-sky-700">Available until your teacher ends it</p>
+            ) : null}
+            {payload.quiz.offPlatformReward ? (
+              <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
+                <Trophy className="mr-2 inline size-4 text-amber-600" />
+                <b>Class reward:</b> {payload.quiz.offPlatformReward}
+              </div>
+            ) : null}
           </div>
           {showForm ? (
             <div className={headerCompact ? "mt-2" : "mt-4"}>
@@ -243,9 +377,16 @@ export function ClassQuizPlayer({ classId, quizId }: { classId: string; quizId: 
                   className={`flex-1 overflow-hidden rounded-full bg-slate-100 ${headerCompact ? "h-2" : "h-2.5"}`}
                   role="progressbar"
                 >
-                  <div className="h-full rounded-full bg-gradient-to-r from-violet-600 to-blue-500 transition-all duration-300 motion-reduce:transition-none" style={{ width: `${progressPercent}%` }} />
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-violet-600 to-blue-500 transition-all duration-300"
+                    style={{ width: `${progressPercent}%` }}
+                  />
                 </div>
-                {!headerCompact ? <span className="text-xs font-black">{questionIndex + 1}/{payload.quiz.questions.length}</span> : null}
+                {!headerCompact ? (
+                  <span className="text-xs font-black">
+                    {questionIndex + 1}/{payload.quiz.questions.length}
+                  </span>
+                ) : null}
               </div>
             </div>
           ) : null}
@@ -266,66 +407,149 @@ export function ClassQuizPlayer({ classId, quizId }: { classId: string; quizId: 
               <div className="grid size-28 shrink-0 place-items-center overflow-hidden rounded-[1.5rem] border-4 border-white bg-gradient-to-br from-cyan-100 via-violet-100 to-amber-100 shadow-md sm:size-32">
                 <CharacterAvatar
                   avatar={profile.avatar}
-                  celebrationSignal={result.passed ? `quiz-pass-${quizId}-${result.attemptNumber}` : `quiz-${quizId}-${result.attemptNumber}`}
+                  celebrationSignal={
+                    result.passed
+                      ? `quiz-pass-${quizId}-${result.attemptNumber}`
+                      : `quiz-${quizId}-${result.attemptNumber}`
+                  }
                   className="size-full"
                   label={`${profile.username}'s quiz avatar`}
                   motion="expressive"
                 />
               </div>
               <div>
-                <p className="text-xs font-black uppercase tracking-wider text-emerald-700">{result.passed ? "You smashed it!" : "Quiz in"}</p>
+                <p className="text-xs font-black uppercase tracking-wider text-emerald-700">
+                  {result.passed ? "You smashed it!" : "Quiz in"}
+                </p>
                 <h2 className="mt-1 flex items-center justify-center gap-2 text-2xl font-black sm:justify-start">
-                  {result.passed ? <Trophy className="size-7 text-amber-500" /> : <CheckCircle2 className="size-7 text-emerald-600" />}
+                  {result.passed ? (
+                    <Trophy className="size-7 text-amber-500" />
+                  ) : (
+                    <CheckCircle2 className="size-7 text-emerald-600" />
+                  )}
                   {result.passed ? "Great work!" : "Quiz submitted"}
                 </h2>
-                <div className="mt-2 flex justify-center gap-1 sm:justify-start" aria-label={`${result.starsAwarded} stars earned`}>{[1,2,3].map(star=><Star className={`size-7 ${star<=result.starsAwarded?"fill-amber-400 text-amber-400":"text-slate-300"}`} key={star}/>)}</div>
-                <p className="text-sm">Score {result.scorePercentage}% · {result.xpAwarded} XP earned · {result.starsAwarded} stars earned</p>
-                <p className="mt-1 text-sm">Best score {result.bestScore}% · Attempt {result.attemptNumber} of {result.maxAttempts}</p>
+                <div
+                  className="mt-2 flex justify-center gap-1 sm:justify-start"
+                  aria-label={`${result.starsAwarded} stars earned`}
+                >
+                  {[1, 2, 3].map((star) => (
+                    <Star
+                      className={`size-7 ${star <= result.starsAwarded ? "fill-amber-400 text-amber-400" : "text-slate-300"}`}
+                      key={star}
+                    />
+                  ))}
+                </div>
+                <p className="text-sm">
+                  Score {result.scorePercentage}% · {result.xpAwarded} XP earned · {result.starsAwarded} stars earned
+                </p>
+                <p className="mt-1 text-sm">
+                  Best score {result.bestScore}% · Attempt {result.attemptNumber} of {result.maxAttempts}
+                </p>
                 {result.xpAwarded > 0 || result.starsAwarded > 0 ? (
-                  <p className="mt-2 text-sm font-bold text-emerald-800">These rewards also count on your platform XP, stars, streak and leaderboard.</p>
+                  <p className="mt-2 text-sm font-bold text-emerald-800">
+                    These rewards also count on your platform XP, stars, streak and leaderboard.
+                  </p>
                 ) : (
-                  <p className="mt-2 text-sm font-bold text-emerald-800">No new XP this attempt — beat your best score to earn more platform points.</p>
+                  <p className="mt-2 text-sm font-bold text-emerald-800">
+                    No new XP this attempt — beat your best score to earn more platform points.
+                  </p>
                 )}
               </div>
             </div>
             <div className="mt-5 flex flex-wrap gap-3">
               {result.canRetake ? (
-                <button className="inline-flex rounded-xl bg-primary px-4 py-2 text-sm font-black text-white" onClick={startRetake} type="button">
+                <button
+                  className="inline-flex rounded-xl bg-primary px-4 py-2 text-sm font-black text-white"
+                  onClick={startRetake}
+                  type="button"
+                >
                   Retake quiz
                 </button>
               ) : null}
-              <Link className="inline-flex rounded-xl border border-emerald-300 bg-white px-4 py-2 text-sm font-black text-emerald-900" href={`/classes/${classId}`}>Return to class</Link>
+              <Link
+                className="inline-flex rounded-xl border border-emerald-300 bg-white px-4 py-2 text-sm font-black text-emerald-900"
+                href={`/classes/${classId}`}
+              >
+                Return to class
+              </Link>
             </div>
-            {result.review?.length ? <div className="mt-6 grid gap-3 text-left">{result.review.map((item,index)=><article className="rounded-xl border border-emerald-200 bg-white p-4" key={item.questionId}><p className="text-xs font-black uppercase text-emerald-700">Question {index+1}</p><h3 className="mt-1 font-black">{item.prompt}</h3><p className="mt-2 text-sm"><b>Correct answer:</b> {item.correctAnswer}</p>{item.explanation?<p className="mt-1 text-sm text-slate-600">{item.explanation}</p>:null}</article>)}</div>:null}
+            {result.review?.length ? (
+              <div className="mt-6 grid gap-3 text-left">
+                {result.review.map((item, index) => (
+                  <article className="rounded-xl border border-emerald-200 bg-white p-4" key={item.questionId}>
+                    <p className="text-xs font-black uppercase text-emerald-700">Question {index + 1}</p>
+                    <h3 className="mt-1 font-black">{item.prompt}</h3>
+                    <p className="mt-2 text-sm">
+                      <b>Correct answer:</b> {item.correctAnswer}
+                    </p>
+                    {item.explanation ? <p className="mt-1 text-sm text-slate-600">{item.explanation}</p> : null}
+                  </article>
+                ))}
+              </div>
+            ) : null}
           </section>
         ) : (
           <form className="grid gap-4" onSubmit={submit}>
-            {payload.quiz.questions.map((question, index) => index !== questionIndex ? null : (
-              <fieldset className="rounded-[1.5rem] border border-slate-200 bg-white p-5" key={question.id}>
-                <legend className="px-1 text-sm font-black text-slate-500">Question {index + 1}</legend>
-                <p className="mt-1 font-black text-slate-950">{question.prompt}</p>
-                <div className="mt-4 grid gap-2">
-                  {question.options.map((option, optionIndex) => (
-                    <label className={`flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-3 text-sm font-bold ${answers[question.id] === optionIndex ? "border-blue-500 bg-blue-50 text-blue-900" : "border-slate-200 bg-slate-50 text-slate-700"}`} key={`${question.id}-${optionIndex}`}>
-                      <input
-                        checked={answers[question.id] === optionIndex}
-                        className="size-4"
-                        name={question.id}
-                        onChange={() => setAnswers((current) => ({ ...current, [question.id]: optionIndex }))}
-                        required
-                        type="radio"
-                      />
-                      {option}
-                    </label>
-                  ))}
-                </div>
-              </fieldset>
-            ))}
+            {payload.quiz.questions.map((question, index) =>
+              index !== questionIndex ? null : (
+                <fieldset className="rounded-[1.5rem] border border-slate-200 bg-white p-5" key={question.id}>
+                  <legend className="px-1 text-sm font-black text-slate-500">Question {index + 1}</legend>
+                  <p className="mt-1 font-black text-slate-950">{question.prompt}</p>
+                  <div className="mt-4 grid gap-2">
+                    {question.options.map((option, optionIndex) => (
+                      <label
+                        className={`flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-3 text-sm font-bold ${answers[question.id] === optionIndex ? "border-blue-500 bg-blue-50 text-blue-900" : "border-slate-200 bg-slate-50 text-slate-700"}`}
+                        key={`${question.id}-${optionIndex}`}
+                      >
+                        <input
+                          checked={answers[question.id] === optionIndex}
+                          className="size-4"
+                          name={question.id}
+                          onChange={() =>
+                            setAnswers((current) => ({ ...current, [question.id]: optionIndex }))
+                          }
+                          required
+                          type="radio"
+                        />
+                        {option}
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+              )
+            )}
             {error ? <p className="text-sm font-bold text-amber-800">{error}</p> : null}
             <div className="flex justify-between gap-3">
-              <button className="inline-flex min-h-12 items-center gap-2 rounded-xl border px-5 font-black disabled:opacity-40" disabled={questionIndex===0} onClick={()=>setQuestionIndex(i=>i-1)} type="button"><ArrowLeft className="size-4"/>Previous</button>
-              {questionIndex < payload.quiz.questions.length-1 ? <button className="inline-flex min-h-12 items-center gap-2 rounded-xl bg-primary px-5 font-black text-white disabled:opacity-50" disabled={answers[payload.quiz.questions[questionIndex].id]===undefined} onClick={()=>setQuestionIndex(i=>i+1)} type="button">Next<ArrowRight className="size-4"/></button>:
-              <button className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-amber-400 px-5 font-black text-slate-950 disabled:opacity-60" disabled={submitting||Object.keys(answers).length<payload.quiz.questions.length} type="submit">{submitting?<Loader2 className="size-4 animate-spin"/>:<Trophy className="size-4"/>}Submit challenge</button>}
+              <button
+                className="inline-flex min-h-12 items-center gap-2 rounded-xl border px-5 font-black disabled:opacity-40"
+                disabled={questionIndex === 0}
+                onClick={() => setQuestionIndex((i) => i - 1)}
+                type="button"
+              >
+                <ArrowLeft className="size-4" />
+                Previous
+              </button>
+              {questionIndex < payload.quiz.questions.length - 1 ? (
+                <button
+                  className="inline-flex min-h-12 items-center gap-2 rounded-xl bg-primary px-5 font-black text-white disabled:opacity-50"
+                  disabled={answers[payload.quiz.questions[questionIndex].id] === undefined}
+                  onClick={() => setQuestionIndex((i) => i + 1)}
+                  type="button"
+                >
+                  Next
+                  <ArrowRight className="size-4" />
+                </button>
+              ) : (
+                <button
+                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-amber-400 px-5 font-black text-slate-950 disabled:opacity-60"
+                  disabled={submitting || Object.keys(answers).length < payload.quiz.questions.length}
+                  type="submit"
+                >
+                  {submitting ? <Loader2 className="size-4 animate-spin" /> : <Trophy className="size-4" />}
+                  Submit challenge
+                </button>
+              )}
             </div>
           </form>
         )}

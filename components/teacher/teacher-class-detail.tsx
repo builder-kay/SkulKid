@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, ArrowRight, BarChart3, BookOpen, ClipboardList, Copy, Crown, Layers3, Library, Loader2, MinusCircle, Plus, ShieldCheck, Sparkles, Trophy, Trash2, UserRoundCheck, Users, Zap } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowLeft, ArrowRight, BarChart3, BookOpen, ClipboardList, Copy, Crown, Layers3, Library, Loader2, MinusCircle, Plus, Save, ShieldCheck, Sparkles, Trophy, Trash2, UserRoundCheck, Users, Zap } from "lucide-react";
 import type {
   ClassCourseAssignmentView,
   ClassLeaderboardEntry,
@@ -15,6 +15,19 @@ import { ClassLeaderboardPanel } from "@/components/student/class-leaderboard-pa
 import { TeacherPerformanceWorkspace } from "@/components/teacher/teacher-performance-workspace";
 import { TeacherClassTeam } from "@/components/teacher/teacher-class-team";
 import { isTimedChallengeQuiz } from "@/lib/classes/timed-challenge";
+import {
+  downloadTeacherClassPack,
+  readTeacherClassPack
+} from "@/lib/network/teacher-class-pack";
+import {
+  clearClassCourseDraft,
+  clearClassQuizDraft,
+  readClassCourseDraft,
+  readClassQuizDraft,
+  saveClassCourseDraft,
+  saveClassQuizDraft
+} from "@/lib/network/teacher-drafts";
+import { useOnlineStatus } from "@/lib/network/use-online";
 import { cn } from "@/lib/utils";
 
 type Tab = "roster" | "courses" | "quizzes" | "leaderboard" | "performance" | "team";
@@ -55,6 +68,8 @@ export function TeacherClassDetail({ classId }: { classId: string }) {
   const [surpriseAmount, setSurpriseAmount] = useState<10 | 20 | 50 | 0>(20);
   const [surpriseReason, setSurpriseReason] = useState("");
   const [busy, setBusy] = useState(false);
+  const online = useOnlineStatus();
+  const draftHydrated = useRef(false);
 
   async function load() {
     setLoading(true);
@@ -83,14 +98,120 @@ export function TeacherClassDetail({ classId }: { classId: string }) {
       setLeaderboard(payload.leaderboard ?? []);
       setPointReports(payload.pointReports ?? []);
       setCourses(coursesPayload.courses ?? []);
+      if (payload.classroom) {
+        void downloadTeacherClassPack({
+          classId,
+          classroom: payload.classroom,
+          roster: payload.roster ?? [],
+          courseAssignments: payload.courseAssignments ?? [],
+          quizzes: payload.quizzes ?? [],
+          coursesCatalog: coursesPayload.courses ?? []
+        });
+      }
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Unable to load class.");
+      const pack = await readTeacherClassPack(classId);
+      if (pack) {
+        setClassroom(pack.classroom);
+        setRoster(pack.roster);
+        setCourseAssignments(pack.courseAssignments);
+        setQuizzes(pack.allQuizzes);
+        setCourses(pack.coursesCatalog);
+        setError("");
+      } else {
+        setError(cause instanceof Error ? cause.message : "Unable to load class.");
+      }
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => { void load(); }, [classId]);
+
+  useEffect(() => {
+    draftHydrated.current = false;
+    void (async () => {
+      const [quizDraft, courseDraft] = await Promise.all([
+        readClassQuizDraft(classId),
+        readClassCourseDraft(classId)
+      ]);
+      if (quizDraft) {
+        setQuizTitle(quizDraft.title);
+        setQuizCourseId(quizDraft.courseId);
+        setQuizDescription(quizDraft.description);
+        setQuizStartAt(quizDraft.startAt);
+        setQuizDeadline(quizDraft.deadline);
+        setQuizOffPlatformReward(quizDraft.offPlatformReward);
+        setQuizXp(quizDraft.xp);
+        setQuizPass(quizDraft.pass);
+        setQuizMaxAttempts(quizDraft.maxAttempts);
+        setQuestions(quizDraft.questions.length
+          ? quizDraft.questions
+          : [{ id: "q-1", prompt: "", type: "multiple_choice", options: ["", "", "", ""], correctIndex: 0 }]);
+      }
+      if (courseDraft) {
+        setSelectedCourseId(courseDraft.selectedCourseId);
+        setCourseNote(courseDraft.courseNote);
+        setClassOnlyName(courseDraft.classOnlyName);
+        setClassOnlyDescription(courseDraft.classOnlyDescription);
+      }
+      draftHydrated.current = true;
+    })();
+  }, [classId]);
+
+  useEffect(() => {
+    if (!draftHydrated.current) return;
+    const timer = window.setTimeout(() => {
+      void saveClassQuizDraft(classId, {
+        title: quizTitle,
+        courseId: quizCourseId,
+        description: quizDescription,
+        startAt: quizStartAt,
+        deadline: quizDeadline,
+        offPlatformReward: quizOffPlatformReward,
+        xp: quizXp,
+        pass: quizPass,
+        maxAttempts: quizMaxAttempts,
+        questions
+      });
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [
+    classId,
+    quizTitle,
+    quizCourseId,
+    quizDescription,
+    quizStartAt,
+    quizDeadline,
+    quizOffPlatformReward,
+    quizXp,
+    quizPass,
+    quizMaxAttempts,
+    questions
+  ]);
+
+  useEffect(() => {
+    if (!draftHydrated.current) return;
+    const timer = window.setTimeout(() => {
+      void saveClassCourseDraft(classId, {
+        selectedCourseId,
+        courseNote,
+        classOnlyName,
+        classOnlyDescription
+      });
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [classId, selectedCourseId, courseNote, classOnlyName, classOnlyDescription]);
+
+  function resetQuizForm() {
+    setQuizTitle("");
+    setQuizDescription("");
+    setQuizStartAt("");
+    setQuizDeadline("");
+    setQuizOffPlatformReward("");
+    setQuizMaxAttempts(3);
+    setQuestions([{ id: "q-1", prompt: "", type: "multiple_choice", options: ["", "", "", ""], correctIndex: 0 }]);
+    void clearClassQuizDraft(classId);
+  }
 
   const availableCourses = useMemo(
     () => courses.filter((course) => !courseAssignments.some((assignment) => assignment.courseId === course.id)),
@@ -105,9 +226,22 @@ export function TeacherClassDetail({ classId }: { classId: string }) {
     setMessage("Join link copied.");
   }
 
+  async function persistCourseDraftOnDevice() {
+    await saveClassCourseDraft(classId, {
+      selectedCourseId,
+      courseNote,
+      classOnlyName,
+      classOnlyDescription
+    });
+  }
+
   async function assignCourse(event: React.FormEvent) {
     event.preventDefault();
     if (!selectedCourseId) return;
+    if (!online) {
+      await persistCourseDraftOnDevice();
+      return;
+    }
     setBusy(true);
     setError("");
     try {
@@ -121,8 +255,10 @@ export function TeacherClassDetail({ classId }: { classId: string }) {
       setCourseAssignments(payload.courseAssignments ?? []);
       setSelectedCourseId("");
       setCourseNote("");
+      await clearClassCourseDraft(classId);
       setMessage("Subject assigned to the class.");
     } catch (cause) {
+      await persistCourseDraftOnDevice();
       setError(cause instanceof Error ? cause.message : "Unable to assign subject.");
     } finally {
       setBusy(false);
@@ -131,6 +267,10 @@ export function TeacherClassDetail({ classId }: { classId: string }) {
 
   async function createClassOnly(event: React.FormEvent) {
     event.preventDefault();
+    if (!online) {
+      await persistCourseDraftOnDevice();
+      return;
+    }
     setBusy(true);
     setError("");
     try {
@@ -148,8 +288,10 @@ export function TeacherClassDetail({ classId }: { classId: string }) {
       setCourseAssignments(payload.courseAssignments ?? []);
       setClassOnlyName("");
       setClassOnlyDescription("");
+      await clearClassCourseDraft(classId);
       setMessage("Class-only subject created.");
     } catch (cause) {
+      await persistCourseDraftOnDevice();
       setError(cause instanceof Error ? cause.message : "Unable to create class subject.");
     } finally {
       setBusy(false);
@@ -185,8 +327,26 @@ export function TeacherClassDetail({ classId }: { classId: string }) {
     }
   }
 
-  async function createQuiz(event: React.FormEvent) {
-    event.preventDefault();
+  async function persistQuizDraftOnDevice() {
+    await saveClassQuizDraft(classId, {
+      title: quizTitle,
+      courseId: quizCourseId,
+      description: quizDescription,
+      startAt: quizStartAt,
+      deadline: quizDeadline,
+      offPlatformReward: quizOffPlatformReward,
+      xp: quizXp,
+      pass: quizPass,
+      maxAttempts: quizMaxAttempts,
+      questions
+    });
+  }
+
+  async function submitQuiz(status: "draft" | "published") {
+    if (!online) {
+      await persistQuizDraftOnDevice();
+      return;
+    }
     setBusy(true);
     setError("");
     try {
@@ -204,30 +364,34 @@ export function TeacherClassDetail({ classId }: { classId: string }) {
           baseXpReward: quizXp,
           passingScore: quizPass,
           maxAttempts: quizMaxAttempts,
-          status: "published"
+          status
         })
       });
       const payload = await response.json() as { quizzes?: ClassQuizView[]; sms?: { sent: number; failed: number; skipped: number }; moderation?: { state: string; message: string }; error?: string };
       if (!response.ok) throw new Error(payload.error || "Unable to create quiz.");
       setQuizzes(payload.quizzes ?? []);
-      setQuizTitle("");
-      setQuizDescription("");
-      setQuizStartAt("");
-      setQuizDeadline("");
-      setQuizOffPlatformReward("");
-      setQuizMaxAttempts(3);
-      setQuestions([{ id: "q-1", prompt: "", type: "multiple_choice", options: ["", "", "", ""], correctIndex: 0 }]);
-      setMessage(payload.moderation && payload.moderation.state !== "published"
-        ? payload.moderation.message
-        : payload.sms?.failed
-        ? `Quiz published. ${payload.sms.failed} SMS message${payload.sms.failed === 1 ? "" : "s"} could not be delivered.`
-        : `Quiz published and ${payload.sms?.sent ?? 0} learner SMS message${payload.sms?.sent === 1 ? "" : "s"} sent.`);
+      resetQuizForm();
+      if (status === "draft") {
+        setMessage(payload.moderation?.message || "Quiz saved as a server draft. Publish when you are ready.");
+      } else {
+        setMessage(payload.moderation && payload.moderation.state !== "published"
+          ? payload.moderation.message
+          : payload.sms?.failed
+            ? `Quiz published. ${payload.sms.failed} SMS message${payload.sms.failed === 1 ? "" : "s"} could not be delivered.`
+            : `Quiz published and ${payload.sms?.sent ?? 0} learner SMS message${payload.sms?.sent === 1 ? "" : "s"} sent.`);
+      }
       setTab("quizzes");
     } catch (cause) {
+      await persistQuizDraftOnDevice();
       setError(cause instanceof Error ? cause.message : "Unable to create quiz.");
     } finally {
       setBusy(false);
     }
+  }
+
+  async function createQuiz(event: React.FormEvent) {
+    event.preventDefault();
+    await submitQuiz("published");
   }
 
   async function endQuiz(quizId: string) {
@@ -278,6 +442,7 @@ export function TeacherClassDetail({ classId }: { classId: string }) {
   async function sendSurprise(event: React.FormEvent) {
     event.preventDefault();
     if (!surpriseStudent) return;
+    if (!online) return;
     setBusy(true);
     setError("");
     setMessage("");
@@ -311,6 +476,7 @@ export function TeacherClassDetail({ classId }: { classId: string }) {
   }
 
   async function crownHelper(member: ClassRosterMember) {
+    if (!online) return;
     const note = window.prompt(`Crown ${member.displayName} Helper of the Week? Optional note:`, "Thank you for helping the class!");
     if (note === null) return;
     setBusy(true);
@@ -495,7 +661,7 @@ export function TeacherClassDetail({ classId }: { classId: string }) {
                     value={surpriseReason}
                   />
                 </label>
-                <button className="mt-5 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 font-black text-white disabled:opacity-50" disabled={busy || surpriseReason.trim().length < 4} type="submit">
+                <button className="mt-5 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 font-black text-white disabled:opacity-50" disabled={busy || !online || surpriseReason.trim().length < 4} type="submit">
                   {busy ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
                   Send
                 </button>
@@ -539,12 +705,12 @@ export function TeacherClassDetail({ classId }: { classId: string }) {
                         <div className="flex flex-wrap gap-2">
                           {classroom.capabilities.managePoints ? (
                             <>
-                              <button className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-emerald-300 px-3 text-xs font-black text-emerald-800" onClick={() => { setSurpriseStudent(member); setSurpriseAmount(20); setSurpriseReason(""); setDeductionStudent(null); setError(""); setMessage(""); }} type="button"><Zap className="size-3.5" /> Surprise</button>
+                              <button className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-emerald-300 px-3 text-xs font-black text-emerald-800 disabled:opacity-50" disabled={!online} onClick={() => { setSurpriseStudent(member); setSurpriseAmount(20); setSurpriseReason(""); setDeductionStudent(null); setError(""); setMessage(""); }} type="button"><Zap className="size-3.5" /> Surprise</button>
                               <button className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-amber-300 px-3 text-xs font-black text-amber-800 disabled:opacity-50" disabled={member.xp < 1} onClick={() => { setDeductionStudent(member); setDeductionAmount(1); setSurpriseStudent(null); setError(""); setMessage(""); }} type="button"><MinusCircle className="size-3.5" /> Deduct</button>
                             </>
                           ) : null}
                           {classroom.capabilities.viewWholeClassPerformance ? (
-                            <button className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-sky-300 px-3 text-xs font-black text-sky-800 disabled:opacity-50" disabled={busy} onClick={() => void crownHelper(member)} type="button"><Crown className="size-3.5" /> Helper</button>
+                            <button className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-sky-300 px-3 text-xs font-black text-sky-800 disabled:opacity-50" disabled={busy || !online} onClick={() => void crownHelper(member)} type="button"><Crown className="size-3.5" /> Helper</button>
                           ) : null}
                           {!classroom.capabilities.managePoints && !classroom.capabilities.viewWholeClassPerformance ? (
                             <span className="text-xs text-slate-400">Subject view</span>
@@ -837,10 +1003,25 @@ export function TeacherClassDetail({ classId }: { classId: string }) {
                 <Plus className="size-4" /> Add question
               </button>
             </div>
-            <button className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl bg-teal-700 px-5 font-black text-white disabled:opacity-60" disabled={busy} type="submit">
-              {busy ? <Loader2 className="size-4 animate-spin" /> : <ClipboardList className="size-4" />}
-              Publish quiz
-            </button>
+            <div className="mt-5 flex flex-wrap gap-3">
+              <button
+                className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-300 bg-white px-5 font-black text-slate-800 disabled:opacity-60"
+                disabled={busy}
+                onClick={() => void (online ? submitQuiz("draft") : persistQuizDraftOnDevice())}
+                type="button"
+              >
+                {busy ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
+                Save draft
+              </button>
+              <button
+                className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-teal-700 px-5 font-black text-white disabled:opacity-60"
+                disabled={busy || !online}
+                type="submit"
+              >
+                {busy ? <Loader2 className="size-4 animate-spin" /> : <ClipboardList className="size-4" />}
+                Publish quiz
+              </button>
+            </div>
           </form>
           <div className="grid gap-3">
             {quizzes.map((quiz) => (

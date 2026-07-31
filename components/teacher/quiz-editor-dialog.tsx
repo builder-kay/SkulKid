@@ -22,6 +22,12 @@ import {
 } from "lucide-react";
 import type { ClassQuizQuestion } from "@/lib/classes/types";
 import type { Quiz } from "@/components/teacher/teacher-quiz-library";
+import {
+  clearLibraryQuizDraft,
+  readLibraryQuizDraft,
+  saveLibraryQuizDraft
+} from "@/lib/network/teacher-drafts";
+import { useOnlineStatus } from "@/lib/network/use-online";
 import { cn } from "@/lib/utils";
 
 type Step = 1 | 2 | 3;
@@ -60,10 +66,30 @@ export function QuizEditorDialog({
   const dirty = JSON.stringify(draft) !== initialSnapshot.current;
   const dirtyRef = useRef(dirty);
   dirtyRef.current = dirty;
+  const online = useOnlineStatus();
+  const draftReady = useRef(false);
 
   const readiness = useMemo(() => getReadiness(draft), [draft]);
   const ready = readiness.every((item) => item.complete);
   const active = draft.questions[activeQuestion] ?? draft.questions[0];
+
+  useEffect(() => {
+    draftReady.current = false;
+    void readLibraryQuizDraft(quiz.id || "new").then((saved) => {
+      if (saved?.quiz && typeof saved.quiz === "object") {
+        setDraft(saved.quiz as Quiz);
+      }
+      draftReady.current = true;
+    });
+  }, [quiz.id]);
+
+  useEffect(() => {
+    if (!draftReady.current) return;
+    const timer = window.setTimeout(() => {
+      void saveLibraryQuizDraft(quiz.id || "new", draft);
+    }, 450);
+    return () => window.clearTimeout(timer);
+  }, [draft, quiz.id]);
 
   useEffect(() => {
     returnFocusRef.current = document.activeElement as HTMLElement | null;
@@ -203,10 +229,20 @@ export function QuizEditorDialog({
       setSaveError("Complete every readiness check before marking this quiz ready.");
       return;
     }
+    if ((status === "ready" || status === "archived") && !online) {
+      await saveLibraryQuizDraft(quiz.id || "new", draft);
+      return;
+    }
+    if (!online) {
+      await saveLibraryQuizDraft(quiz.id || "new", draft);
+      return;
+    }
     setSaveError("");
     try {
       await onSave({ ...draft, status, questions: draft.questions.map(normalizeQuizQuestion) });
+      await clearLibraryQuizDraft(quiz.id || "new");
     } catch (cause) {
+      await saveLibraryQuizDraft(quiz.id || "new", draft);
       setSaveError(cause instanceof Error ? cause.message : "The quiz could not be saved.");
     }
   }
@@ -230,7 +266,10 @@ export function QuizEditorDialog({
             <div className="min-w-0 flex-1">
               <p className="text-xs font-black uppercase tracking-[0.16em] text-violet-700">{draft.id ? "Edit reusable quiz" : "Create reusable quiz"}</p>
               <h2 className="truncate text-xl font-black text-slate-950 sm:text-2xl" id="quiz-builder-title" ref={initialFocusRef} tabIndex={-1}>{draft.title || "Untitled quiz"}</h2>
-              <p className="mt-1 text-xs font-bold text-slate-500" id="quiz-builder-progress">Step {step} of 3 · {stepLabel(step)}{dirty ? " · Unsaved changes" : ""}</p>
+              <p className="mt-1 text-xs font-bold text-slate-500" id="quiz-builder-progress">
+                Step {step} of 3 · {stepLabel(step)}
+                {dirty ? " · Unsaved changes" : ""}
+              </p>
             </div>
             <button aria-label="Close quiz builder" className="grid size-11 shrink-0 place-items-center rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100" onClick={requestClose} type="button"><X className="size-5" /></button>
           </div>
@@ -287,7 +326,7 @@ export function QuizEditorDialog({
                   ) : (
                     <>
                       <button className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-300 px-4 font-black text-slate-700 disabled:opacity-50" disabled={busy} onClick={() => void save("draft")} type="button">{busy ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}Save draft</button>
-                      <button className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-emerald-600 px-4 font-black text-white shadow-lg shadow-emerald-200 disabled:cursor-not-allowed disabled:opacity-50" disabled={busy || !ready} onClick={() => void save("ready")} type="button">{busy ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle2 className="size-4" />}Mark ready</button>
+                      <button className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-emerald-600 px-4 font-black text-white shadow-lg shadow-emerald-200 disabled:cursor-not-allowed disabled:opacity-50" disabled={busy || !ready || !online} onClick={() => void save("ready")} type="button">{busy ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle2 className="size-4" />}Mark ready</button>
                     </>
                   )}
                 </>
