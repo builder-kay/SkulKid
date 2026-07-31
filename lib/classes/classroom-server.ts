@@ -900,7 +900,7 @@ export async function reportClassMessage(input: {
       teacherId: message.teacherId,
       classId: input.classId,
       title: (senderReportCount ?? 0) >= 2 ? "Repeated class-chat reports" : "Class-chat message reported",
-      body: `A learner reported a message for ${input.reason.replaceAll("_", " ")}. Review it in Class chat safety.`,
+      body: `A learner reported a message for ${input.reason.replaceAll("_", " ")}. Review it in Teacher settings under Class chat safety.`,
       audience: "class"
     }),
     input.muteSender

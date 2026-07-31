@@ -179,10 +179,10 @@ export default function TeacherCommunicationsPage() {
               <div><h1 className="font-black text-slate-950">Messages</h1><p className="text-xs font-semibold text-slate-500">{contacts.length} learners</p></div>
             </div>
             <button
-              aria-label="Create broadcast"
+              aria-label="Create announcement"
               className="grid size-10 place-items-center rounded-full text-slate-600 hover:bg-slate-200"
               onClick={() => setBroadcastOpen(true)}
-              title="New broadcast"
+              title="New announcement"
               type="button"
             >
               <Megaphone className="size-5" />
@@ -297,7 +297,7 @@ export default function TeacherCommunicationsPage() {
             <div className="max-w-md p-8 text-center">
               <span className="mx-auto grid size-20 place-items-center rounded-full bg-blue-100 text-blue-700"><MessageCircle className="size-10" /></span>
               <h2 className="mt-5 text-3xl font-black text-slate-900">SkulKid Messages</h2>
-              <p className="mt-3 leading-7 text-slate-600">Select a learner to read messages and continue the conversation. Use broadcasts for class-wide announcements.</p>
+              <p className="mt-3 leading-7 text-slate-600">Select a learner to continue a private conversation, or use the announcement button to post in a supervised class chat.</p>
             </div>
           )}
         </section>
@@ -361,19 +361,21 @@ function BroadcastDialog({ classes, contacts, onClose, onSent }: {
     setBusy(true);
     setError("");
     try {
-      const response = await fetch("/api/teacher/communications", {
+      const isClassAnnouncement = audience === "class";
+      const response = await fetch(isClassAnnouncement ? "/api/teacher/class-safety" : "/api/teacher/communications", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          audience,
-          classId: audience === "class" ? classId : undefined,
-          studentIds: audience === "selected" ? selected : undefined,
-          title,
-          body
-        })
+        body: JSON.stringify(isClassAnnouncement
+          ? { classId, body: `${title}\n\n${body}`.slice(0, 1000), kind: "announcement" }
+          : {
+              audience,
+              studentIds: audience === "selected" ? selected : undefined,
+              title,
+              body
+            })
       });
       const payload = await response.json() as { error?: string };
-      if (!response.ok) throw new Error(payload.error || "Unable to send broadcast.");
+      if (!response.ok) throw new Error(payload.error || (isClassAnnouncement ? "Unable to post announcement." : "Unable to send broadcast."));
       await onSent();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to send broadcast.");
@@ -386,7 +388,7 @@ function BroadcastDialog({ classes, contacts, onClose, onSent }: {
     <div className="fixed inset-0 z-[90] grid place-items-center bg-slate-950/60 p-3 backdrop-blur-sm" onClick={onClose}>
       <form className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl" onClick={(event) => event.stopPropagation()} onSubmit={submit}>
         <header className="sticky top-0 z-10 flex items-center justify-between bg-gradient-to-r from-blue-700 to-indigo-700 p-5 text-white">
-          <div className="flex items-center gap-3"><Megaphone className="size-6" /><div><h2 className="text-xl font-black">New broadcast</h2><p className="text-xs text-blue-100">Send one announcement to several learners</p></div></div>
+          <div className="flex items-center gap-3"><Megaphone className="size-6" /><div><h2 className="text-xl font-black">New announcement</h2><p className="text-xs text-blue-100">Post to a class chat or notify selected learners</p></div></div>
           <button aria-label="Close broadcast" className="grid size-10 place-items-center rounded-full hover:bg-white/10" onClick={onClose} type="button"><X /></button>
         </header>
         <div className="grid gap-4 p-5">
@@ -400,7 +402,7 @@ function BroadcastDialog({ classes, contacts, onClose, onSent }: {
               <button className={cn("rounded-xl border p-3 text-sm font-black", audience === value ? "border-blue-700 bg-blue-50 text-blue-900" : "border-slate-200")} key={value} onClick={() => setAudience(value)} type="button"><Icon className="mx-auto mb-2 size-5" />{label}</button>
             ))}
           </div>
-          {audience === "class" ? <select className="min-h-12 rounded-xl border border-slate-300 px-3 font-bold" onChange={(event) => setClassId(event.target.value)} value={classId}>{classes.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.students.length} learners</option>)}</select> : null}
+          {audience === "class" ? <div className="grid gap-2"><select className="min-h-12 rounded-xl border border-slate-300 px-3 font-bold" onChange={(event) => setClassId(event.target.value)} value={classId}>{classes.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.students.length} learners</option>)}</select><p className="rounded-xl bg-blue-50 p-3 text-xs font-bold leading-5 text-blue-900">This announcement will appear inside the selected class group chat.</p></div> : null}
           {audience === "selected" ? <div className="max-h-48 overflow-y-auto rounded-xl border border-slate-200 p-2">{contacts.map((contact) => <label className="flex min-h-11 items-center gap-3 rounded-lg px-2 hover:bg-slate-50" key={contact.id}><input checked={selected.includes(contact.id)} onChange={() => setSelected((current) => current.includes(contact.id) ? current.filter((id) => id !== contact.id) : [...current, contact.id])} type="checkbox" /><span className="text-sm font-bold">{contact.name}</span></label>)}</div> : null}
           <input className="min-h-12 rounded-xl border border-slate-300 px-3" maxLength={120} minLength={2} onChange={(event) => setTitle(event.target.value)} placeholder="Announcement title" required value={title} />
           <textarea className="min-h-36 rounded-xl border border-slate-300 p-3" maxLength={1000} minLength={2} onChange={(event) => setBody(event.target.value)} placeholder="Write your message" required value={body} />
