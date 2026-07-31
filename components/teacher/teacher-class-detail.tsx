@@ -151,17 +151,28 @@ export function TeacherClassDetail({ classId }: { classId: string }) {
     }
   }
 
-  async function removeCourse(assignmentId: string) {
+  async function removeCourse(assignment: ClassCourseAssignmentView) {
+    const confirmed = assignment.isClassOnly
+      ? window.confirm(`Delete “${assignment.courseName}”? Lessons and quizzes you created in this private subject will also be removed. This cannot be undone.`)
+      : window.confirm(`Remove “${assignment.courseName}” from this class? Students will no longer see this subject here.`);
+    if (!confirmed) return;
     setBusy(true);
+    setError("");
     try {
       const response = await fetch(`/api/teacher/classes/${classId}/courses`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ assignmentId })
+        body: JSON.stringify(
+          assignment.isClassOnly
+            ? { deleteSubject: true, courseId: assignment.courseId }
+            : { assignmentId: assignment.id }
+        )
       });
-      const payload = await response.json() as { error?: string };
+      const payload = await response.json() as { courseAssignments?: ClassCourseAssignmentView[]; error?: string };
       if (!response.ok) throw new Error(payload.error || "Unable to remove subject.");
-      setCourseAssignments((current) => current.filter((item) => item.id !== assignmentId));
+      if (payload.courseAssignments) setCourseAssignments(payload.courseAssignments);
+      else setCourseAssignments((current) => current.filter((item) => item.id !== assignment.id));
+      setMessage(assignment.isClassOnly ? "Subject deleted." : "Subject removed from the class.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to remove subject.");
     } finally {
@@ -534,7 +545,7 @@ export function TeacherClassDetail({ classId }: { classId: string }) {
                             aria-label={`Remove ${assignment.courseName}`}
                             className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 px-3 text-rose-700 hover:bg-rose-50"
                             disabled={busy}
-                            onClick={() => void removeCourse(assignment.id)}
+                            onClick={() => void removeCourse(assignment)}
                             type="button"
                           >
                             <Trash2 className="size-4" />

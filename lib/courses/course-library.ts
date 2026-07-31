@@ -113,6 +113,24 @@ export async function detachLessonFromModule(lessonId: string, courseId: string)
   notify();
 }
 
+export async function deleteUnit(courseId: string, unitId: string) {
+  await mutateCatalog({ action: "delete_unit", courseId, unitId });
+  window.dispatchEvent(new Event("skulkid:lessons-changed"));
+  notify();
+}
+
+export async function deleteTopic(topicId: string) {
+  await mutateCatalog({ action: "delete_topic", topicId });
+  window.dispatchEvent(new Event("skulkid:lessons-changed"));
+  notify();
+}
+
+export async function deleteLesson(lessonId: string) {
+  await mutateCatalog({ action: "delete_lesson", lessonId });
+  window.dispatchEvent(new Event("skulkid:lessons-changed"));
+  notify();
+}
+
 /**
  * Rebuild subject-wide `position` from module order, then lesson order inside each module.
  * Overrides let a module supply an explicit lesson id sequence (for reorder / attach).

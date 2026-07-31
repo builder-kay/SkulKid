@@ -57,7 +57,31 @@ const lessonPlacementSchema = z.object({
   unitTitle: z.string().trim().max(120).optional(),
   lessonIds: z.array(z.string().min(1)).max(200).optional()
 });
-const mutationSchema = z.union([courseSchema, unitSchema, topicSchema, strandOrderSchema, subStrandOrderSchema, statusSchema, lessonPlacementSchema]);
+const deleteUnitSchema = z.object({
+  action: z.literal("delete_unit"),
+  courseId: z.string().min(1),
+  unitId: z.string().min(1)
+});
+const deleteTopicSchema = z.object({
+  action: z.literal("delete_topic"),
+  topicId: z.string().min(1)
+});
+const deleteLessonSchema = z.object({
+  action: z.literal("delete_lesson"),
+  lessonId: z.string().min(1)
+});
+const mutationSchema = z.union([
+  courseSchema,
+  unitSchema,
+  topicSchema,
+  strandOrderSchema,
+  subStrandOrderSchema,
+  statusSchema,
+  lessonPlacementSchema,
+  deleteUnitSchema,
+  deleteTopicSchema,
+  deleteLessonSchema
+]);
 
 function safeSlug(value: string) {
   return value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "course";
@@ -84,7 +108,7 @@ async function assertStructureOwner(table: "Unit" | "Topic", id: string, teacher
   const admin = createAdminClient();
   const { data, error } = await admin.from(table).select("createdBy").eq("id", id).maybeSingle();
   if (error) throw new Error(error.message);
-  if (data?.createdBy && data.createdBy !== teacherId) throw new Error("You can rename only structures you created.");
+  if (data?.createdBy && data.createdBy !== teacherId) throw new Error("You can change only structures you created.");
 }
 
 export async function GET() {
@@ -359,6 +383,44 @@ export async function POST(request: Request) {
         status: input.status === "published" ? "ACTIVE" : "ARCHIVED",
         updatedAt: new Date().toISOString()
       }).eq("id", input.courseId);
+      if (error) throw new Error(error.message);
+      return NextResponse.json({ ok: true });
+    }
+
+    if (input.action === "delete_unit") {
+      await assertCanContributeToCourse(input.courseId, teacher.id);
+      await assertStructureOwner("Unit", input.unitId, teacher.id);
+      const { data: unit, error: unitError } = await admin.from("Unit").select("id,subjectId").eq("id", input.unitId).maybeSingle();
+      if (unitError) throw new Error(unitError.message);
+      if (!unit || String(unit.subjectId) !== input.courseId) throw new Error("Strand not found in this subject.");
+      const { error } = await admin.from("Unit").delete().eq("id", input.unitId).eq("subjectId", input.courseId);
+      if (error) throw new Error(error.message);
+      return NextResponse.json({ ok: true });
+    }
+
+    if (input.action === "delete_topic") {
+      const { data: topic, error: topicError } = await admin.from("Topic").select("id,unitId").eq("id", input.topicId).maybeSingle();
+      if (topicError) throw new Error(topicError.message);
+      if (!topic) throw new Error("Sub-strand not found.");
+      const { data: unit, error: unitError } = await admin.from("Unit").select("subjectId").eq("id", topic.unitId).maybeSingle();
+      if (unitError) throw new Error(unitError.message);
+      if (!unit) throw new Error("Strand not found.");
+      await assertCanContributeToCourse(String(unit.subjectId), teacher.id);
+      await assertStructureOwner("Topic", input.topicId, teacher.id);
+      const { error } = await admin.from("Topic").delete().eq("id", input.topicId);
+      if (error) throw new Error(error.message);
+      return NextResponse.json({ ok: true });
+    }
+
+    if (input.action === "delete_lesson") {
+      const { data: lesson, error: lessonError } = await admin.from("AdminLessonRecord")
+        .select("id,createdBy,courseId")
+        .eq("id", input.lessonId)
+        .maybeSingle();
+      if (lessonError) throw new Error(lessonError.message);
+      if (!lesson || lesson.createdBy !== teacher.id) throw new Error("You can only delete lessons you created.");
+      if (lesson.courseId) await assertCanContributeToCourse(String(lesson.courseId), teacher.id);
+      const { error } = await admin.from("AdminLessonRecord").delete().eq("id", input.lessonId).eq("createdBy", teacher.id);
       if (error) throw new Error(error.message);
       return NextResponse.json({ ok: true });
     }

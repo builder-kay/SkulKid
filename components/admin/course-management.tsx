@@ -2,12 +2,15 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { ArrowDown, ArrowUp, BookOpen, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Eye, EyeOff, ImageIcon, Layers3, Loader2, Palette, Pencil, Plus, Save, Send, Tags, X } from "lucide-react";
+import { ArrowDown, ArrowUp, BookOpen, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Eye, EyeOff, ImageIcon, Layers3, Loader2, Palette, Pencil, Plus, Save, Send, Tags, Trash2, X } from "lucide-react";
 import { SkulKidCard } from "@/components/shared/skulkid-card";
 import { readAdminLessons, type AdminLessonRecord } from "@/lib/admin/lesson-library";
 import {
   attachLessonToModule,
   attachLessonToTopic,
+  deleteLesson,
+  deleteTopic,
+  deleteUnit,
   detachLessonFromModule,
   moveStrand,
   moveSubStrand,
@@ -356,7 +359,8 @@ function UnitPanel({ course, unit, lessons, canMoveUp, canMoveDown, onMove, onRe
     }
   }
 
-  async function unlink(lessonId: string) {
+  async function unlink(lessonId: string, lessonTitle: string) {
+    if (!window.confirm(`Unlink “${lessonTitle}” from this strand? The lesson itself will not be deleted.`)) return;
     setBusy(true);
     try {
       await detachLessonFromModule(lessonId, course.id);
@@ -364,6 +368,34 @@ function UnitPanel({ course, unit, lessons, canMoveUp, canMoveDown, onMove, onRe
       setMessage("Lesson unlinked from this strand.");
     } catch (cause) {
       setMessage(cause instanceof Error ? cause.message : "Could not unlink the lesson.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function removeLesson(lesson: AdminLessonRecord) {
+    if (!window.confirm(`Delete lesson “${lesson.title}”? This cannot be undone.`)) return;
+    setBusy(true);
+    try {
+      await deleteLesson(lesson.id);
+      await onRefresh();
+      setMessage("Lesson deleted.");
+    } catch (cause) {
+      setMessage(cause instanceof Error ? cause.message : "Could not delete the lesson.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function removeStrand() {
+    if (!window.confirm(`Delete strand “${unit.title}”? Its sub-strands will also be deleted. Linked lessons stay in your library but leave this strand.`)) return;
+    setBusy(true);
+    try {
+      await deleteUnit(course.id, unit.id);
+      await onRefresh();
+      setMessage("Strand deleted.");
+    } catch (cause) {
+      setMessage(cause instanceof Error ? cause.message : "Could not delete the strand.");
     } finally {
       setBusy(false);
     }
@@ -377,7 +409,11 @@ function UnitPanel({ course, unit, lessons, canMoveUp, canMoveDown, onMove, onRe
         <span className="flex-1"><b className="block">{unit.title}</b><span className="text-xs text-muted">{moduleLessons.length} lesson{moduleLessons.length === 1 ? "" : "s"} · Strand {course.units.findIndex((item) => item.id === unit.id) + 1}</span></span>
         <ChevronDown className={`size-4 transition ${open ? "rotate-180" : ""}`} />
       </button>
-      <div className="flex shrink-0 gap-1"><MiniButton label={`Move ${unit.title} earlier`} disabled={!canMoveUp} onClick={() => onMove(-1)}><ArrowUp /></MiniButton><MiniButton label={`Move ${unit.title} later`} disabled={!canMoveDown} onClick={() => onMove(1)}><ArrowDown /></MiniButton></div>
+      <div className="flex shrink-0 gap-1">
+        <MiniButton label={`Move ${unit.title} earlier`} disabled={!canMoveUp || busy} onClick={() => onMove(-1)}><ArrowUp /></MiniButton>
+        <MiniButton label={`Move ${unit.title} later`} disabled={!canMoveDown || busy} onClick={() => onMove(1)}><ArrowDown /></MiniButton>
+        <MiniButton label={`Delete strand ${unit.title}`} disabled={busy} onClick={() => void removeStrand()}><Trash2 /></MiniButton>
+      </div>
       </div>
       {open ? (
         <div className="grid gap-3 p-3">
@@ -398,7 +434,8 @@ function UnitPanel({ course, unit, lessons, canMoveUp, canMoveDown, onMove, onRe
                     <div className="flex shrink-0 gap-1">
                       <MiniButton label="Move earlier" disabled={busy || index === 0} onClick={() => void move(lesson.id, -1)}><ArrowUp /></MiniButton>
                       <MiniButton label="Move later" disabled={busy || index === moduleLessons.length - 1} onClick={() => void move(lesson.id, 1)}><ArrowDown /></MiniButton>
-                      <button className="rounded-lg px-2 text-[11px] font-black text-rose-700 hover:bg-rose-50 disabled:opacity-40" disabled={busy} onClick={() => void unlink(lesson.id)} type="button">Unlink</button>
+                      <button className="rounded-lg px-2 text-[11px] font-black text-slate-700 hover:bg-slate-100 disabled:opacity-40" disabled={busy} onClick={() => void unlink(lesson.id, lesson.title)} type="button">Unlink</button>
+                      <button aria-label={`Delete ${lesson.title}`} className="rounded-lg px-2 text-[11px] font-black text-rose-700 hover:bg-rose-50 disabled:opacity-40" disabled={busy} onClick={() => void removeLesson(lesson)} type="button">Delete</button>
                     </div>
                   </li>
                 ))}
@@ -438,6 +475,7 @@ function TopicRow({ course, unitId, topic, lessons, canMoveUp, canMoveDown, onRe
   const attached = lessons.filter((lesson) => lesson.topicId === topic.id);
   const available = lessons.filter((lesson) => lesson.topicId !== topic.id);
   const [lessonId, setLessonId] = useState("");
+  const [busy, setBusy] = useState(false);
   async function attach() {
     if (!lessonId) return;
     try { await attachLessonToTopic(lessonId, course.id, unitId, topic.id); setLessonId(""); setMessage("Lesson attached to sub-strand."); }
@@ -454,7 +492,55 @@ function TopicRow({ course, unitId, topic, lessons, canMoveUp, canMoveDown, onRe
       setMessage(cause instanceof Error ? cause.message : "Could not reorder the sub-strand.");
     }
   }
-  return <div className="rounded-xl border border-slate-200 p-3"><div className="flex items-center gap-2"><Tags className="size-4 text-emerald-700" /><div className="flex-1"><span className="block text-[10px] font-black uppercase tracking-wider text-emerald-700">Sub-strand</span><b>{topic.title}</b></div><span className="text-xs font-bold text-muted">{attached.length} lessons</span><div className="flex gap-1"><MiniButton label={`Move ${topic.title} earlier`} disabled={!canMoveUp} onClick={() => void reorder(-1)}><ArrowUp /></MiniButton><MiniButton label={`Move ${topic.title} later`} disabled={!canMoveDown} onClick={() => void reorder(1)}><ArrowDown /></MiniButton></div></div>{attached.length ? <ul className="mt-2 grid gap-1">{attached.map((lesson) => <li className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-900" key={lesson.id}><b>{lesson.topic || "Untitled topic"}</b><span className="mt-0.5 block">{lesson.title} · {lesson.status}</span></li>)}</ul> : null}{available.length ? <div className="mt-3 flex gap-2"><select className="min-h-10 min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2 text-sm" value={lessonId} onChange={(event) => setLessonId(event.target.value)}><option value="">Choose a lesson to attach</option>{available.map((lesson) => <option key={lesson.id} value={lesson.id}>{lesson.topic}: {lesson.title} ({lesson.status})</option>)}</select><button className="rounded-lg bg-violet-700 px-3 text-sm font-black text-white disabled:opacity-50" disabled={!lessonId} onClick={() => void attach()} type="button">Attach</button></div> : null}</div>;
+  async function remove() {
+    if (!window.confirm(`Delete sub-strand “${topic.title}”? Lessons linked here stay in your library but leave this sub-strand.`)) return;
+    setBusy(true);
+    try {
+      await deleteTopic(topic.id);
+      await onRefresh();
+      setMessage("Sub-strand deleted.");
+    } catch (cause) {
+      setMessage(cause instanceof Error ? cause.message : "Could not delete the sub-strand.");
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="rounded-xl border border-slate-200 p-3">
+      <div className="flex items-center gap-2">
+        <Tags className="size-4 text-emerald-700" />
+        <div className="flex-1">
+          <span className="block text-[10px] font-black uppercase tracking-wider text-emerald-700">Sub-strand</span>
+          <b>{topic.title}</b>
+        </div>
+        <span className="text-xs font-bold text-muted">{attached.length} lessons</span>
+        <div className="flex gap-1">
+          <MiniButton label={`Move ${topic.title} earlier`} disabled={!canMoveUp || busy} onClick={() => void reorder(-1)}><ArrowUp /></MiniButton>
+          <MiniButton label={`Move ${topic.title} later`} disabled={!canMoveDown || busy} onClick={() => void reorder(1)}><ArrowDown /></MiniButton>
+          <MiniButton label={`Delete sub-strand ${topic.title}`} disabled={busy} onClick={() => void remove()}><Trash2 /></MiniButton>
+        </div>
+      </div>
+      {attached.length ? (
+        <ul className="mt-2 grid gap-1">
+          {attached.map((lesson) => (
+            <li className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-900" key={lesson.id}>
+              <b>{lesson.topic || "Untitled topic"}</b>
+              <span className="mt-0.5 block">{lesson.title} · {lesson.status}</span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {available.length ? (
+        <div className="mt-3 flex gap-2">
+          <select className="min-h-10 min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2 text-sm" value={lessonId} onChange={(event) => setLessonId(event.target.value)}>
+            <option value="">Choose a lesson to attach</option>
+            {available.map((lesson) => <option key={lesson.id} value={lesson.id}>{lesson.topic}: {lesson.title} ({lesson.status})</option>)}
+          </select>
+          <button className="rounded-lg bg-violet-700 px-3 text-sm font-black text-white disabled:opacity-50" disabled={!lessonId} onClick={() => void attach()} type="button">Attach</button>
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 function PublicCourseForm({ classes, form, saving, setForm, onClose, onSave }: {
