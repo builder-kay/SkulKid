@@ -5,11 +5,12 @@ import { resolveAppRole } from "@/lib/auth/roles";
 import {
   ensureUsernameLoginIdentity,
   findSupabaseUserByUsername,
+  findTeacherByPhone,
   normalizeUsername,
   usernameIdentityEmail
 } from "@/lib/auth/student-identity";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { ensurePhoneLoginIdentity, findSupabaseUserByPhone, phoneIdentityEmail } from "@/lib/auth/supabase-phone-user";
+import { ensurePhoneLoginIdentity, phoneIdentityEmail } from "@/lib/auth/supabase-phone-user";
 import {
   evaluateFailedLoginAlert,
   recordOperationalEvent,
@@ -48,14 +49,14 @@ export async function POST(request: Request) {
       const phone = normalizeGhanaPhone(input.phone);
       let result = await supabase.auth.signInWithPassword({ email: phoneIdentityEmail(phone), password: input.password });
       if (result.error) {
-        const existing = await findSupabaseUserByPhone(phone);
+        const existing = await findTeacherByPhone(phone);
         if (existing) {
           await ensurePhoneLoginIdentity(existing, phone);
           result = await supabase.auth.signInWithPassword({ email: phoneIdentityEmail(phone), password: input.password });
         }
       }
       if (result.error) {
-        const existing = await findSupabaseUserByPhone(phone);
+        const existing = await findTeacherByPhone(phone);
         const suspended = Boolean(existing?.banned_until && Date.parse(existing.banned_until) > Date.now());
         await recordOperationalEvent({
           category: "authentication",

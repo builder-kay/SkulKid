@@ -147,16 +147,11 @@ export async function findTeacherByPhone(phoneInput: string) {
 }
 
 /**
- * Learner phone numbers may be shared regardless of whether the learner calls
- * the number personal or guardian-owned. Usernames remain the login identity.
+ * Learner phones may be shared (siblings / guardian / teacher’s own number).
+ * Usernames remain the login identity. Teacher accounts on the same number are allowed.
  */
 export async function assertStudentPhoneAvailable(phoneInput: string, _phoneOwner: PhoneOwner) {
   const phone = normalizeGhanaPhone(phoneInput);
-  const teacher = await findTeacherByPhone(phone);
-  if (teacher) {
-    throw new Error("This phone number is already used by a teacher account. Please use a different number.");
-  }
-
   const students = await listStudentsByPhone(phone);
   if (students.length >= MAX_STUDENTS_PER_PHONE) {
     throw new Error(`This phone number already has ${MAX_STUDENTS_PER_PHONE} learner accounts. Please use another number.`);

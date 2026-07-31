@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { verifyOtp } from "@/lib/auth/clifze";
 import { normalizeGhanaPhone } from "@/lib/auth/phone";
-import { findSupabaseUserByPhone } from "@/lib/auth/supabase-phone-user";
+import { findTeacherByPhone } from "@/lib/auth/student-identity";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createAppealToken, verifyAppealToken } from "@/lib/moderation/appeal-token";
 import { isTeacherPhoneBanned } from "@/lib/moderation/teacher-phone-ban";
@@ -25,8 +25,8 @@ export async function POST(request: Request) {
     if (raw.action === "submit") return submitAppeal(submitSchema.parse(raw));
     const input = verifySchema.parse(raw);
     const phone = normalizeGhanaPhone(input.phone);
-    const user = await findSupabaseUserByPhone(phone);
-    if (!user || user.app_metadata?.role !== "teacher" || !(await isTeacherPhoneBanned(phone))) {
+    const user = await findTeacherByPhone(phone);
+    if (!user || !(await isTeacherPhoneBanned(phone))) {
       throw new Error("This appeal could not be verified.");
     }
     await verifyOtp(phone, input.otp);

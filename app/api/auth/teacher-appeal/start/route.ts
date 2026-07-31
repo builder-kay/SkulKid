@@ -4,7 +4,7 @@ import { sendOtp } from "@/lib/auth/clifze";
 import { normalizeGhanaPhone } from "@/lib/auth/phone";
 import { allowOtpRequest } from "@/lib/auth/rate-limit";
 import { platformActionUrl } from "@/lib/auth/sms-links";
-import { findSupabaseUserByPhone } from "@/lib/auth/supabase-phone-user";
+import { findTeacherByPhone } from "@/lib/auth/student-identity";
 import { isTeacherPhoneBanned } from "@/lib/moderation/teacher-phone-ban";
 
 const schema = z.object({ phone: z.string().min(9).max(20) });
@@ -17,8 +17,8 @@ export async function POST(request: Request) {
     if (!allowOtpRequest(`teacher-appeal:${ip}:${phone}`)) {
       return NextResponse.json({ error: "Too many codes requested. Please wait 10 minutes." }, { status: 429 });
     }
-    const [user, banned] = await Promise.all([findSupabaseUserByPhone(phone), isTeacherPhoneBanned(phone)]);
-    if (user && banned && user.app_metadata?.role === "teacher") {
+    const [user, banned] = await Promise.all([findTeacherByPhone(phone), isTeacherPhoneBanned(phone)]);
+    if (user && banned) {
       await sendOtp(phone, "teacher-moderation-appeal", platformActionUrl(request, "/teacher/appeal"));
     }
     return NextResponse.json({

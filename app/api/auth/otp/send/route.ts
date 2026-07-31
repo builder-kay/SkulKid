@@ -5,9 +5,9 @@ import { normalizeGhanaPhone } from "@/lib/auth/phone";
 import { allowOtpRequest } from "@/lib/auth/rate-limit";
 import {
   assertStudentPhoneAvailable,
-  findSupabaseUserByUsername
+  findSupabaseUserByUsername,
+  findTeacherByPhone
 } from "@/lib/auth/student-identity";
-import { findSupabaseUserByPhone } from "@/lib/auth/supabase-phone-user";
 import { platformActionUrl } from "@/lib/auth/sms-links";
 import { updateSignupFunnel } from "@/lib/auth/signup-funnel";
 import { recordOperationalEvent, requestIp } from "@/lib/admin/operational-events";
@@ -57,13 +57,13 @@ async function handleSignupOtp(input: z.infer<typeof signupSchema>, request: Req
   }
 
   if (input.role === "teacher") {
-    const [, existingUser] = await Promise.all([
+    const [, existingTeacher] = await Promise.all([
       assertTeacherPhoneNotBanned(phone),
-      findSupabaseUserByPhone(phone)
+      findTeacherByPhone(phone)
     ]);
-    if (existingUser) {
+    if (existingTeacher) {
       return NextResponse.json({
-        error: "This phone number already has a SkulKid account.",
+        error: "This phone number already has a teacher account.",
         code: "ACCOUNT_EXISTS",
         actions: ["login", "password-reset"]
       }, { status: 409 });
@@ -144,10 +144,10 @@ async function handlePasswordResetOtp(input: z.infer<typeof resetSchema>, reques
     });
     return NextResponse.json({ error: "Too many codes requested. Please wait 10 minutes." }, { status: 429 });
   }
-  const existingUser = await findSupabaseUserByPhone(phone);
-  if (!existingUser) {
+  const existingTeacher = await findTeacherByPhone(phone);
+  if (!existingTeacher) {
     return NextResponse.json({
-      error: "We could not find a SkulKid account registered with this phone number.",
+      error: "We could not find a teacher account registered with this phone number.",
       code: "ACCOUNT_NOT_FOUND",
       actions: ["signup"]
     }, { status: 404 });

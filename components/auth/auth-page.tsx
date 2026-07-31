@@ -655,7 +655,7 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
                       />
                       <span className="pointer-events-none absolute inset-y-0 right-3 grid place-items-center text-xs font-black text-emerald-700">+233</span>
                     </div>
-                    <span className="text-xs font-medium text-muted">We will use this number for verification and account recovery. One teacher account can use each number.</span>
+                    <span className="text-xs font-medium text-muted">Used for verification and account recovery. You can also use this same number later to create a learner account with a username.</span>
                   </Field>
                 ) : null}
 
@@ -756,8 +756,8 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
                       </div>
                       <span className="text-xs font-medium text-muted">
                         {isGuardianPhone
-                          ? "Brothers, sisters and twins can share this number. Each child keeps a different username."
-                          : "This number can also be used by another learner. Each learner must choose a different username."}
+                          ? "Brothers, sisters and twins can share this number, including a teacher phone. Each child keeps a different username."
+                          : "This number can be shared with siblings or a teacher account. Each learner must choose a different username."}
                       </span>
                     </Field>
                   </>
@@ -975,7 +975,7 @@ export function AuthPage({ mode, nextPath, audience = "student" }: { mode: Mode;
                 {[
                   "Enter a parent or guardian Ghana phone number.",
                   "They receive a 6-digit code to approve signup.",
-                  "Brothers and sisters can share the same number — each child needs their own username."
+                  "Brothers, sisters, and a teacher can share the same number — each learner needs their own username."
                 ].map((stepText, index) => (
                   <li className="flex gap-3" key={stepText}>
                     <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full bg-slate-100 text-xs font-bold text-slate-700">

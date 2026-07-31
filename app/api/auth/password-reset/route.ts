@@ -5,10 +5,11 @@ import { normalizeGhanaPhone } from "@/lib/auth/phone";
 import {
   ensureUsernameLoginIdentity,
   findSupabaseUserByUsername,
+  findTeacherByPhone,
   normalizeUsername
 } from "@/lib/auth/student-identity";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { ensurePhoneLoginIdentity, findSupabaseUserByPhone } from "@/lib/auth/supabase-phone-user";
+import { ensurePhoneLoginIdentity } from "@/lib/auth/supabase-phone-user";
 import { recordOperationalEvent, requestIp } from "@/lib/admin/operational-events";
 
 const studentSchema = z.object({
@@ -62,8 +63,8 @@ export async function POST(request: Request) {
     const input = raw.role === "teacher" ? teacherSchema.parse(raw) : legacySchema.parse(raw);
     const phone = normalizeGhanaPhone(input.phone);
     await verifyOtp(phone, input.otp);
-    const existing = await findSupabaseUserByPhone(phone);
-    if (!existing) throw new Error("No account was found for this phone number.");
+    const existing = await findTeacherByPhone(phone);
+    if (!existing) throw new Error("No teacher account was found for this phone number.");
     const migrated = await ensurePhoneLoginIdentity(existing, phone);
     const { error } = await admin.auth.admin.updateUserById(migrated.id, { password: input.password });
     if (error) throw error;

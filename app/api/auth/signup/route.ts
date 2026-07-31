@@ -5,12 +5,13 @@ import { normalizeGhanaPhone } from "@/lib/auth/phone";
 import {
   assertStudentPhoneAvailable,
   findSupabaseUserByUsername,
+  findTeacherByPhone,
   normalizeUsername,
   usernameIdentityEmail
 } from "@/lib/auth/student-identity";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { findSupabaseUserByPhone, phoneIdentityEmail } from "@/lib/auth/supabase-phone-user";
+import { phoneIdentityEmail } from "@/lib/auth/supabase-phone-user";
 import { isUsernameConflictError } from "@/lib/auth/username";
 import { assertTeacherPhoneNotBanned } from "@/lib/moderation/teacher-phone-ban";
 import { withTimeout } from "@/lib/server/with-timeout";
@@ -65,10 +66,10 @@ export async function POST(request: Request) {
     if (input.role === "teacher") {
       const [, existingTeacher] = await Promise.all([
         assertTeacherPhoneNotBanned(phone),
-        findSupabaseUserByPhone(phone)
+        findTeacherByPhone(phone)
       ]);
       if (existingTeacher) {
-        throw new Error("An account already exists for this phone number. Please sign in or reset the password.");
+        throw new Error("A teacher account already exists for this phone number. Please sign in or reset the password.");
       }
       const { data, error } = await withTimeout(
         admin.auth.admin.createUser({
