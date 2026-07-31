@@ -39,13 +39,13 @@ const navItems: Array<{
   mobileLabel: string;
   icon: LucideIcon;
 }> = [
-  { id: "dashboard", href: "/dashboard", label: "Dashboard", mobileLabel: "Home", icon: LayoutDashboard },
-  { id: "courses", href: "/courses", label: "Public Learning", mobileLabel: "Learning", icon: BookOpen },
+  { id: "dashboard", href: "/dashboard", label: "Home", mobileLabel: "Home", icon: LayoutDashboard },
+  { id: "courses", href: "/courses", label: "Explore", mobileLabel: "Explore", icon: BookOpen },
   { id: "classes", href: "/classes", label: "My Classes", mobileLabel: "Classes", icon: Users },
-  { id: "messages", href: "/messages", label: "Messages", mobileLabel: "Chat", icon: MessageCircle },
+  { id: "messages", href: "/messages", label: "Chats", mobileLabel: "Chats", icon: MessageCircle },
   { id: "pasco", href: "/pasco", label: "PASCO", mobileLabel: "PASCO", icon: BookMarked },
   { id: "leaderboard", href: "/leaderboard", label: "Leaderboard", mobileLabel: "League", icon: Trophy },
-  { id: "achievements", href: "/achievements", label: "Rewards & Achievements", mobileLabel: "Rewards", icon: Award },
+  { id: "achievements", href: "/achievements", label: "Rewards", mobileLabel: "Rewards", icon: Award },
   { id: "profile", href: "/profile", label: "My Avatar", mobileLabel: "Avatar", icon: UserRound }
 ];
 
@@ -235,7 +235,7 @@ export function StudentShell({ activeItem, children, mobileAside }: StudentShell
           >
             <span>
               <SkulKidLogo className="w-40" priority />
-              <span className="block text-xs font-bold text-muted">Student Space</span>
+              <span className="block text-xs font-bold text-muted">Your adventure</span>
             </span>
           </Link>
 
@@ -246,7 +246,7 @@ export function StudentShell({ activeItem, children, mobileAside }: StudentShell
                 className="grid size-11 place-items-center overflow-hidden rounded-2xl bg-white text-lg font-black text-primary shadow-sm transition hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
                 href="/profile"
               >
-                <CharacterAvatar avatar={profile.avatar} className="size-11 rounded-2xl" label={`${profile.username}'s avatar`} />
+                <CharacterAvatar avatar={profile.avatar} className="size-11 rounded-2xl" label={`${profile.username}'s avatar`} motion="idle" />
               </Link>
               <div>
                 <p className="font-bold text-text-primary">@{profile.username}</p>
@@ -291,19 +291,19 @@ export function StudentShell({ activeItem, children, mobileAside }: StudentShell
         {children}
       </div>
 
-      {chatAlert ? <aside aria-live="polite" className="fixed inset-x-3 top-20 z-[60] mx-auto max-w-md rounded-2xl border border-blue-200 bg-white p-3 shadow-2xl sm:right-5 sm:left-auto sm:top-5 sm:w-[25rem]"><div className="flex items-start gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-blue-100 text-blue-700"><MessageCircle className="size-5" /></span><div className="min-w-0 flex-1"><p className="font-black text-slate-950">Class discussion is active</p><p className="mt-1 line-clamp-2 text-sm text-slate-600">{chatAlert.body}</p><Link className="mt-2 inline-flex min-h-9 items-center rounded-lg bg-blue-700 px-3 text-xs font-black text-white" href={`/messages?classId=${encodeURIComponent(chatAlert.classId)}`} onClick={() => { setChatAlert(null); setUnreadClassMessages(0); }}>Open class chat</Link></div><button aria-label="Dismiss class message notification" className="grid size-9 shrink-0 place-items-center rounded-lg text-slate-500 hover:bg-slate-100" onClick={() => setChatAlert(null)} type="button"><X className="size-4" /></button></div></aside> : null}
+      {chatAlert ? <aside aria-live="polite" className="fixed inset-x-3 top-20 z-[60] mx-auto max-w-md rounded-2xl border border-blue-200 bg-white p-3 shadow-2xl sm:right-5 sm:left-auto sm:top-5 sm:w-[25rem]"><div className="flex items-start gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-blue-100 text-blue-700"><MessageCircle className="size-5" /></span><div className="min-w-0 flex-1"><p className="font-black text-slate-950">New class chat!</p><p className="mt-1 line-clamp-2 text-sm text-slate-600">{chatAlert.body}</p><Link className="mt-2 inline-flex min-h-9 items-center rounded-lg bg-blue-700 px-3 text-xs font-black text-white" href={`/messages?classId=${encodeURIComponent(chatAlert.classId)}`} onClick={() => { setChatAlert(null); setUnreadClassMessages(0); }}>Open chat</Link></div><button aria-label="Dismiss class message notification" className="grid size-9 shrink-0 place-items-center rounded-lg text-slate-500 hover:bg-slate-100" onClick={() => setChatAlert(null)} type="button"><X className="size-4" /></button></div></aside> : null}
       <div aria-hidden={!moreOpen} className={cn("fixed inset-0 z-40 bg-slate-950/45 backdrop-blur-[2px] transition lg:hidden", moreOpen ? "opacity-100" : "pointer-events-none opacity-0")} onClick={() => setMoreOpen(false)} />
       <div aria-hidden={!moreOpen} aria-labelledby="student-more-title" aria-modal="true" className={cn("fixed inset-x-3 bottom-[calc(5.7rem+env(safe-area-inset-bottom))] z-50 max-h-[75dvh] overflow-y-auto rounded-[1.75rem] bg-white p-4 shadow-2xl transition duration-200 lg:hidden", moreOpen ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-5 opacity-0")} ref={morePanelRef} role="dialog">
-        <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-wider text-violet-700">Student space</p><h2 className="text-xl font-black" id="student-more-title">More</h2></div><button aria-label="Close More menu" className="grid size-10 place-items-center rounded-xl bg-slate-100" onClick={() => { setMoreOpen(false); moreButtonRef.current?.focus(); }} type="button"><X className="size-5" /></button></div>
+        <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-wider text-violet-700">More fun</p><h2 className="text-xl font-black" id="student-more-title">More</h2></div><button aria-label="Close More menu" className="grid size-10 place-items-center rounded-xl bg-slate-100" onClick={() => { setMoreOpen(false); moreButtonRef.current?.focus(); }} type="button"><X className="size-5" /></button></div>
         <nav aria-label="More student pages" className="mt-4 grid gap-2">{[
-          { id: "pasco" as const, href: "/pasco", label: "PASCO", text: "Review and practise past quizzes", icon: BookMarked },
-          { id: "leaderboard" as const, href: "/leaderboard", label: "Leaderboard", text: "See the SkulKid league standings", icon: Trophy },
-          { id: "profile" as const, href: "/profile", label: "My Avatar", text: "Update your learner character", icon: UserRound },
-          { id: "achievements" as const, href: "/achievements", label: "Rewards & Achievements", text: "See your progress collection", icon: Award }
+          { id: "pasco" as const, href: "/pasco", label: "PASCO", text: "Practise old quizzes for fun", icon: BookMarked },
+          { id: "leaderboard" as const, href: "/leaderboard", label: "Leaderboard", text: "See who's climbing the league", icon: Trophy },
+          { id: "profile" as const, href: "/profile", label: "My Avatar", text: "Dress up your character", icon: UserRound },
+          { id: "achievements" as const, href: "/achievements", label: "Rewards", text: "Stars, badges and gifts", icon: Award }
         ].map((item) => { const Icon = item.icon; const active = activeItem === item.id; return <Link aria-current={active ? "page" : undefined} className={cn("flex min-h-16 items-center gap-3 rounded-2xl border p-3", active ? "border-violet-400 bg-violet-50 text-violet-950" : "border-slate-200 bg-slate-50 text-slate-800")} href={item.href} key={item.id} onClick={() => setMoreOpen(false)}><span className={cn("grid size-10 shrink-0 place-items-center rounded-xl", active ? "bg-violet-600 text-white" : "bg-white text-violet-700")}><Icon className="size-5" /></span><span><b className="block">{item.label}</b><span className="text-xs text-slate-500">{item.text}</span></span></Link>; })}
           <Link className="flex min-h-16 items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-slate-800" href="/feedback/student" onClick={() => setMoreOpen(false)}>
             <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-white text-violet-700"><ClipboardList className="size-5" /></span>
-            <span><b className="block">Help improve SkulKid</b><span className="text-xs text-slate-500">Short research questionnaire — no name needed</span></span>
+            <span><b className="block">Help make SkulKid better</b><span className="text-xs text-slate-500">A short quiz — no name needed</span></span>
           </Link>
         </nav>
         <div className="mt-3 border-t border-slate-200 pt-3">

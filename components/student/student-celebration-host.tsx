@@ -8,13 +8,16 @@ import {
   studentCelebrationEvent,
   type StudentCelebration
 } from "@/lib/gamification/student-celebration";
+import {
+  CELEBRATION_SOUND_STORAGE_KEY,
+  playSuccessSound
+} from "@/lib/student/success-moments";
 import type { AvatarConfig } from "@/lib/student/student-profile";
 import { cn } from "@/lib/utils";
 
 const COMBINE_WINDOW_MS = 750;
 const DISPLAY_DURATION_MS = 4_200;
-const SOUND_STORAGE_KEY = "skulkid:celebration-sound";
-const SOUND_PATH = "/audio/student-celebration.mp3";
+const SOUND_STORAGE_KEY = CELEBRATION_SOUND_STORAGE_KEY;
 const seenCelebrationIds = new Set<string>();
 
 const confetti = Array.from({ length: 36 }, (_, index) => ({
@@ -41,7 +44,6 @@ export function StudentCelebrationHost({ avatar, learnerName }: Props) {
   const queueRef = useRef<StudentCelebration[]>([]);
   const combineTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const displayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   const lastPlayedCelebrationRef = useRef("");
 
   const showNext = useCallback(() => {
@@ -54,20 +56,14 @@ export function StudentCelebrationHost({ avatar, learnerName }: Props) {
   const finishActive = useCallback(() => {
     if (displayTimerRef.current) clearTimeout(displayTimerRef.current);
     displayTimerRef.current = null;
-    audioRef.current?.pause();
     activeRef.current = null;
     setActive(null);
     setTimeout(showNext, 0);
   }, [showNext]);
 
-  const playSound = useCallback(async () => {
+  const playSound = useCallback(() => {
     try {
-      const audio = audioRef.current ?? new Audio(SOUND_PATH);
-      audioRef.current = audio;
-      audio.preload = "auto";
-      audio.volume = 0.78;
-      audio.currentTime = 0;
-      await audio.play();
+      playSuccessSound("celebrate");
       setPlaybackBlocked(false);
     } catch {
       setPlaybackBlocked(true);
@@ -104,7 +100,7 @@ export function StudentCelebrationHost({ avatar, learnerName }: Props) {
     if (!active) return;
     if (soundEnabled && lastPlayedCelebrationRef.current !== active.id) {
       lastPlayedCelebrationRef.current = active.id;
-      void playSound();
+      playSound();
     }
     displayTimerRef.current = setTimeout(finishActive, DISPLAY_DURATION_MS);
     return () => {
@@ -115,7 +111,6 @@ export function StudentCelebrationHost({ avatar, learnerName }: Props) {
 
   useEffect(() => () => {
     if (displayTimerRef.current) clearTimeout(displayTimerRef.current);
-    audioRef.current?.pause();
   }, []);
 
   const announcement = useMemo(() => {
@@ -131,14 +126,13 @@ export function StudentCelebrationHost({ avatar, learnerName }: Props) {
 
   function toggleSound() {
     if (playbackBlocked && soundEnabled) {
-      void playSound();
+      playSound();
       return;
     }
     const next = !soundEnabled;
     setSoundEnabled(next);
     window.localStorage.setItem(SOUND_STORAGE_KEY, next ? "on" : "off");
     setPlaybackBlocked(false);
-    if (!next) audioRef.current?.pause();
   }
 
   if (!active) return null;

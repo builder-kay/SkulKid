@@ -37,13 +37,13 @@ export function CourseCatalog() {
             <div>
               <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-xs font-black uppercase tracking-wider text-violet-100 ring-1 ring-white/15">
                 <Compass className="size-4" />
-                Learning for everyone
+                Explore
               </div>
               <h1 className="mt-4 max-w-2xl text-3xl font-black leading-tight sm:text-4xl lg:text-5xl">
                 Pick a subject. Start your next adventure.
               </h1>
               <p className="mt-3 max-w-xl text-sm leading-6 text-slate-300 sm:text-base sm:leading-7">
-                These subjects are open to every SkulKid learner. They are not tied to one class.
+                Open subjects for every SkulKid explorer — not just one class.
               </p>
               <div className="mt-5 grid max-w-xl grid-cols-3 gap-2 sm:gap-3">
                 <HeroStat icon={BookOpen} label="Live subjects" value={courseSummaries.length} />
@@ -64,15 +64,15 @@ export function CourseCatalog() {
 
         <StudentPageNav
           backHref="/dashboard"
-          backLabel="Back to dashboard"
-          crumbs={[{ label: "Home", href: "/dashboard" }, { label: "Learning for everyone" }]}
+          backLabel="Back to Home"
+          crumbs={[{ label: "Home", href: "/dashboard" }, { label: "Explore" }]}
         />
 
         <section aria-labelledby="course-list-heading">
           <div className="mb-4 flex flex-col gap-4 px-1 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <p className="text-xs font-black uppercase tracking-wider text-violet-700">Open SkulKid subjects</p>
-              <h2 className="mt-1 text-2xl font-black text-text-primary sm:text-3xl" id="course-list-heading">Learning for everyone</h2>
+              <p className="text-xs font-black uppercase tracking-wider text-violet-700">Open subjects</p>
+              <h2 className="mt-1 text-2xl font-black text-text-primary sm:text-3xl" id="course-list-heading">Explore and learn</h2>
             </div>
             <div className="flex min-w-0 items-center gap-2 overflow-x-auto pb-1" aria-label="Filter subjects by grade">
               <span className="sticky left-0 inline-flex min-h-10 shrink-0 items-center gap-2 rounded-xl bg-violet-100 px-3 text-xs font-black text-violet-800">

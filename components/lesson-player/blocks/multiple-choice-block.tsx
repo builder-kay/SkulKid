@@ -6,6 +6,7 @@ import { FeedbackPanel } from "@/components/shared/feedback-panel";
 import { SkulKidButton } from "@/components/shared/skulkid-button";
 import { LessonBlockShell } from "@/components/lesson-player/lesson-block-shell";
 import { cn } from "@/lib/utils";
+import { dispatchSuccessMoment } from "@/lib/student/success-moments";
 import type { MultipleChoiceBlock } from "@/types/lesson";
 
 export type MultipleChoiceBlockProps = {
@@ -35,6 +36,7 @@ export function MultipleChoiceBlockComponent({ block, previewMode = false, onAns
     onAnswer?.(block.id, selectedOptionId === block.correctOptionId, nextAttempts);
     if (selectedOptionId === block.correctOptionId) {
       setAwardedXp((current) => current ?? block.xpReward);
+      dispatchSuccessMoment("correct", `mc-${block.id}`);
     }
   }
 

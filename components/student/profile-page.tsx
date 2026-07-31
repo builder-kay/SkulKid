@@ -158,17 +158,17 @@ export function ProfilePage() {
   function redeem(asset: AvatarAsset) { const result = redeemAvatarAsset(asset.id, asset.cost); if (result.redeemed) equip(asset); }
 
   return <StudentShell activeItem="profile"><main className="mx-auto grid w-full min-w-0 max-w-7xl gap-5 lg:gap-6">
-    <header className="rounded-[2rem] border border-white/90 bg-white/85 p-5 shadow-[var(--shadow-card)] backdrop-blur sm:p-6"><div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between"><div className="flex min-w-0 items-center gap-4"><Avatar profile={form} size="large" /><div className="min-w-0 flex-1"><p className="text-sm font-bold uppercase tracking-normal text-muted">{activeTab === "about" ? "About me" : "My avatar"}</p><h1 className="truncate text-3xl font-bold text-text-primary sm:text-4xl">{activeTab === "avatar" ? `@${form.username}` : form.displayName}</h1><p className="mt-1 text-sm text-text-secondary sm:text-base">{form.grade} · {level.title}</p></div></div><div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap lg:justify-center"><Pill icon={Trophy} text={`Level ${level.level}`} /><Pill icon={Zap} text={`${state.xp} XP`} /><Pill icon={Flame} text={`${state.streak} day streak`} /></div><button className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 font-black text-white shadow-sm sm:w-auto" onClick={() => setActiveTab("avatar")} type="button"><Palette className="size-5" />{activeTab === "about" ? "Open Avatar Studio" : "Customise avatar"}</button></div></header>
+    <header className="rounded-[2rem] border border-white/90 bg-white/85 p-5 shadow-[var(--shadow-card)] backdrop-blur sm:p-6"><div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between"><div className="flex min-w-0 items-center gap-4"><Avatar profile={form} size="large" /><div className="min-w-0 flex-1"><p className="text-sm font-bold uppercase tracking-normal text-muted">{activeTab === "about" ? "This is me" : "My avatar"}</p><h1 className="truncate text-3xl font-bold text-text-primary sm:text-4xl">{activeTab === "avatar" ? `@${form.username}` : form.displayName}</h1><p className="mt-1 text-sm text-text-secondary sm:text-base">{form.grade} · {level.title}</p></div></div><div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap lg:justify-center"><Pill icon={Trophy} text={`Level ${level.level}`} /><Pill icon={Zap} text={`${state.xp} XP`} /><Pill icon={Flame} text={`${state.streak} day streak`} /></div><button className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 font-black text-white shadow-sm sm:w-auto" onClick={() => setActiveTab("avatar")} type="button"><Palette className="size-5" />{activeTab === "about" ? "Dress my avatar" : "Customise avatar"}</button></div></header>
     <StudentPageNav
       backHref="/dashboard"
-      backLabel="Back to dashboard"
+      backLabel="Back to Home"
       crumbs={[
         { label: "Home", href: "/dashboard" },
-        { label: activeTab === "about" ? "About Me" : "My Avatar" }
+        { label: activeTab === "about" ? "My Story" : "My Avatar" }
       ]}
     />
 
-    <nav aria-label="Profile sections" className="grid grid-cols-3 gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm"><button aria-current={activeTab === "avatar" ? "page" : undefined} className={`inline-flex min-h-12 items-center justify-center gap-1.5 rounded-xl text-xs font-black sm:gap-2 sm:text-base ${activeTab === "avatar" ? "bg-violet-700 text-white shadow-md" : "text-slate-600 hover:bg-slate-100"}`} onClick={() => setActiveTab("avatar")} type="button"><Palette className="size-5" /><span className="hidden min-[420px]:inline">Avatar Studio</span><span className="min-[420px]:hidden">Avatar</span></button><button aria-current={activeTab === "about" ? "page" : undefined} className={`inline-flex min-h-12 items-center justify-center gap-1.5 rounded-xl text-xs font-black sm:gap-2 sm:text-base ${activeTab === "about" ? "bg-violet-700 text-white shadow-md" : "text-slate-600 hover:bg-slate-100"}`} onClick={() => setActiveTab("about")} type="button"><UserRound className="size-5" />About Me</button><button aria-current={activeTab === "settings" ? "page" : undefined} className={`inline-flex min-h-12 items-center justify-center gap-1.5 rounded-xl text-xs font-black sm:gap-2 sm:text-base ${activeTab === "settings" ? "bg-violet-700 text-white shadow-md" : "text-slate-600 hover:bg-slate-100"}`} onClick={() => setActiveTab("settings")} type="button"><Settings2 className="size-5" />Settings</button></nav>
+    <nav aria-label="Profile sections" className="grid grid-cols-3 gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm"><button aria-current={activeTab === "avatar" ? "page" : undefined} className={`inline-flex min-h-12 items-center justify-center gap-1.5 rounded-xl text-xs font-black sm:gap-2 sm:text-base ${activeTab === "avatar" ? "bg-violet-700 text-white shadow-md" : "text-slate-600 hover:bg-slate-100"}`} onClick={() => setActiveTab("avatar")} type="button"><Palette className="size-5" /><span className="hidden min-[420px]:inline">Avatar Studio</span><span className="min-[420px]:hidden">Avatar</span></button><button aria-current={activeTab === "about" ? "page" : undefined} className={`inline-flex min-h-12 items-center justify-center gap-1.5 rounded-xl text-xs font-black sm:gap-2 sm:text-base ${activeTab === "about" ? "bg-violet-700 text-white shadow-md" : "text-slate-600 hover:bg-slate-100"}`} onClick={() => setActiveTab("about")} type="button"><UserRound className="size-5" />My Story</button><button aria-current={activeTab === "settings" ? "page" : undefined} className={`inline-flex min-h-12 items-center justify-center gap-1.5 rounded-xl text-xs font-black sm:gap-2 sm:text-base ${activeTab === "settings" ? "bg-violet-700 text-white shadow-md" : "text-slate-600 hover:bg-slate-100"}`} onClick={() => setActiveTab("settings")} type="button"><Settings2 className="size-5" />Settings</button></nav>
     <form className="grid min-w-0 gap-5 lg:gap-6" onSubmit={submit}>
         {activeTab === "avatar" ? <>
         <section className="min-w-0 rounded-[2rem] border border-violet-200 bg-white p-5 shadow-[var(--shadow-card)] sm:p-6" id="avatar-studio">
@@ -272,19 +272,19 @@ export function ProfilePage() {
           <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-center">
             <div className="flex min-w-0 items-center gap-4">
               <div className="size-24 shrink-0 overflow-hidden rounded-3xl border-4 border-white/80 bg-white/15 shadow-xl sm:size-28">
-                <CharacterAvatar avatar={form.avatar} className="size-full rounded-2xl" label={`${form.username}'s avatar`} motion="idle" />
+                <CharacterAvatar avatar={form.avatar} className="size-full rounded-2xl" label={`${form.username}'s avatar`} motion="expressive" />
               </div>
               <div className="min-w-0">
-                <p className="text-xs font-black uppercase tracking-[.18em] text-violet-200">My learner card</p>
+                <p className="text-xs font-black uppercase tracking-[.18em] text-violet-200">My cool card</p>
                 <h2 className="mt-1 truncate text-2xl font-black sm:text-3xl">@{form.username}</h2>
                 <p className="mt-1 text-sm font-bold text-blue-100">{form.grade} · {form.age} years old</p>
-                <button className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-xl bg-white/15 px-3 text-sm font-black ring-1 ring-white/25 transition hover:bg-white/25" onClick={() => setActiveTab("avatar")} type="button"><Palette className="size-4" />Edit my avatar</button>
+                <button className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-xl bg-white/15 px-3 text-sm font-black ring-1 ring-white/25 transition hover:bg-white/25" onClick={() => setActiveTab("avatar")} type="button"><Palette className="size-4" />Dress my avatar</button>
               </div>
             </div>
             <div className="rounded-2xl bg-white/10 p-4 ring-1 ring-white/20">
-              <div className="flex items-center justify-between gap-3"><span className="font-black">Profile power</span><span className="rounded-full bg-white px-2.5 py-1 text-sm font-black text-violet-800">{profileCompletion}%</span></div>
+              <div className="flex items-center justify-between gap-3"><span className="font-black">Story power</span><span className="rounded-full bg-white px-2.5 py-1 text-sm font-black text-violet-800">{profileCompletion}%</span></div>
               <div aria-label={`Profile ${profileCompletion}% complete`} aria-valuemax={100} aria-valuemin={0} aria-valuenow={profileCompletion} className="mt-3 h-3 overflow-hidden rounded-full bg-slate-950/25" role="progressbar"><span className="block h-full rounded-full bg-gradient-to-r from-amber-300 to-emerald-300 transition-[width] motion-reduce:transition-none" style={{ width: `${profileCompletion}%` }} /></div>
-              <p className="mt-2 text-xs leading-5 text-blue-100">{profileCompletion === 100 ? "Brilliant—your learner card is complete!" : "Add your school and learning story to complete your card."}</p>
+              <p className="mt-2 text-xs leading-5 text-blue-100">{profileCompletion === 100 ? "Awesome — your story card is complete!" : "Add your school and a short story to finish your card."}</p>
             </div>
           </div>
         </section>
@@ -292,25 +292,25 @@ export function ProfilePage() {
         <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(17rem,.65fr)] lg:items-start lg:gap-6">
           <div className="grid min-w-0 gap-5 lg:gap-6">
             <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-[var(--shadow-card)] sm:p-6">
-              <SectionTitle icon={UserRound} title="My details" description="Tell SkulKid what you would like to be called and where you learn." />
+              <SectionTitle icon={UserRound} title="About you" description="What should friends call you, and where do you learn?" />
               <div className="mt-5 grid gap-4 sm:grid-cols-2 sm:gap-5">
                 <Field label="My name"><input autoComplete="name" maxLength={50} minLength={2} placeholder="What should we call you?" required value={form.displayName} onChange={(event) => update("displayName", event.target.value)} /><span className="mt-1 block text-right text-xs font-bold text-muted">{form.displayName.length}/50</span></Field>
-                <Field label="My school"><div className="relative"><School className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-slate-400" /><input autoComplete="organization" className="!pl-12" maxLength={80} placeholder="Enter your school" value={form.school} onChange={(event) => update("school", event.target.value)} /></div></Field>
+                <Field label="My school"><div className="relative"><School className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-slate-400" /><input autoComplete="organization" className="!pl-12" maxLength={80} placeholder="Type your school name" value={form.school} onChange={(event) => update("school", event.target.value)} /></div></Field>
                 <Field label="My age"><input max={18} min={5} required type="number" value={form.age} onChange={(event) => update("age", Number(event.target.value))} /></Field>
-                <Field label="My Primary level"><select value={form.grade} onChange={(event) => update("grade", event.target.value)}>{[1, 2, 3, 4, 5, 6].map((grade) => <option key={grade}>Basic {grade}</option>)}</select></Field>
+                <Field label="My class level"><select value={form.grade} onChange={(event) => update("grade", event.target.value)}>{[1, 2, 3, 4, 5, 6].map((grade) => <option key={grade}>Basic {grade}</option>)}</select></Field>
                 <fieldset className="sm:col-span-2">
                   <legend className="text-sm font-black text-text-secondary">I am a</legend>
                   <div className="mt-2 grid grid-cols-2 gap-3">{([["male", "Boy"], ["female", "Girl"]] as const).map(([value, label]) => <button aria-pressed={form.gender === value} className={`min-h-12 rounded-xl border-2 px-4 font-black transition motion-reduce:transition-none ${form.gender === value ? "border-violet-600 bg-violet-50 text-violet-800" : "border-slate-200 bg-white text-slate-600 hover:border-violet-200"}`} key={value} onClick={() => updateGender(value)} type="button">{label}</button>)}</div>
-                  <p className="mt-2 text-xs leading-5 text-muted">This also helps us prepare a matching starter style for your avatar.</p>
+                  <p className="mt-2 text-xs leading-5 text-muted">This helps SkulKid pick a fun starting avatar look for you.</p>
                 </fieldset>
               </div>
             </section>
 
             <section className="rounded-[2rem] border border-rose-200 bg-white p-5 shadow-[var(--shadow-card)] sm:p-6">
-              <SectionTitle icon={Heart} title="My learning story" description="Write a short message about what makes learning exciting for you." />
+              <SectionTitle icon={Heart} title="My learning story" description="Tell us one thing that makes learning fun for you." />
               <div className="mt-5">
-                <label className="text-sm font-black text-text-secondary" htmlFor="student-learning-bio">About me</label>
-                <textarea className="mt-2 min-h-32 w-full resize-y rounded-2xl border border-slate-300 p-4 leading-6 outline-none transition focus:border-violet-500 focus:ring-4 focus:ring-violet-100" id="student-learning-bio" maxLength={180} placeholder="I enjoy learning because..." rows={4} value={form.bio} onChange={(event) => update("bio", event.target.value)} />
+                <label className="text-sm font-black text-text-secondary" htmlFor="student-learning-bio">My story</label>
+                <textarea className="mt-2 min-h-28 w-full resize-y rounded-2xl border border-slate-300 p-4 leading-6 outline-none transition focus:border-violet-500 focus:ring-4 focus:ring-violet-100" id="student-learning-bio" maxLength={180} placeholder="I enjoy learning because..." rows={3} value={form.bio} onChange={(event) => update("bio", event.target.value)} />
                 <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
                   <div className="flex flex-wrap gap-2" aria-label="Learning story starters">{["I love discovering new things!", "I want to become a great reader.", "Solving problems makes me proud!"].map((prompt) => <button className="min-h-9 rounded-full border border-rose-200 bg-rose-50 px-3 text-left text-xs font-bold text-rose-800 hover:bg-rose-100" key={prompt} onClick={() => update("bio", prompt)} type="button">{prompt}</button>)}</div>
                   <span className={`ml-auto text-xs font-black ${form.bio.length > 160 ? "text-amber-700" : "text-muted"}`}>{form.bio.length}/180</span>
@@ -319,15 +319,15 @@ export function ProfilePage() {
             </section>
 
             <section className="rounded-[2rem] border border-blue-200 bg-white p-5 shadow-[var(--shadow-card)] sm:p-6">
-              <SectionTitle icon={BookHeart} title="How I like to learn" description="Choose a favourite subject and a daily goal that feels right for you." />
+              <SectionTitle icon={BookHeart} title="How I like to learn" description="Pick a favourite subject and a daily XP goal." />
               <fieldset className="mt-5">
-                <legend className="text-sm font-black text-text-secondary">My favourite subject</legend>
+                <legend className="text-sm font-black text-text-secondary">Favourite subject</legend>
                 <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
                   {([["Mathematics", "Maths"], ["English", "English"], ["Science", "Science"], ["Computing", "Computing"], ["Creative Arts", "Creative Arts"], ["RME", "RME"], ["OWOP", "OWOP"], ["French", "French"]] as const).map(([value, label]) => <button aria-pressed={form.favouriteSubject === value} className={`min-h-12 rounded-xl border-2 px-2 text-sm font-black transition motion-reduce:transition-none ${form.favouriteSubject === value ? "border-blue-600 bg-blue-50 text-blue-800" : "border-slate-200 bg-white text-slate-600 hover:border-blue-200"}`} key={value} onClick={() => update("favouriteSubject", value)} type="button">{label}</button>)}
                 </div>
               </fieldset>
               <fieldset className="mt-6">
-                <legend className="text-sm font-black text-text-secondary">My daily XP goal</legend>
+                <legend className="text-sm font-black text-text-secondary">Daily XP goal</legend>
                 <div className="mt-2 grid gap-3 sm:grid-cols-3">
                   {([[30, "Easy start", "A little each day"], [60, "Keep growing", "A steady challenge"], [100, "Big mission", "Ready to go far"]] as const).map(([value, title, detail]) => (
                     <button aria-pressed={form.dailyGoalXp === value} className={`min-h-20 rounded-2xl border-2 p-3 text-left transition motion-reduce:transition-none ${form.dailyGoalXp === value ? "border-emerald-600 bg-emerald-50 text-emerald-900" : "border-slate-200 bg-white text-slate-700 hover:border-emerald-200"}`} key={value} onClick={() => update("dailyGoalXp", value)} type="button">
@@ -342,11 +342,11 @@ export function ProfilePage() {
 
           <aside className="grid gap-5 lg:sticky lg:top-24">
             <section className="rounded-[2rem] border border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50 p-5 shadow-[var(--shadow-card)]">
-              <SectionTitle icon={Sparkles} title="My learner card" description="This is how your profile is coming together." />
+              <SectionTitle icon={Sparkles} title="Card preview" description="This is how your story looks so far." />
               <div className="mt-5 rounded-2xl border border-white bg-white/80 p-4 text-center shadow-sm">
-                <div className="mx-auto size-24 overflow-hidden rounded-3xl bg-gradient-to-br from-cyan-100 to-violet-100"><CharacterAvatar avatar={form.avatar} className="size-full rounded-2xl" label={`${form.username}'s avatar preview`} /></div>
+                <div className="mx-auto size-24 overflow-hidden rounded-3xl bg-gradient-to-br from-cyan-100 to-violet-100"><CharacterAvatar avatar={form.avatar} className="size-full rounded-2xl" label={`${form.username}'s avatar preview`} motion="idle" /></div>
                 <h3 className="mt-3 truncate text-xl font-black text-slate-950">@{form.username}</h3>
-                <p className="mt-1 text-sm font-bold text-violet-700">{form.grade} learner</p>
+                <p className="mt-1 text-sm font-bold text-violet-700">{form.grade} explorer</p>
                 <p className="mt-3 line-clamp-3 text-sm leading-6 text-slate-600">{form.bio.trim() || "Add your learning story to make this card yours."}</p>
                 <div className="mt-4 grid grid-cols-2 gap-2 text-left">
                   <MiniDetail icon={School} label="School" value={form.school.trim() || "Not added"} />
@@ -356,7 +356,7 @@ export function ProfilePage() {
             </section>
 
             <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-[var(--shadow-card)]">
-              <SectionTitle icon={Award} title="My journey" description="A quick look at how far you have come." />
+              <SectionTitle icon={Award} title="My journey" description="Look how far you have already come!" />
               <div className="mt-5 grid grid-cols-2 gap-3">
                 <JourneyStat icon={GraduationCap} label="Lessons done" value={state.completedLessonIds.length} tone="blue" />
                 <JourneyStat icon={Trophy} label="Achievements" value={earnedAchievements} tone="amber" />
@@ -380,8 +380,8 @@ export function ProfilePage() {
           <section className="overflow-hidden rounded-[2rem] border border-blue-200 bg-white shadow-[var(--shadow-card)]">
             <div className="bg-gradient-to-r from-blue-700 to-indigo-700 p-5 text-white sm:p-7">
               <Settings2 className="size-7 text-blue-100" />
-              <h2 className="mt-3 text-2xl font-black sm:text-3xl">Student settings</h2>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-blue-100">Choose how SkulKid behaves on this device.</p>
+              <h2 className="mt-3 text-2xl font-black sm:text-3xl">My settings</h2>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-blue-100">Choose how SkulKid feels on this device.</p>
             </div>
             <div className="grid gap-4 p-5 sm:p-7">
               <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">

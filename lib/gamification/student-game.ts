@@ -5,6 +5,8 @@ import {
   dispatchStudentCelebration,
   type StudentCelebrationInput
 } from "@/lib/gamification/student-celebration";
+import { calculateLevel } from "@/lib/gamification/calculate-level";
+import { dispatchSuccessMoment } from "@/lib/student/success-moments";
 
 export const gameChangedEvent = "skulkid:student-game-changed";
 export const DAILY_LEARNING_XP_GOAL = 30;
@@ -84,6 +86,7 @@ export function applyServerGameState(
         ...(wasHydrated ? newlyEarnedAchievements(previousState, currentGameState) : [])
       ]
     });
+    if (wasHydrated) notifyMilestoneMoments(previousState, currentGameState);
   }
   return currentGameState;
 }
@@ -137,6 +140,17 @@ function newlyEarnedAchievements(previous: GameState, next: GameState) {
     .map(({ earned: _earned, ...achievement }) => achievement);
 }
 
+function notifyMilestoneMoments(previous: GameState, next: GameState) {
+  if (typeof window === "undefined") return;
+  const leveledUp = calculateLevel(next.xp) > calculateLevel(previous.xp);
+  const streakSaved = next.streak > previous.streak;
+  if (leveledUp) {
+    window.setTimeout(() => dispatchSuccessMoment("level_up", `level-${next.xp}`), 320);
+  } else if (streakSaved) {
+    window.setTimeout(() => dispatchSuccessMoment("streak", `streak-${next.streak}-${next.lastStreakDate}`), 320);
+  }
+}
+
 function celebrateReward(
   previous: GameState,
   next: GameState,
@@ -146,6 +160,7 @@ function celebrateReward(
     ...input,
     achievements: newlyEarnedAchievements(previous, next)
   });
+  notifyMilestoneMoments(previous, next);
 }
 
 export function useStudentGame() {
@@ -229,7 +244,9 @@ export function useStudentGame() {
     const current = currentGameState;
     if (current.unlockedAvatarAssetIds.includes(assetId) || cost < 0 || current.avatarPoints < cost) return { state: current, redeemed: false };
     const next = withHistory({ ...current, avatarPoints: current.avatarPoints - cost, unlockedAvatarAssetIds: [...current.unlockedAvatarAssetIds, assetId] }, { type: "achievement", title: "Avatar item unlocked", detail: `Redeemed ${cost} Avatar Points for ${assetId}.`, xp: 0, stars: 0 });
-    save(next); return { state: next, redeemed: true };
+    save(next);
+    dispatchSuccessMoment("shop", `shop-${assetId}`);
+    return { state: next, redeemed: true };
   }, []);
 
   const claimDailyReward = useCallback(() => {

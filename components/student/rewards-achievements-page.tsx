@@ -17,7 +17,7 @@ export function RewardsAchievementsPage() {
     <header className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-emerald-800 via-teal-700 to-blue-800 p-6 text-white shadow-[0_24px_70px_rgba(5,150,105,.2)] sm:p-8"><div className="absolute -right-16 -top-20 size-64 rounded-full bg-amber-300/20 blur-3xl" /><div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between"><div><div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-sm font-black ring-1 ring-white/20"><Sparkles className="size-4 text-amber-300" />Your lifetime collection</div><h1 className="mt-4 text-4xl font-black sm:text-5xl">Rewards & Achievements</h1><p className="mt-3 max-w-2xl text-lg leading-8 text-emerald-50">Every lesson, quiz, reward and ranking climb becomes part of your SkulKid story.</p></div><div className="grid grid-cols-3 gap-2"><HeroMetric icon={Trophy} value={level.level} label="Level" /><HeroMetric icon={Zap} value={state.xp} label="XP" /><HeroMetric icon={Star} value={state.stars} label="Stars" /></div></div></header>
     <StudentPageNav
       backHref="/dashboard"
-      backLabel="Back to dashboard"
+      backLabel="Back to Home"
       crumbs={[
         { label: "Home", href: "/dashboard" },
         { label: "Rewards & Achievements" }

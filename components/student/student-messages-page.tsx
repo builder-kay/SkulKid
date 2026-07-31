@@ -326,13 +326,13 @@ export function StudentMessagesPage({
               <div className="flex items-center gap-3">
                 <span className="grid size-11 place-items-center rounded-2xl bg-blue-700 text-white"><MessageCircle className="size-5" /></span>
                 <div>
-                  <p className="text-xs font-black uppercase tracking-wider text-blue-700">Student messages</p>
-                  <h1 className="text-xl font-black">Chats</h1>
+                  <p className="text-xs font-black uppercase tracking-wider text-blue-700">Say hello</p>
+                  <h1 className="text-xl font-black">My chats</h1>
                 </div>
               </div>
               <label className="relative mt-4 block">
                 <Search className="pointer-events-none absolute left-3 top-3.5 size-4 text-slate-400" />
-                <input aria-label="Search conversations" className="min-h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100" onChange={(event) => setQuery(event.target.value)} placeholder="Search classes or teachers" value={query} />
+                <input aria-label="Search conversations" className="min-h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100" onChange={(event) => setQuery(event.target.value)} placeholder="Find a class or teacher" value={query} />
               </label>
             </div>
             <div className="max-h-[calc(100dvh-14rem)] overflow-y-auto lg:max-h-[calc(100dvh-12rem)]">
@@ -351,14 +351,14 @@ export function StudentMessagesPage({
                   </span>
                   {item.unread > 0 ? <span className="grid min-w-6 place-items-center rounded-full bg-blue-600 px-1.5 py-1 text-[10px] font-black text-white">{Math.min(99, item.unread)}</span> : null}
                 </button>
-              )) : <div className="grid min-h-64 place-items-center p-6 text-center"><div><Users className="mx-auto size-9 text-slate-300" /><h2 className="mt-3 font-black">No conversations yet</h2><p className="mt-1 text-sm text-slate-500">Join an active class to start class group and private teacher chats.</p></div></div>}
+              )) : <div className="grid min-h-64 place-items-center p-6 text-center"><div><Users className="mx-auto size-9 text-slate-300" /><h2 className="mt-3 font-black">No chats yet</h2><p className="mt-1 text-sm text-slate-500">Join a class to talk with friends and your teacher.</p></div></div>}
             </div>
           </aside>
 
           <div className={cn("min-w-0 bg-slate-100", selectedId ? "block" : "hidden lg:block")}>
             {selectedId ? (
               <div className="p-2 sm:p-3 lg:h-full lg:p-4">
-                <button className="mb-2 inline-flex min-h-10 items-center gap-2 rounded-xl bg-white px-3 text-sm font-black text-blue-700 shadow-sm lg:hidden" onClick={showConversationList} type="button"><ArrowLeft className="size-4" />All conversations</button>
+                <button className="mb-2 inline-flex min-h-10 items-center gap-2 rounded-xl bg-white px-3 text-sm font-black text-blue-700 shadow-sm lg:hidden" onClick={showConversationList} type="button"><ArrowLeft className="size-4" />All chats</button>
                 {error ? <p className="mb-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm font-bold text-rose-800">{error}</p> : null}
                 {loadingChat || !detail || !directChat ? <div className="grid min-h-[32rem] place-items-center rounded-2xl bg-white"><Loader2 className="size-8 animate-spin text-blue-700" /></div> : (
                   <StudentClassChat
@@ -383,8 +383,8 @@ export function StudentMessagesPage({
               <div className="hidden h-full place-items-center p-8 text-center lg:grid">
                 <div className="max-w-md">
                   <span className="mx-auto grid size-20 place-items-center rounded-full bg-blue-100 text-blue-700"><ShieldCheck className="size-9" /></span>
-                  <h2 className="mt-5 text-2xl font-black">Choose a conversation</h2>
-                  <p className="mt-2 leading-7 text-slate-600">Open a class group chat with classmates, or message your teacher privately.</p>
+                  <h2 className="mt-5 text-2xl font-black">Pick a chat</h2>
+                  <p className="mt-2 leading-7 text-slate-600">Talk with your class, or send a private note to your teacher.</p>
                 </div>
               </div>
             )}

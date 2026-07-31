@@ -5,6 +5,7 @@ import { useState } from "react";
 import { FeedbackPanel } from "@/components/shared/feedback-panel";
 import { SkulKidButton } from "@/components/shared/skulkid-button";
 import { LessonBlockShell } from "@/components/lesson-player/lesson-block-shell";
+import { dispatchSuccessMoment } from "@/lib/student/success-moments";
 import type { FillBlankBlock } from "@/types/lesson";
 
 export type FillBlankBlockProps = {
@@ -46,6 +47,7 @@ export function FillBlankBlockComponent({ block, previewMode = false, onAnswer }
     onAnswer?.(block.id, correct, nextAttempts);
     if (correct) {
       setAwardedXp((current) => current ?? block.xpReward);
+      dispatchSuccessMoment("correct", `blank-${block.id}`);
     }
   }
 

@@ -15,7 +15,7 @@ export function LeaderboardPage() {
     <header className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-indigo-950 via-violet-800 to-blue-700 p-6 text-white shadow-[0_24px_70px_rgba(76,29,149,.28)] sm:p-8"><div className="absolute -right-16 -top-20 size-64 rounded-full bg-fuchsia-400/20 blur-3xl" /><div className="absolute -bottom-20 left-1/4 size-56 rounded-full bg-cyan-300/20 blur-3xl" /><div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between"><div><div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-sm font-black ring-1 ring-white/20"><Sparkles className="size-4 text-amber-300" />SkulKid Champions League</div><h1 className="mt-4 text-4xl font-black sm:text-5xl">Leaderboard</h1><p className="mt-3 max-w-2xl text-lg leading-8 text-indigo-100">Learn, earn XP and climb past fellow explorers. Every lesson can move you closer to the crown.</p></div><div className="grid grid-cols-3 gap-2 rounded-3xl bg-white/10 p-3 ring-1 ring-white/20 backdrop-blur"><HeaderMetric icon={Users} value={totalLearners} label="Learners" /><HeaderMetric icon={Trophy} value={`#${currentRank}`} label="Your rank" /><HeaderMetric icon={Zap} value={currentUser?.xp ?? 0} label="Your XP" /></div></div></header>
     <StudentPageNav
       backHref="/dashboard"
-      backLabel="Back to dashboard"
+      backLabel="Back to Home"
       crumbs={[
         { label: "Home", href: "/dashboard" },
         { label: "Leaderboard" }

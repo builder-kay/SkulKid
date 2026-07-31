@@ -191,7 +191,7 @@ export function useAvatarMotion(
   }, []);
 
   const triggerWave = useCallback(() => {
-    if (mode !== "expressive" || gestureRef.current !== "none") return;
+    if ((mode !== "expressive" && mode !== "idle") || gestureRef.current !== "none") return;
     if (manualTimerRef.current) clearTimeout(manualTimerRef.current);
     if (reducedMotion) {
       setTemporaryExpression("happy");
@@ -207,7 +207,7 @@ export function useAvatarMotion(
   }, [mode, reducedMotion, setGestureState]);
 
   const triggerCelebration = useCallback(() => {
-    if (mode !== "expressive") return;
+    if (mode !== "expressive" && mode !== "idle") return;
     if (manualTimerRef.current) clearTimeout(manualTimerRef.current);
     setTemporaryExpression("happy");
     if (reducedMotion) {

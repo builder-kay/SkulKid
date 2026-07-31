@@ -54,7 +54,7 @@ export function PascoArchivePage() {
 
   return <StudentShell activeItem="pasco">
     <main className="mx-auto grid w-full max-w-7xl gap-5">
-      <StudentPageNav backHref="/dashboard" backLabel="Back to dashboard" crumbs={[{ label: "Home", href: "/dashboard" }, { label: "PASCO" }]} />
+      <StudentPageNav backHref="/dashboard" backLabel="Back to Home" crumbs={[{ label: "Home", href: "/dashboard" }, { label: "PASCO" }]} />
       <header className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-amber-500 via-orange-500 to-rose-600 p-6 text-white shadow-xl sm:p-8">
         <div className="absolute -right-20 -top-20 size-72 rounded-full bg-white/15 blur-3xl" />
         <div className="relative flex flex-col justify-between gap-6 sm:flex-row sm:items-end">

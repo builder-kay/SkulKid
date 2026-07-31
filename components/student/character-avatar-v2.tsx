@@ -1,11 +1,12 @@
 "use client";
 
-import { useId } from "react";
+import { useEffect, useId, useState } from "react";
 import type { AvatarConfig } from "@/lib/student/student-profile";
 import { avatarShopAssets, type AvatarAsset, type AvatarAssetCategory } from "@/lib/student/avatar-shop";
 import { cn } from "@/lib/utils";
 import { AvatarBrandMark } from "@/components/student/avatar-brand-mark";
 import { useAvatarMotion, type AvatarMotionMode } from "@/components/student/use-avatar-motion";
+import { avatarReactionEvent } from "@/lib/student/success-moments";
 
 type Props = {
   avatar: AvatarConfig;
@@ -35,7 +36,21 @@ export function CharacterAvatar({
   const motionMode: AvatarMotionMode = animated === false
     ? "static"
     : motion ?? (animated === true ? "idle" : "static");
-  const avatarMotion = useAvatarMotion(motionMode, avatar.expression ?? "classic", celebrationSignal);
+  const [reactionSignal, setReactionSignal] = useState<string | number | undefined>();
+  useEffect(() => {
+    if (motionMode === "static" || typeof window === "undefined") return;
+    function onReaction(event: Event) {
+      const signal = (event as CustomEvent<{ signal?: string }>).detail?.signal;
+      if (signal) setReactionSignal(signal);
+    }
+    window.addEventListener(avatarReactionEvent, onReaction);
+    return () => window.removeEventListener(avatarReactionEvent, onReaction);
+  }, [motionMode]);
+  const avatarMotion = useAvatarMotion(
+    motionMode,
+    avatar.expression ?? "classic",
+    celebrationSignal ?? reactionSignal
+  );
   const asset = (category: AvatarAssetCategory) =>
     avatarShopAssets.find((item) => item.id === avatar.equippedPremium[category]);
   const shirt = asset("shirt");

@@ -6,6 +6,7 @@ import { FeedbackPanel } from "@/components/shared/feedback-panel";
 import { SkulKidButton } from "@/components/shared/skulkid-button";
 import { LessonBlockShell } from "@/components/lesson-player/lesson-block-shell";
 import { cn } from "@/lib/utils";
+import { dispatchSuccessMoment } from "@/lib/student/success-moments";
 import type { TrueFalseBlock } from "@/types/lesson";
 
 export type TrueFalseBlockProps = {
@@ -35,6 +36,7 @@ export function TrueFalseBlockComponent({ block, previewMode = false, onAnswer }
     onAnswer?.(block.id, selectedAnswer === block.correctAnswer, nextAttempts);
     if (selectedAnswer === block.correctAnswer) {
       setAwardedXp((current) => current ?? block.xpReward);
+      dispatchSuccessMoment("correct", `tf-${block.id}`);
     }
   }
 

@@ -41,9 +41,9 @@ export default function manifest(): MetadataRoute.Manifest {
     ],
     shortcuts: [
       {
-        name: "Open dashboard",
-        short_name: "Dashboard",
-        description: "Continue learning on SkulKid.",
+        name: "Open Home",
+        short_name: "Home",
+        description: "Continue your SkulKid adventure.",
         url: "/dashboard",
         icons: [{ src: "/pwa/icon-192.png", sizes: "192x192", type: "image/png" }]
       },
@@ -55,9 +55,9 @@ export default function manifest(): MetadataRoute.Manifest {
         icons: [{ src: "/pwa/icon-192.png", sizes: "192x192", type: "image/png" }]
       },
       {
-        name: "Public Learning",
-        short_name: "Learning",
-        description: "Explore learning available to every learner.",
+        name: "Explore",
+        short_name: "Explore",
+        description: "Discover subjects open to every learner.",
         url: "/courses",
         icons: [{ src: "/pwa/icon-192.png", sizes: "192x192", type: "image/png" }]
       }

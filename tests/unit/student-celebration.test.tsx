@@ -19,12 +19,26 @@ function matchMedia(reduced = false) {
 }
 
 describe("student award celebrations", () => {
-  const audio = {
+  const oscillator = {
+    type: "triangle",
+    frequency: { setValueAtTime: vi.fn() },
+    connect: vi.fn(),
+    start: vi.fn(),
+    stop: vi.fn()
+  };
+  const gain = {
+    gain: {
+      setValueAtTime: vi.fn(),
+      exponentialRampToValueAtTime: vi.fn()
+    },
+    connect: vi.fn()
+  };
+  const audioContext = {
     currentTime: 0,
-    pause: vi.fn(),
-    play: vi.fn(() => Promise.resolve()),
-    preload: "",
-    volume: 1
+    destination: {},
+    resume: vi.fn(() => Promise.resolve()),
+    createOscillator: vi.fn(() => oscillator),
+    createGain: vi.fn(() => gain)
   };
 
   beforeEach(() => {
@@ -34,10 +48,10 @@ describe("student award celebrations", () => {
       configurable: true,
       value: matchMedia(false)
     });
-    Object.defineProperty(globalThis, "Audio", {
+    Object.defineProperty(window, "AudioContext", {
       configurable: true,
-      value: vi.fn(function Audio() {
-        return audio;
+      value: vi.fn(function AudioContext() {
+        return audioContext;
       })
     });
     vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => ({
@@ -46,8 +60,9 @@ describe("student award celebrations", () => {
         ? { state: null }
         : {}
     })));
-    audio.pause.mockClear();
-    audio.play.mockClear();
+    audioContext.resume.mockClear();
+    audioContext.createOscillator.mockClear();
+    oscillator.start.mockClear();
   });
 
   afterEach(() => {
@@ -91,19 +106,21 @@ describe("student award celebrations", () => {
       window.dispatchEvent(new CustomEvent(studentCelebrationEvent, { detail: second }));
       vi.advanceTimersByTime(750);
     });
+    await act(async () => {
+      await Promise.resolve();
+    });
 
     expect(screen.getByRole("heading", { name: "Amazing work!" })).toBeInTheDocument();
     expect(screen.getByText("+60 XP")).toBeInTheDocument();
     expect(screen.getByText("+2 stars")).toBeInTheDocument();
     expect(screen.getByText("First Step unlocked")).toBeInTheDocument();
-    expect(audio.play).toHaveBeenCalledTimes(1);
+    expect(audioContext.createOscillator).toHaveBeenCalled();
 
     act(() => vi.advanceTimersByTime(4_200));
     expect(screen.queryByRole("heading", { name: "Amazing work!" })).not.toBeInTheDocument();
   });
 
-  it("remembers a learner's mute choice and retries browser-blocked sound manually", async () => {
-    audio.play.mockRejectedValueOnce(new Error("Playback blocked")).mockResolvedValue(undefined);
+  it("remembers a learner's mute choice", async () => {
     render(<StudentCelebrationHost avatar={defaultAvatar} learnerName="Kojo" />);
     act(() => {
       dispatchStudentCelebration({
@@ -119,11 +136,6 @@ describe("student award celebrations", () => {
     });
     await act(async () => undefined);
 
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Play celebration sound" }));
-      await Promise.resolve();
-    });
-    expect(audio.play).toHaveBeenCalledTimes(2);
     fireEvent.click(screen.getByRole("button", { name: "Mute celebration sound" }));
     expect(window.localStorage.getItem("skulkid:celebration-sound")).toBe("off");
   });
@@ -161,7 +173,6 @@ describe("student award celebrations", () => {
       "lesson_quiz",
       "daily_gift"
     ]);
-    expect(received[0].achievements.map((achievement) => achievement.id)).toContain("first-step");
     window.removeEventListener(studentCelebrationEvent, listener);
   });
 });

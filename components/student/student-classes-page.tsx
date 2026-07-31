@@ -165,7 +165,7 @@ export function StudentClassesPage() {
 
         <StudentPageNav
           backHref="/dashboard"
-          backLabel="Back to dashboard"
+          backLabel="Back to Home"
           crumbs={[{ label: "Home", href: "/dashboard" }, { label: "My Classes" }]}
         />
 

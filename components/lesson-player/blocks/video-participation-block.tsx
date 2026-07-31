@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { CheckCircle2, PlayCircle, Sparkles, Zap } from "lucide-react";
 import { EmbeddedVideo } from "@/components/shared/embedded-video";
 import { cn } from "@/lib/utils";
+import { dispatchSuccessMoment } from "@/lib/student/success-moments";
 import type { VideoBlock } from "@/types/lesson";
 
 const maximumAttempts = 2;
@@ -28,6 +29,7 @@ export function VideoParticipationBlock({ block, completed = false, onComplete }
     setAttempts(nextAttempts);
     if (selected === correctOptionId) {
       setFeedback("correct");
+      dispatchSuccessMoment("correct", `video-${block.id}`);
       onComplete?.(block.id, reward);
       return;
     }
