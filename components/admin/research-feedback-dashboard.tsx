@@ -20,9 +20,9 @@ type Analytics = {
     all: number;
     filtered: number;
     last7Days: number;
-    byForm: { student: number; teacher: number; system: number };
+    byForm: { student: number; teacher: number };
   };
-  trend: Array<{ date: string; student: number; teacher: number; system: number }>;
+  trend: Array<{ date: string; student: number; teacher: number }>;
   demographics: {
     student: {
       class: Array<{ label: string; value: number }>;
@@ -48,11 +48,6 @@ type Analytics = {
     text: string;
     createdAt: string;
   }>;
-  system: {
-    features: Array<{ id: string; number: number | string; prompt: string; works: number; issue: number; worksRate: number | null }>;
-    metricPass: { met: number; total: number; rate: number | null };
-    responseCount: number;
-  };
   crossBreaks: null | {
     studentOverallByClass: Array<{ label: string; n: number; mean: number | null }>;
   };
@@ -115,8 +110,7 @@ export function ResearchFeedbackDashboard() {
   const shareLinks = useMemo(() => ({
     hub: `${origin}/feedback`,
     student: `${origin}/feedback/student`,
-    teacher: `${origin}/feedback/teacher`,
-    system: `${origin}/feedback/system`
+    teacher: `${origin}/feedback/teacher`
   }), [origin]);
 
   async function copy(label: string, value: string) {
@@ -150,7 +144,7 @@ export function ResearchFeedbackDashboard() {
     <div className="grid gap-5 print:gap-3">
       <AdminPageHeader
         className="print:shadow-none"
-        description="Statistician view of Forms A–C. Confidential research responses — use aggregates and exports for reporting."
+        description="Statistician view of Forms A and B. Confidential research responses — use aggregates and exports for reporting."
         eyebrow="Monitor"
         icon={BarChart3}
         title="Research feedback"
@@ -187,7 +181,6 @@ export function ResearchFeedbackDashboard() {
               <option value="all">All forms</option>
               <option value="student">Student (A)</option>
               <option value="teacher">Teacher (B)</option>
-              <option value="system">System (C)</option>
             </select>
           </label>
           <label className="grid gap-1 text-xs font-black text-slate-600">
@@ -199,12 +192,11 @@ export function ResearchFeedbackDashboard() {
             <input className="min-h-11 rounded-xl border border-slate-300 px-3 text-sm" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
           </label>
         </div>
-        <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-4 grid gap-2 sm:grid-cols-3">
           {([
             ["Hub", shareLinks.hub],
             ["Student", shareLinks.student],
-            ["Teacher", shareLinks.teacher],
-            ["System", shareLinks.system]
+            ["Teacher", shareLinks.teacher]
           ] as const).map(([label, href]) => (
             <button
               className="flex min-h-11 items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 text-left text-xs font-bold text-slate-700 hover:bg-emerald-50"
@@ -225,12 +217,11 @@ export function ResearchFeedbackDashboard() {
 
       {analytics && !loading ? (
         <>
-          <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <Kpi label="All responses" value={analytics.totals.all} />
             <Kpi label="In filter" value={analytics.totals.filtered} />
             <Kpi label="Last 7 days" value={analytics.totals.last7Days} />
-            <Kpi label="Students (A)" value={analytics.totals.byForm.student} />
-            <Kpi label="Teachers (B)" value={analytics.totals.byForm.teacher} />
+            <Kpi label="Students · Teachers" value={`${analytics.totals.byForm.student} · ${analytics.totals.byForm.teacher}`} />
           </section>
 
           <section className="grid gap-4 xl:grid-cols-2">
@@ -241,8 +232,7 @@ export function ResearchFeedbackDashboard() {
                   data={analytics.trend}
                   series={[
                     { key: "student", label: "Student", color: "#2563eb" },
-                    { key: "teacher", label: "Teacher", color: "#7c3aed" },
-                    { key: "system", label: "System", color: "#0f766e" }
+                    { key: "teacher", label: "Teacher", color: "#7c3aed" }
                   ]}
                 />
               ) : <Empty text="No responses in this date range yet." />}
@@ -252,8 +242,7 @@ export function ResearchFeedbackDashboard() {
                 title="Responses by form"
                 data={[
                   { label: "Student", value: analytics.totals.byForm.student },
-                  { label: "Teacher", value: analytics.totals.byForm.teacher },
-                  { label: "System", value: analytics.totals.byForm.system }
+                  { label: "Teacher", value: analytics.totals.byForm.teacher }
                 ]}
               />
             </Panel>
@@ -370,40 +359,6 @@ export function ResearchFeedbackDashboard() {
               <Empty text="Collect a few more Form A responses to unlock class comparisons." />
             </Panel>
           )}
-
-          <Panel title="System checklist (Form C)" subtitle="Functional pass rates and benchmark hits.">
-            <div className="grid gap-3 sm:grid-cols-3">
-              <Kpi label="System responses" value={analytics.system.responseCount} />
-              <Kpi label="Metrics met" value={`${analytics.system.metricPass.met}/${analytics.system.metricPass.total}`} />
-              <Kpi label="Metric pass rate" value={analytics.system.metricPass.rate == null ? "—" : `${Math.round(analytics.system.metricPass.rate * 100)}%`} />
-            </div>
-            <AdminTableScroll className="mt-4 max-h-80 rounded-xl border border-slate-200">
-              <table className={`${adminTable} min-w-[36rem]`}>
-                <thead className={adminTableHead}>
-                  <tr>
-                    <th className={adminTableHeadCell}>#</th>
-                    <th className={adminTableHeadCell}>Feature</th>
-                    <th className={`${adminTableHeadCell} text-right`}>Works</th>
-                    <th className={`${adminTableHeadCell} text-right`}>Issue</th>
-                    <th className={`${adminTableHeadCell} text-right`}>Works %</th>
-                  </tr>
-                </thead>
-                <tbody className={adminTableBody}>
-                  {analytics.system.features.map((feature) => (
-                    <tr className={adminTableRow} key={feature.id}>
-                      <td className={adminTableCell}>{feature.number}</td>
-                      <td className={adminTableCell}>{feature.prompt}</td>
-                      <td className={`${adminTableCell} text-right`}>{feature.works}</td>
-                      <td className={`${adminTableCell} text-right`}>{feature.issue}</td>
-                      <td className={`${adminTableCell} text-right font-black`}>
-                        {feature.worksRate == null ? "—" : `${Math.round(feature.worksRate * 100)}%`}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </AdminTableScroll>
-          </Panel>
 
           <Panel title="Open-ended responses" subtitle="Qualitative answers from Forms A and B.">
             <div className="relative print:hidden">

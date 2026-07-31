@@ -62,8 +62,7 @@ export function buildFeedbackAnalytics(rows: FeedbackRow[], filters: { formType?
 
   const byForm = {
     student: rows.filter((r) => r.formType === "student").length,
-    teacher: rows.filter((r) => r.formType === "teacher").length,
-    system: rows.filter((r) => r.formType === "system").length
+    teacher: rows.filter((r) => r.formType === "teacher").length
   };
 
   const last7 = (() => {
@@ -71,10 +70,10 @@ export function buildFeedbackAnalytics(rows: FeedbackRow[], filters: { formType?
     return rows.filter((r) => Date.parse(r.createdAt) >= start).length;
   })();
 
-  const trendMap = new Map<string, { student: number; teacher: number; system: number }>();
+  const trendMap = new Map<string, { student: number; teacher: number }>();
   for (const row of filtered) {
     const day = row.createdAt.slice(0, 10);
-    const bucket = trendMap.get(day) ?? { student: 0, teacher: 0, system: 0 };
+    const bucket = trendMap.get(day) ?? { student: 0, teacher: 0 };
     bucket[row.formType] += 1;
     trendMap.set(day, bucket);
   }
@@ -87,7 +86,6 @@ export function buildFeedbackAnalytics(rows: FeedbackRow[], filters: { formType?
 
   const studentRows = filtered.filter((r) => r.formType === "student");
   const teacherRows = filtered.filter((r) => r.formType === "teacher");
-  const systemRows = filtered.filter((r) => r.formType === "system");
 
   const demographics = {
     student: {
@@ -184,39 +182,6 @@ export function buildFeedbackAnalytics(rows: FeedbackRow[], filters: { formType?
     }
   }
 
-  const featureStats = (() => {
-    const features = allQuestions(FORMS.system).filter((q) => q.kind === "triad");
-    return features.map((q) => {
-      const statuses = systemRows.map((row) => row.answers[q.id]).filter((v) => v === "works" || v === "issue");
-      const works = statuses.filter((v) => v === "works").length;
-      const issue = statuses.filter((v) => v === "issue").length;
-      return {
-        id: q.id,
-        number: q.number,
-        prompt: q.prompt,
-        works,
-        issue,
-        worksRate: statuses.length ? works / statuses.length : null
-      };
-    });
-  })();
-
-  const metricPass = (() => {
-    const metrics = allQuestions(FORMS.system).filter((q) => q.kind === "metric");
-    let met = 0;
-    let total = 0;
-    for (const row of systemRows) {
-      for (const q of metrics) {
-        const flag = row.answers[`${q.id}_met`];
-        if (flag === "Y" || flag === "N") {
-          total += 1;
-          if (flag === "Y") met += 1;
-        }
-      }
-    }
-    return { met, total, rate: total ? met / total : null };
-  })();
-
   const crossBreaks = (() => {
     if (studentRows.length < 5) return null;
     const byClass = new Map<string, number[]>();
@@ -255,11 +220,6 @@ export function buildFeedbackAnalytics(rows: FeedbackRow[], filters: { formType?
     studentLikert: likertStats("student"),
     teacherLikert: likertStats("teacher"),
     openEnded,
-    system: {
-      features: featureStats,
-      metricPass,
-      responseCount: systemRows.length
-    },
     crossBreaks,
     focusForm: formType,
     focusCount: focusRows.length

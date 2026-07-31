@@ -1,7 +1,7 @@
 export const INSTRUMENT_VERSION = "ucc-2026-v1";
 
-export type FormType = "student" | "teacher" | "system";
-export type QuestionKind = "single" | "likert" | "text" | "triad" | "metric" | "uat";
+export type FormType = "student" | "teacher";
+export type QuestionKind = "single" | "likert" | "text";
 
 export type ChoiceOption = { value: string; label: string };
 
@@ -12,8 +12,6 @@ export type QuestionDef = {
   prompt: string;
   required: boolean;
   options?: ChoiceOption[];
-  /** For triad: works | issue | notes */
-  noteId?: string;
   maxLength?: number;
 };
 
@@ -297,116 +295,9 @@ const teacherForm: FormDef = {
   ]
 };
 
-const SYSTEM_FEATURES: Array<{ id: string; number: number; prompt: string }> = [
-  { id: "c_f1", number: 1, prompt: "Student Login & Role Assignment" },
-  { id: "c_f2", number: 2, prompt: "Course Browsing & Lesson Selection" },
-  { id: "c_f3", number: 3, prompt: "Lesson Content Display & Media Rendering" },
-  { id: "c_f4", number: 4, prompt: "Quiz Engine & Answer Submission" },
-  { id: "c_f5", number: 5, prompt: "Adaptive Pathway Assignment (< 50% / 50–79% / ≥ 80%)" },
-  { id: "c_f6", number: 6, prompt: "XP Award Calculation & Display" },
-  { id: "c_f7", number: 7, prompt: "Badge Award Triggers & Notification" },
-  { id: "c_f8", number: 8, prompt: "Streak Tracking & Daily Goal Counter" },
-  { id: "c_f9", number: 9, prompt: "Leaderboard Ranking & Nearest Neighbours View" },
-  { id: "c_f10", number: 10, prompt: "Level-Up Animation & Avatar Unlock" },
-  { id: "c_f11", number: 11, prompt: "Teacher Dashboard — Student Progress View" },
-  { id: "c_f12", number: 12, prompt: "Teacher Dashboard — Topic-Level Quiz Breakdown" },
-  { id: "c_f13", number: 13, prompt: "Teacher Course Creation & Module Management" },
-  { id: "c_f14", number: 14, prompt: "Teacher Quiz Builder & Gamification Configuration" },
-  { id: "c_f15", number: 15, prompt: "Admin User Management & Content Moderation" },
-  { id: "c_f16", number: 16, prompt: "Admin Platform Activity Monitor" },
-  { id: "c_f17", number: 17, prompt: "System Log Export (Anonymised Participant Codes)" },
-  { id: "c_f18", number: 18, prompt: "Mobile / Tablet Responsive Display" }
-];
-
-const SYSTEM_METRICS: Array<{ id: string; number: number; prompt: string; benchmark: string }> = [
-  { id: "c_m1", number: 1, prompt: "Average Page Load Time (LCP)", benchmark: "< 2.5 seconds" },
-  { id: "c_m2", number: 2, prompt: "Lighthouse Performance Score", benchmark: "> 90 / 100" },
-  { id: "c_m3", number: 3, prompt: "Peak Concurrent Users Supported", benchmark: "> 60 users" },
-  { id: "c_m4", number: 4, prompt: "Session Crash / Timeout Rate", benchmark: "< 2%" },
-  { id: "c_m5", number: 5, prompt: "Quiz Submission Success Rate", benchmark: "> 98%" },
-  { id: "c_m6", number: 6, prompt: "XP Award Processing Time", benchmark: "< 1 second" },
-  { id: "c_m7", number: 7, prompt: "Leaderboard Refresh Latency", benchmark: "< 3 seconds" },
-  { id: "c_m8", number: 8, prompt: "Mobile Responsive Layout", benchmark: "Pass" },
-  { id: "c_m9", number: 9, prompt: "HTTPS Enforcement", benchmark: "Active" },
-  { id: "c_m10", number: 10, prompt: "JWT Token Validation on Protected Routes", benchmark: "Pass" },
-  { id: "c_m11", number: 11, prompt: "OWASP ZAP Scan — Critical Vulnerabilities", benchmark: "0" },
-  { id: "c_m12", number: 12, prompt: "Overall SRMR (PLS-SEM Model Fit)", benchmark: "< 0.08" }
-];
-
-const SYSTEM_UAT: Array<{ id: string; number: number; prompt: string }> = [
-  { id: "c_u1", number: 1, prompt: "Register a new student account" },
-  { id: "c_u2", number: 2, prompt: "Log in and locate the dashboard" },
-  { id: "c_u3", number: 3, prompt: "Browse and select a Mathematics course" },
-  { id: "c_u4", number: 4, prompt: "Select a lesson and study lesson content" },
-  { id: "c_u5", number: 5, prompt: "Complete a quiz and review the score" },
-  { id: "c_u6", number: 6, prompt: "Observe XP award and badge notification" },
-  { id: "c_u7", number: 7, prompt: "Check the leaderboard and own rank" },
-  { id: "c_u8", number: 8, prompt: "View and understand the daily goal / streak counter" },
-  { id: "c_u9", number: 9, prompt: "Log out and log back in without assistance" }
-];
-
-const systemForm: FormDef = {
-  formType: "system",
-  title: "System evaluation checklist",
-  subtitle: "Form C — Technical & usability assessment",
-  intro: "For the research team or designated system evaluator. Document functional completeness, performance metrics, and UAT findings.",
-  sections: [
-    {
-      id: "features",
-      title: "Functional completeness",
-      description: "For each feature, mark Works or Issue and add a short note if needed.",
-      questions: SYSTEM_FEATURES.map((item) => ({
-        id: item.id,
-        number: item.number,
-        kind: "triad" as const,
-        prompt: item.prompt,
-        required: true,
-        options: [
-          { value: "works", label: "Works" },
-          { value: "issue", label: "Issue" }
-        ],
-        noteId: `${item.id}_notes`
-      }))
-    },
-    {
-      id: "metrics",
-      title: "System performance metrics",
-      description: "Record observed values and whether the benchmark was met.",
-      questions: SYSTEM_METRICS.map((item) => ({
-        id: item.id,
-        number: item.number,
-        kind: "metric" as const,
-        prompt: `${item.prompt} (target: ${item.benchmark})`,
-        required: false,
-        maxLength: 80
-      }))
-    },
-    {
-      id: "uat",
-      title: "UAT observations",
-      description: "n = 15 Primary 5 participants (non-participating school).",
-      questions: [
-        ...SYSTEM_UAT.map((item) => ({
-          id: item.id,
-          number: item.number,
-          kind: "uat" as const,
-          prompt: item.prompt,
-          required: false
-        })),
-        text("c_c1", "C1", "Summary of usability issues identified during UAT and resolutions applied."),
-        text("c_c2", "C2", "Overall UAT SUS (System Usability Scale) mean score and interpretation."),
-        text("c_c3", "C3", "Any outstanding issues recommended for future development iterations."),
-        text("c_evaluator", "Name", "Evaluator name (optional for research records).", false),
-        text("c_eval_date", "Date", "Evaluation date (optional).", false)
-      ]
-    }
-  ]
-};
-
 export const FORMS: Record<FormType, FormDef> = {
   student: studentForm,
-  teacher: teacherForm,
-  system: systemForm
+  teacher: teacherForm
 };
 
 export function getForm(formType: FormType): FormDef {
@@ -414,7 +305,7 @@ export function getForm(formType: FormType): FormDef {
 }
 
 export function isFormType(value: string): value is FormType {
-  return value === "student" || value === "teacher" || value === "system";
+  return value === "student" || value === "teacher";
 }
 
 export function allQuestions(form: FormDef): QuestionDef[] {
@@ -442,29 +333,6 @@ export function computeSectionMeans(form: FormDef, answers: Record<string, unkno
 
 export function validateAnswers(form: FormDef, answers: Record<string, unknown>): string | null {
   for (const question of allQuestions(form)) {
-    if (question.kind === "triad") {
-      const status = answers[question.id];
-      if (question.required && (status !== "works" && status !== "issue")) {
-        return `Please mark feature ${question.number}.`;
-      }
-      continue;
-    }
-    if (question.kind === "metric") {
-      const observed = answers[`${question.id}_observed`];
-      const met = answers[`${question.id}_met`];
-      if (typeof observed === "string" && observed.length > 80) return "A metric value is too long.";
-      if (met != null && met !== "" && met !== "Y" && met !== "N") return "Metric met flag must be Y or N.";
-      continue;
-    }
-    if (question.kind === "uat") {
-      const completed = answers[`${question.id}_completed`];
-      const meanTime = answers[`${question.id}_time`];
-      const issues = answers[`${question.id}_issues`];
-      if (typeof completed === "string" && completed.length > 40) return "UAT completion value is too long.";
-      if (typeof meanTime === "string" && meanTime.length > 40) return "UAT time value is too long.";
-      if (typeof issues === "string" && issues.length > 500) return "UAT issues note is too long.";
-      continue;
-    }
     const value = answers[question.id];
     if (question.required) {
       if (value == null || value === "") return `Please answer question ${question.number}.`;
@@ -499,7 +367,6 @@ export function publicFeedbackUrls(origin: string) {
   return {
     hub: `${base}/feedback`,
     student: `${base}/feedback/student`,
-    teacher: `${base}/feedback/teacher`,
-    system: `${base}/feedback/system`
+    teacher: `${base}/feedback/teacher`
   };
 }

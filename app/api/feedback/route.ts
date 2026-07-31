@@ -14,7 +14,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 export const runtime = "nodejs";
 
 const bodySchema = z.object({
-  formType: z.enum(["student", "teacher", "system"]),
+  formType: z.enum(["student", "teacher"]),
   answers: z.record(z.string(), z.unknown()),
   website: z.string().max(0).optional(),
   meta: z

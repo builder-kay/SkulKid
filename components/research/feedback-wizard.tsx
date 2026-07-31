@@ -63,10 +63,6 @@ export function FeedbackWizard({ form }: Props) {
   function sectionComplete() {
     for (const question of section.questions) {
       if (!question.required) continue;
-      if (question.kind === "triad") {
-        if (answers[question.id] !== "works" && answers[question.id] !== "issue") return false;
-        continue;
-      }
       if (question.kind === "likert" || question.kind === "single") {
         if (!answers[question.id]) return false;
       }
@@ -338,100 +334,6 @@ function QuestionField({
           value={answers[question.id] ?? ""}
         />
       </label>
-    );
-  }
-
-  if (question.kind === "triad") {
-    const noteId = question.noteId ?? `${question.id}_notes`;
-    return (
-      <fieldset className="rounded-2xl border border-slate-200 bg-white p-4">
-        <legend className="px-1 text-sm font-black text-slate-950">
-          <span className="mr-2 text-blue-700">{question.number}.</span>
-          {question.prompt}
-        </legend>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {question.options?.map((option) => {
-            const selected = answers[question.id] === option.value;
-            return (
-              <button
-                aria-pressed={selected}
-                className={cn(
-                  "min-h-11 rounded-xl border-2 px-4 text-sm font-black",
-                  selected
-                    ? option.value === "works"
-                      ? "border-emerald-600 bg-emerald-600 text-white"
-                      : "border-rose-600 bg-rose-600 text-white"
-                    : "border-slate-200 bg-slate-50"
-                )}
-                key={option.value}
-                onClick={() => onChange(question.id, option.value)}
-                type="button"
-              >
-                {option.label}
-              </button>
-            );
-          })}
-        </div>
-        <input
-          className="mt-3 min-h-11 w-full rounded-xl border border-slate-300 px-3 text-sm"
-          onChange={(event) => onChange(noteId, event.target.value)}
-          placeholder="Notes / issue description (optional)"
-          value={answers[noteId] ?? ""}
-        />
-      </fieldset>
-    );
-  }
-
-  if (question.kind === "metric") {
-    return (
-      <div className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-4 sm:grid-cols-[1fr_8rem_6rem] sm:items-end">
-        <label className="grid gap-1 text-sm font-black text-slate-950">
-          <span><span className="mr-2 text-blue-700">{question.number}.</span>{question.prompt}</span>
-          <input
-            className="min-h-11 rounded-xl border border-slate-300 px-3 font-medium"
-            onChange={(event) => onChange(`${question.id}_observed`, event.target.value)}
-            placeholder="Observed value"
-            value={answers[`${question.id}_observed`] ?? ""}
-          />
-        </label>
-        <label className="grid gap-1 text-xs font-bold text-slate-600">
-          Met target?
-          <select
-            className="min-h-11 rounded-xl border border-slate-300 px-2 text-sm font-black"
-            onChange={(event) => onChange(`${question.id}_met`, event.target.value)}
-            value={answers[`${question.id}_met`] ?? ""}
-          >
-            <option value="">—</option>
-            <option value="Y">Y</option>
-            <option value="N">N</option>
-          </select>
-        </label>
-      </div>
-    );
-  }
-
-  if (question.kind === "uat") {
-    return (
-      <div className="grid gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-        <p className="text-sm font-black text-slate-950">
-          <span className="mr-2 text-blue-700">{question.number}.</span>
-          {question.prompt}
-        </p>
-        <div className="grid gap-2 sm:grid-cols-3">
-          <label className="grid gap-1 text-xs font-bold text-slate-600">
-            Completion (e.g. 12/15)
-            <input className="min-h-10 rounded-xl border border-slate-300 px-3 text-sm" onChange={(e) => onChange(`${question.id}_completed`, e.target.value)} value={answers[`${question.id}_completed`] ?? ""} />
-          </label>
-          <label className="grid gap-1 text-xs font-bold text-slate-600">
-            Mean time (sec)
-            <input className="min-h-10 rounded-xl border border-slate-300 px-3 text-sm" onChange={(e) => onChange(`${question.id}_time`, e.target.value)} value={answers[`${question.id}_time`] ?? ""} />
-          </label>
-          <label className="grid gap-1 text-xs font-bold text-slate-600 sm:col-span-1">
-            Issues
-            <input className="min-h-10 rounded-xl border border-slate-300 px-3 text-sm" onChange={(e) => onChange(`${question.id}_issues`, e.target.value)} value={answers[`${question.id}_issues`] ?? ""} />
-          </label>
-        </div>
-      </div>
     );
   }
 

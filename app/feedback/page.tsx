@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ClipboardList, GraduationCap, ShieldCheck, Wrench } from "lucide-react";
+import { ClipboardList, GraduationCap, ShieldCheck } from "lucide-react";
 import { SkulKidLogo } from "@/components/shared/skulkid-logo";
 
 const cards = [
@@ -18,14 +18,6 @@ const cards = [
     description: "For teachers: dashboard usefulness, classroom engagement, and curriculum fit.",
     icon: ClipboardList,
     tone: "from-violet-700 to-indigo-600"
-  },
-  {
-    href: "/feedback/system",
-    title: "System checklist",
-    form: "Form C",
-    description: "For research evaluators: functional checks, performance metrics, and UAT notes.",
-    icon: Wrench,
-    tone: "from-slate-800 to-teal-800"
   }
 ] as const;
 
@@ -51,7 +43,7 @@ export default function FeedbackHubPage() {
           </p>
         </section>
 
-        <div className="mt-10 grid gap-4 md:grid-cols-3">
+        <div className="mt-10 grid gap-4 md:grid-cols-2">
           {cards.map((card) => {
             const Icon = card.icon;
             return (

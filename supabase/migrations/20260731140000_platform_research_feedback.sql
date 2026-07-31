@@ -2,7 +2,7 @@
 
 CREATE TABLE public."PlatformFeedbackResponse" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  "formType" text NOT NULL CHECK ("formType" IN ('student', 'teacher', 'system')),
+  "formType" text NOT NULL CHECK ("formType" IN ('student', 'teacher')),
   "instrumentVersion" text NOT NULL DEFAULT 'ucc-2026-v1',
   "answers" jsonb NOT NULL DEFAULT '{}'::jsonb,
   "sectionMeans" jsonb NOT NULL DEFAULT '{}'::jsonb,

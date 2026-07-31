@@ -57,7 +57,6 @@ export async function GET(request: Request) {
     summary.addRow(["Last 7 days", analytics.totals.last7Days]);
     summary.addRow(["Student", analytics.totals.byForm.student]);
     summary.addRow(["Teacher", analytics.totals.byForm.teacher]);
-    summary.addRow(["System", analytics.totals.byForm.system]);
     summary.addRow([]);
     summary.addRow(["Student section", "Mean", "n"]);
     for (const section of analytics.studentLikert.sections) {
@@ -69,16 +68,10 @@ export async function GET(request: Request) {
       summary.addRow([section.title, section.mean?.toFixed(2) ?? "—", section.n]);
     }
 
-    for (const type of ["student", "teacher", "system"] as const) {
-      const sheet = workbook.addWorksheet(type === "student" ? "Student raw" : type === "teacher" ? "Teacher raw" : "System raw");
+    for (const type of ["student", "teacher"] as const) {
+      const sheet = workbook.addWorksheet(type === "student" ? "Student raw" : "Teacher raw");
       const subset = rows.filter((row) => row.formType === type);
-      const questionIds = allQuestions(FORMS[type]).flatMap((q) => {
-        if (q.kind === "metric") return [`${q.id}_observed`, `${q.id}_met`];
-        if (q.kind === "uat") return [`${q.id}_completed`, `${q.id}_time`, `${q.id}_issues`];
-        if (q.kind === "triad") return [q.id, q.noteId ?? `${q.id}_notes`];
-        return [q.id];
-      });
-      const uniqueIds = [...new Set(questionIds)];
+      const uniqueIds = allQuestions(FORMS[type]).map((q) => q.id);
       sheet.addRow(["id", "createdAt", "instrumentVersion", ...uniqueIds]);
       for (const row of subset) {
         sheet.addRow([
