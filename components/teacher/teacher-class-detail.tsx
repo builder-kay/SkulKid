@@ -456,157 +456,167 @@ export function TeacherClassDetail({ classId }: { classId: string }) {
             </div>
           </div>
 
-          <div>
-            <div className="flex flex-wrap items-end justify-between gap-3">
-              <div>
-                <h3 className="text-xl font-black text-slate-950">All subjects</h3>
-                <p className="mt-1 text-sm text-slate-600">
-                  {createdSubjects.length} class-only · {assignedPlatformSubjects.length} from platform
-                </p>
+          <div className={cn(
+            "grid gap-6",
+            classroom.capabilities.manageClass && "xl:grid-cols-[minmax(0,1fr)_22.5rem] xl:items-start"
+          )}>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <h3 className="text-xl font-black text-slate-950">All subjects</h3>
+                  <p className="mt-1 text-sm text-slate-600">
+                    {createdSubjects.length} class-only · {assignedPlatformSubjects.length} from platform
+                  </p>
+                </div>
+                {classroom.capabilities.manageClass ? (
+                  <Link
+                    className="inline-flex min-h-10 items-center gap-2 text-sm font-black text-teal-800 hover:text-teal-950"
+                    href={`/teacher/lessons/new?classId=${encodeURIComponent(classId)}`}
+                  >
+                    Open lesson builder <ArrowRight className="size-4" />
+                  </Link>
+                ) : null}
               </div>
-              {classroom.capabilities.manageClass ? (
-                <Link
-                  className="inline-flex min-h-10 items-center gap-2 text-sm font-black text-teal-800 hover:text-teal-950"
-                  href={`/teacher/lessons/new?classId=${encodeURIComponent(classId)}`}
-                >
-                  Open lesson builder <ArrowRight className="size-4" />
-                </Link>
+
+              {courseAssignments.length ? (
+                <div className={cn(
+                  "mt-4 grid gap-4 sm:grid-cols-2",
+                  classroom.capabilities.manageClass ? "xl:grid-cols-2" : "xl:grid-cols-3"
+                )}>
+                  {[...createdSubjects, ...assignedPlatformSubjects].map((assignment) => (
+                    <article
+                      className={cn(
+                        "group flex min-h-[17rem] flex-col rounded-[1.5rem] border p-5 transition",
+                        assignment.isClassOnly
+                          ? "border-teal-200 bg-gradient-to-b from-teal-50/90 to-white"
+                          : "border-slate-200 bg-white"
+                      )}
+                      key={assignment.id}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <span className={cn(
+                          "grid size-12 place-items-center rounded-2xl text-white",
+                          assignment.isClassOnly ? "bg-teal-700" : "bg-slate-800"
+                        )}>
+                          {assignment.isClassOnly ? <BookOpen className="size-5" /> : <Library className="size-5" />}
+                        </span>
+                        <span className={cn(
+                          "rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider",
+                          assignment.isClassOnly ? "bg-teal-100 text-teal-900" : "bg-slate-100 text-slate-700"
+                        )}>
+                          {assignment.isClassOnly ? "Class only" : "Platform"}
+                        </span>
+                      </div>
+                      <h4 className="mt-4 text-xl font-black tracking-tight text-slate-950">{assignment.courseName}</h4>
+                      <p className="mt-2 line-clamp-3 flex-1 text-sm leading-6 text-slate-600">
+                        {assignment.description || assignment.note || (assignment.isClassOnly
+                          ? "Private learning path for this class."
+                          : "Shared platform subject assigned to this class.")}
+                      </p>
+                      <div className="mt-4 flex flex-wrap gap-2 text-xs font-black text-slate-700">
+                        <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-50 px-2.5 py-2 ring-1 ring-slate-200">
+                          <Layers3 className="size-3.5 text-teal-700" />{assignment.moduleCount} modules
+                        </span>
+                        <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-50 px-2.5 py-2 ring-1 ring-slate-200">
+                          <BookOpen className="size-3.5 text-teal-700" />{assignment.lessonCount} lessons
+                        </span>
+                      </div>
+                      <div className="mt-5 flex flex-wrap gap-2">
+                        <Link
+                          className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-teal-700 px-4 text-sm font-black text-white hover:bg-teal-800"
+                          href={`/teacher/lessons/new?classId=${encodeURIComponent(classId)}&courseId=${encodeURIComponent(assignment.courseId)}`}
+                        >
+                          {assignment.isClassOnly ? "Add module or lesson" : "Build lessons"}
+                          <ArrowRight className="size-4" />
+                        </Link>
+                        {classroom.capabilities.manageClass ? (
+                          <button
+                            aria-label={`Remove ${assignment.courseName}`}
+                            className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 px-3 text-rose-700 hover:bg-rose-50"
+                            disabled={busy}
+                            onClick={() => void removeCourse(assignment.id)}
+                            type="button"
+                          >
+                            <Trash2 className="size-4" />
+                          </button>
+                        ) : null}
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-4 rounded-[1.5rem] border border-dashed border-teal-300 bg-teal-50/60 px-6 py-12 text-center">
+                  <BookOpen className="mx-auto size-10 text-teal-700" />
+                  <h3 className="mt-3 text-lg font-black text-slate-950">No subjects yet</h3>
+                  <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-600">
+                    Use the forms on the right to create a class subject or assign one from the platform.
+                  </p>
+                </div>
+              )}
+
+              {!classroom.capabilities.manageClass ? (
+                <p className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-600">
+                  You can teach the subjects assigned to you. Only the class teacher can create or assign new ones.
+                </p>
               ) : null}
             </div>
 
-            {courseAssignments.length ? (
-              <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                {[...createdSubjects, ...assignedPlatformSubjects].map((assignment) => (
-                  <article
-                    className={cn(
-                      "group flex min-h-[17rem] flex-col rounded-[1.5rem] border p-5 transition",
-                      assignment.isClassOnly
-                        ? "border-teal-200 bg-gradient-to-b from-teal-50/90 to-white"
-                        : "border-slate-200 bg-white"
-                    )}
-                    key={assignment.id}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <span className={cn(
-                        "grid size-12 place-items-center rounded-2xl text-white",
-                        assignment.isClassOnly ? "bg-teal-700" : "bg-slate-800"
-                      )}>
-                        {assignment.isClassOnly ? <BookOpen className="size-5" /> : <Library className="size-5" />}
-                      </span>
-                      <span className={cn(
-                        "rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider",
-                        assignment.isClassOnly ? "bg-teal-100 text-teal-900" : "bg-slate-100 text-slate-700"
-                      )}>
-                        {assignment.isClassOnly ? "Class only" : "Platform"}
-                      </span>
+            {classroom.capabilities.manageClass ? (
+              <aside className="grid gap-4 xl:sticky xl:top-4">
+                <form className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm" onSubmit={createClassOnly}>
+                  <div className="flex items-start gap-3">
+                    <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-teal-100 text-teal-800"><Plus className="size-5" /></span>
+                    <div>
+                      <h3 className="text-lg font-black text-slate-950">Create a class subject</h3>
+                      <p className="mt-1 text-sm leading-6 text-slate-600">Private to this class. Ready immediately in the lesson builder.</p>
                     </div>
-                    <h4 className="mt-4 text-xl font-black tracking-tight text-slate-950">{assignment.courseName}</h4>
-                    <p className="mt-2 line-clamp-3 flex-1 text-sm leading-6 text-slate-600">
-                      {assignment.description || assignment.note || (assignment.isClassOnly
-                        ? "Private learning path for this class."
-                        : "Shared platform subject assigned to this class.")}
-                    </p>
-                    <div className="mt-4 flex flex-wrap gap-2 text-xs font-black text-slate-700">
-                      <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-50 px-2.5 py-2 ring-1 ring-slate-200">
-                        <Layers3 className="size-3.5 text-teal-700" />{assignment.moduleCount} modules
-                      </span>
-                      <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-50 px-2.5 py-2 ring-1 ring-slate-200">
-                        <BookOpen className="size-3.5 text-teal-700" />{assignment.lessonCount} lessons
-                      </span>
+                  </div>
+                  <div className="mt-5 grid gap-3">
+                    <label className="grid gap-1.5 text-sm font-bold text-slate-800">
+                      Subject name
+                      <input className="min-h-11 rounded-xl border border-slate-300 px-3 font-medium" onChange={(event) => setClassOnlyName(event.target.value)} placeholder="e.g. Creative Arts" required value={classOnlyName} />
+                    </label>
+                    <label className="grid gap-1.5 text-sm font-bold text-slate-800">
+                      Description
+                      <textarea className="min-h-24 rounded-xl border border-slate-300 px-3 py-2 font-medium" onChange={(event) => setClassOnlyDescription(event.target.value)} placeholder="What will students learn?" value={classOnlyDescription} />
+                    </label>
+                    <button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-teal-700 px-5 font-black text-white hover:bg-teal-800 disabled:opacity-60" disabled={busy || !classOnlyName.trim()} type="submit">
+                      {busy ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+                      Create subject
+                    </button>
+                  </div>
+                </form>
+
+                <form className="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm" onSubmit={assignCourse}>
+                  <div className="flex items-start gap-3">
+                    <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-slate-100 text-slate-800"><Library className="size-5" /></span>
+                    <div>
+                      <h3 className="text-lg font-black text-slate-950">Assign a platform subject</h3>
+                      <p className="mt-1 text-sm leading-6 text-slate-600">Reuse a published SkulKid subject without recreating it.</p>
                     </div>
-                    <div className="mt-5 flex flex-wrap gap-2">
-                      <Link
-                        className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-teal-700 px-4 text-sm font-black text-white hover:bg-teal-800"
-                        href={`/teacher/lessons/new?classId=${encodeURIComponent(classId)}&courseId=${encodeURIComponent(assignment.courseId)}`}
-                      >
-                        {assignment.isClassOnly ? "Add module or lesson" : "Build lessons"}
-                        <ArrowRight className="size-4" />
-                      </Link>
-                      {classroom.capabilities.manageClass ? (
-                        <button
-                          aria-label={`Remove ${assignment.courseName}`}
-                          className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 px-3 text-rose-700 hover:bg-rose-50"
-                          disabled={busy}
-                          onClick={() => void removeCourse(assignment.id)}
-                          type="button"
-                        >
-                          <Trash2 className="size-4" />
-                        </button>
-                      ) : null}
-                    </div>
-                  </article>
-                ))}
-              </div>
-            ) : (
-              <div className="mt-4 rounded-[1.5rem] border border-dashed border-teal-300 bg-teal-50/60 px-6 py-12 text-center">
-                <BookOpen className="mx-auto size-10 text-teal-700" />
-                <h3 className="mt-3 text-lg font-black text-slate-950">No subjects yet</h3>
-                <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-600">
-                  Create a class-only subject below, or assign an existing platform subject so learners have a clear path.
-                </p>
-              </div>
-            )}
+                  </div>
+                  <div className="mt-5 grid gap-3">
+                    <label className="grid gap-1.5 text-sm font-bold text-slate-800">
+                      Published subject
+                      <select className="min-h-11 rounded-xl border border-slate-300 px-3 font-medium" onChange={(event) => setSelectedCourseId(event.target.value)} required value={selectedCourseId}>
+                        <option value="">Choose a published subject</option>
+                        {availableCourses.map((course) => <option key={course.id} value={course.id}>{course.name}</option>)}
+                      </select>
+                    </label>
+                    <label className="grid gap-1.5 text-sm font-bold text-slate-800">
+                      Class note <span className="font-medium text-slate-500">(optional)</span>
+                      <input className="min-h-11 rounded-xl border border-slate-300 px-3 font-medium" onChange={(event) => setCourseNote(event.target.value)} placeholder="e.g. Term 2 focus" value={courseNote} />
+                    </label>
+                    <button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 font-black text-white hover:bg-slate-800 disabled:opacity-60" disabled={busy || !selectedCourseId || availableCourses.length === 0} type="submit">
+                      {busy ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+                      Assign subject
+                    </button>
+                    {availableCourses.length === 0 ? <p className="text-xs font-bold text-slate-500">Every available published subject is already assigned.</p> : null}
+                  </div>
+                </form>
+              </aside>
+            ) : null}
           </div>
-
-          {classroom.capabilities.manageClass ? (
-            <div className="grid gap-5 xl:grid-cols-2">
-              <form className="rounded-[1.5rem] border border-slate-200 bg-white p-5 sm:p-6" onSubmit={createClassOnly}>
-                <div className="flex items-start gap-3">
-                  <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-teal-100 text-teal-800"><Plus className="size-5" /></span>
-                  <div>
-                    <h3 className="text-lg font-black text-slate-950">Create a class subject</h3>
-                    <p className="mt-1 text-sm leading-6 text-slate-600">Private to this class. Ready immediately in the lesson builder.</p>
-                  </div>
-                </div>
-                <div className="mt-5 grid gap-3">
-                  <label className="grid gap-1.5 text-sm font-bold text-slate-800">
-                    Subject name
-                    <input className="min-h-11 rounded-xl border border-slate-300 px-3 font-medium" onChange={(event) => setClassOnlyName(event.target.value)} placeholder="e.g. Creative Arts" required value={classOnlyName} />
-                  </label>
-                  <label className="grid gap-1.5 text-sm font-bold text-slate-800">
-                    Description
-                    <textarea className="min-h-24 rounded-xl border border-slate-300 px-3 py-2 font-medium" onChange={(event) => setClassOnlyDescription(event.target.value)} placeholder="What will students learn?" value={classOnlyDescription} />
-                  </label>
-                  <button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-teal-700 px-5 font-black text-white hover:bg-teal-800 disabled:opacity-60" disabled={busy || !classOnlyName.trim()} type="submit">
-                    {busy ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
-                    Create subject
-                  </button>
-                </div>
-              </form>
-
-              <form className="rounded-[1.5rem] border border-slate-200 bg-white p-5 sm:p-6" onSubmit={assignCourse}>
-                <div className="flex items-start gap-3">
-                  <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-slate-100 text-slate-800"><Library className="size-5" /></span>
-                  <div>
-                    <h3 className="text-lg font-black text-slate-950">Assign a platform subject</h3>
-                    <p className="mt-1 text-sm leading-6 text-slate-600">Reuse a published SkulKid subject without recreating it.</p>
-                  </div>
-                </div>
-                <div className="mt-5 grid gap-3">
-                  <label className="grid gap-1.5 text-sm font-bold text-slate-800">
-                    Published subject
-                    <select className="min-h-11 rounded-xl border border-slate-300 px-3 font-medium" onChange={(event) => setSelectedCourseId(event.target.value)} required value={selectedCourseId}>
-                      <option value="">Choose a published subject</option>
-                      {availableCourses.map((course) => <option key={course.id} value={course.id}>{course.name}</option>)}
-                    </select>
-                  </label>
-                  <label className="grid gap-1.5 text-sm font-bold text-slate-800">
-                    Class note <span className="font-medium text-slate-500">(optional)</span>
-                    <input className="min-h-11 rounded-xl border border-slate-300 px-3 font-medium" onChange={(event) => setCourseNote(event.target.value)} placeholder="e.g. Term 2 focus" value={courseNote} />
-                  </label>
-                  <button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 font-black text-white hover:bg-slate-800 disabled:opacity-60" disabled={busy || !selectedCourseId || availableCourses.length === 0} type="submit">
-                    {busy ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
-                    Assign subject
-                  </button>
-                  {availableCourses.length === 0 ? <p className="text-xs font-bold text-slate-500">Every available published subject is already assigned.</p> : null}
-                </div>
-              </form>
-            </div>
-          ) : (
-            <p className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-600">
-              You can teach the subjects assigned to you. Only the class teacher can create or assign new ones.
-            </p>
-          )}
         </section>
       ) : null}
 
