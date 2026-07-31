@@ -40,7 +40,7 @@ export default function FeedbackHubPage() {
             <SkulKidLogo className="w-28 sm:w-32" priority />
           </Link>
           <p className="max-w-[12rem] text-right text-[10px] font-black uppercase tracking-[0.14em] text-slate-500 sm:max-w-none sm:text-xs">
-            University of Cape Coast research
+            Final year research
           </p>
         </header>
 
@@ -99,7 +99,7 @@ export default function FeedbackHubPage() {
         </section>
 
         <footer className="mt-10 pb-4 text-center text-xs font-bold text-slate-500">
-          SkulKid · Department of Computer Science and IT, University of Cape Coast
+          SkulKid · Final year research
         </footer>
       </div>
     </main>
