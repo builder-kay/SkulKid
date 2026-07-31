@@ -5,9 +5,10 @@ import {
   inviteSubjectTeacher,
   listClassTeachingTeam,
   revokeClassTeacher,
+  searchClassTeacherCandidates,
   updateClassTeacherSubjects
 } from "@/lib/classes/class-team-server";
-import { allowUsernameAvailabilityCheck } from "@/lib/auth/rate-limit";
+import { allowTeacherDirectorySearch, allowUsernameAvailabilityCheck } from "@/lib/auth/rate-limit";
 
 const inviteSchema = z.object({
   teacherQuery: z.string().trim().min(3).max(80),
@@ -19,10 +20,16 @@ const updateSchema = z.object({
 });
 const revokeSchema = z.object({ assignmentId: z.string().uuid() });
 
-export async function GET(_: Request, context: { params: Promise<{ classId: string }> }) {
+export async function GET(request: Request, context: { params: Promise<{ classId: string }> }) {
   try {
     const teacher = await requireTeacher();
     const { classId } = await context.params;
+    const query = new URL(request.url).searchParams.get("q")?.trim() ?? "";
+    if (query) {
+      if (!allowTeacherDirectorySearch(`teacher-school-search:${teacher.id}`)) throw new Error("Too many teacher searches. Try again later.");
+      if (query.length < 2) return NextResponse.json({ school: "", teachers: [] });
+      return NextResponse.json(await searchClassTeacherCandidates({ classTeacherId: teacher.id, classId, query }));
+    }
     return NextResponse.json({ team: await listClassTeachingTeam(teacher.id, classId) });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to load the teaching team." }, { status: 400 });

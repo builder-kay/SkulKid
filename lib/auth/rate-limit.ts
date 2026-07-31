@@ -2,6 +2,7 @@ type Attempt = { count: number; resetAt: number };
 const attempts = new Map<string, Attempt>();
 const recoveryLookups = new Map<string, Attempt>();
 const usernameChecks = new Map<string, Attempt>();
+const teacherDirectorySearches = new Map<string, Attempt>();
 
 export function allowOtpRequest(key: string) {
   const now = Date.now();
@@ -35,6 +36,18 @@ export function allowUsernameAvailabilityCheck(key: string) {
     return true;
   }
   if (current.count >= 15) return false;
+  current.count += 1;
+  return true;
+}
+
+export function allowTeacherDirectorySearch(key: string) {
+  const now = Date.now();
+  const current = teacherDirectorySearches.get(key);
+  if (!current || current.resetAt <= now) {
+    teacherDirectorySearches.set(key, { count: 1, resetAt: now + 10 * 60_000 });
+    return true;
+  }
+  if (current.count >= 60) return false;
   current.count += 1;
   return true;
 }

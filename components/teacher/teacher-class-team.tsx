@@ -1,13 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, Save, ShieldCheck, UserPlus, UserRoundCheck, UserX } from "lucide-react";
+import { Loader2, Save, Search, ShieldCheck, UserPlus, UserRoundCheck, UserX } from "lucide-react";
 import type { ClassCourseAssignmentView, ClassTeachingTeamMember } from "@/lib/classes/types";
 
 export function TeacherClassTeam({ classId, subjects }: { classId: string; subjects: ClassCourseAssignmentView[] }) {
   const [team, setTeam] = useState<ClassTeachingTeamMember[]>([]);
   const [teacherQuery, setTeacherQuery] = useState("");
+  const [selectedTeacherId, setSelectedTeacherId] = useState("");
   const [courseIds, setCourseIds] = useState<string[]>([]);
+  const [schoolName, setSchoolName] = useState("");
+  const [suggestions, setSuggestions] = useState<Array<{ id: string; displayName: string; username: string }>>([]);
+  const [searching, setSearching] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -20,6 +24,23 @@ export function TeacherClassTeam({ classId, subjects }: { classId: string; subje
   }
 
   useEffect(() => { void load().catch((cause) => setError(cause instanceof Error ? cause.message : "Unable to load the teaching team.")); }, [classId]);
+  useEffect(() => {
+    const query = teacherQuery.trim();
+    if (query.length < 2 || selectedTeacherId) { setSuggestions([]); setSearching(false); return; }
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      setSearching(true);
+      try {
+        const response = await fetch(`/api/teacher/classes/${classId}/team?q=${encodeURIComponent(query)}`, { cache: "no-store", signal: controller.signal });
+        const payload = await response.json() as { school?: string; teachers?: Array<{ id: string; displayName: string; username: string }> };
+        if (response.ok) {
+          setSchoolName(payload.school ?? "");
+          setSuggestions(payload.teachers ?? []);
+        }
+      } finally { if (!controller.signal.aborted) setSearching(false); }
+    }, 350);
+    return () => { window.clearTimeout(timer); controller.abort(); };
+  }, [classId, selectedTeacherId, teacherQuery]);
 
   async function mutate(method: "POST" | "PATCH" | "DELETE", body: object, success: string) {
     setBusy(true); setError(""); setNotice("");
@@ -40,7 +61,7 @@ export function TeacherClassTeam({ classId, subjects }: { classId: string; subje
   async function invite(event: React.FormEvent) {
     event.preventDefault();
     const saved = await mutate("POST", { teacherQuery, courseIds }, "Invitation sent. Access begins after the teacher accepts.");
-    if (saved) { setTeacherQuery(""); setCourseIds([]); }
+    if (saved) { setTeacherQuery(""); setSelectedTeacherId(""); setCourseIds([]); }
   }
 
   async function revoke(assignmentId: string) {
@@ -57,7 +78,9 @@ export function TeacherClassTeam({ classId, subjects }: { classId: string; subje
     {notice ? <p className="rounded-xl bg-emerald-50 p-3 font-bold text-emerald-900">{notice}</p> : null}
     <form className="rounded-[1.5rem] border border-blue-200 bg-white p-5 shadow-sm sm:p-6" onSubmit={invite}>
       <div className="flex items-center gap-3"><span className="grid size-10 place-items-center rounded-xl bg-blue-100 text-blue-700"><UserPlus className="size-5" /></span><div><h3 className="text-xl font-black">Invite a subject teacher</h3><p className="text-sm text-slate-600">Find a registered teacher using their exact username or full name.</p></div></div>
-      <label className="mt-5 grid gap-2 text-sm font-black">Teacher username or name<input className="min-h-11 rounded-xl border border-slate-300 px-3 font-medium" onChange={(event) => setTeacherQuery(event.target.value)} placeholder="e.g. teacher_kay or Joyce Mensah" required value={teacherQuery} /><span className="text-xs font-medium text-slate-500">If several teachers share a name, use the exact username.</span></label>
+      <label className="relative mt-5 grid gap-2 text-sm font-black">Teacher username or name<div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" /><input aria-autocomplete="list" autoComplete="off" className="min-h-11 w-full rounded-xl border border-slate-300 pl-10 pr-10 font-medium" onChange={(event) => { setTeacherQuery(event.target.value); setSelectedTeacherId(""); }} placeholder="e.g. teacher_kay or Joyce Mensah" required value={teacherQuery} />{searching ? <Loader2 className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-blue-600" /> : null}</div>
+        {teacherQuery.trim().length >= 2 && !selectedTeacherId ? <div className="absolute left-0 right-0 top-[4.8rem] z-20 max-h-64 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl" role="listbox">{suggestions.length ? suggestions.map((teacher) => <button className="flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-blue-50" key={teacher.id} onClick={() => { setTeacherQuery(teacher.username); setSelectedTeacherId(teacher.id); setSuggestions([]); }} role="option" type="button"><span><b className="block text-sm text-slate-900">{teacher.displayName}</b><span className="text-xs font-medium text-slate-500">@{teacher.username}</span></span><span className="text-[10px] font-black uppercase text-blue-700">Select</span></button>) : !searching ? <p className="px-3 py-3 text-xs font-medium text-slate-500">{schoolName ? `No matching teachers found at ${schoolName}.` : "Your school name must match the one in the other teacher’s account."}</p> : null}</div> : null}
+        <span className="text-xs font-medium text-slate-500">Suggestions include only registered teachers whose school name matches yours. If several teachers share a name, use the exact username.</span></label>
       <SubjectPicker selected={courseIds} subjects={subjects} onChange={setCourseIds} />
       <button className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl bg-blue-700 px-5 font-black text-white disabled:opacity-50" disabled={busy || teacherQuery.trim().length < 3 || !courseIds.length}>{busy ? <Loader2 className="size-4 animate-spin" /> : <UserPlus className="size-4" />}Send invitation</button>
     </form>

@@ -2,7 +2,7 @@ import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveAppRole } from "@/lib/auth/roles";
-import { findTeacherByUsernameOrName } from "@/lib/auth/student-identity";
+import { findTeacherByUsernameOrName, searchTeachersAtSchool, type SchoolTeacherSearchResult } from "@/lib/auth/student-identity";
 import { requireClassTeacher } from "@/lib/classes/classroom-server";
 import type { ClassTeacherInvitation, ClassTeachingTeamMember } from "@/lib/classes/types";
 
@@ -51,6 +51,28 @@ export async function listClassTeachingTeam(teacherId: string, classId: string):
       invitedAt: String(assignment.invitedAt)
     } as ClassTeachingTeamMember;
   }));
+}
+
+export async function searchClassTeacherCandidates(input: {
+  classTeacherId: string;
+  classId: string;
+  query: string;
+}): Promise<{ school: string; teachers: SchoolTeacherSearchResult[] }> {
+  await requireClassTeacher(input.classTeacherId, input.classId);
+  const admin = createAdminClient();
+  const { data } = await admin.auth.admin.getUserById(input.classTeacherId);
+  const school = typeof data.user?.user_metadata?.school === "string"
+    ? data.user.user_metadata.school.trim()
+    : "";
+  if (!school) return { school: "", teachers: [] };
+  return {
+    school,
+    teachers: await searchTeachersAtSchool({
+      school,
+      query: input.query,
+      excludeUserId: input.classTeacherId
+    })
+  };
 }
 
 export async function inviteSubjectTeacher(input: {

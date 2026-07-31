@@ -91,6 +91,43 @@ export async function findTeacherByUsernameOrName(queryInput: string) {
   return nameMatches[0] ?? null;
 }
 
+export type SchoolTeacherSearchResult = {
+  id: string;
+  displayName: string;
+  username: string;
+};
+
+export async function searchTeachersAtSchool(input: {
+  school: string;
+  query: string;
+  excludeUserId?: string;
+  limit?: number;
+}): Promise<SchoolTeacherSearchResult[]> {
+  const school = input.school.trim().toLocaleLowerCase().replace(/\s+/g, " ");
+  const query = input.query.trim().toLocaleLowerCase().replace(/\s+/g, " ");
+  if (school.length < 2 || query.length < 2) return [];
+  const limit = Math.min(Math.max(input.limit ?? 8, 1), 10);
+  return (await listAuthUsers())
+    .filter((user) => {
+      if (user.id === input.excludeUserId || userRole(user) !== "teacher") return false;
+      const metadata = user.user_metadata ?? {};
+      const userSchool = typeof metadata.school === "string"
+        ? metadata.school.trim().toLocaleLowerCase().replace(/\s+/g, " ")
+        : "";
+      if (userSchool !== school) return false;
+      const displayName = typeof metadata.display_name === "string" ? metadata.display_name : "";
+      const username = typeof metadata.username === "string" ? metadata.username : "";
+      return displayName.toLocaleLowerCase().includes(query) || username.toLocaleLowerCase().includes(query);
+    })
+    .slice(0, limit)
+    .map((user) => ({
+      id: user.id,
+      displayName: typeof user.user_metadata?.display_name === "string" ? user.user_metadata.display_name : "Teacher",
+      username: typeof user.user_metadata?.username === "string" ? user.user_metadata.username : ""
+    }))
+    .filter((teacher) => teacher.username);
+}
+
 export async function listStudentsByPhone(phoneInput: string) {
   const phone = normalizeGhanaPhone(phoneInput);
   const users = await listAuthUsers();
