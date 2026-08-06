@@ -1,4 +1,4 @@
-export type DailyQuestId = "finish_lesson" | "beat_yesterday" | "kind_message";
+export type DailyQuestId = "finish_lesson" | "beat_yesterday" | "kind_message" | "keep_streak";
 
 export type DailyQuestDefinition = {
   id: DailyQuestId;
@@ -33,10 +33,18 @@ export const DAILY_QUESTS: Record<DailyQuestId, DailyQuestDefinition> = {
     rewardXp: 15,
     ctaLabel: "Open chats",
     ctaHref: "/messages"
+  },
+  keep_streak: {
+    id: "keep_streak",
+    title: "Keep your streak",
+    detail: "Earn today’s learning XP goal so your streak flame stays lit.",
+    rewardXp: 20,
+    ctaLabel: "Keep streak going",
+    ctaHref: "/courses"
   }
 };
 
-const QUEST_ORDER: DailyQuestId[] = ["finish_lesson", "beat_yesterday", "kind_message"];
+const QUEST_ORDER: DailyQuestId[] = ["finish_lesson", "beat_yesterday", "kind_message", "keep_streak"];
 
 export function accraDateKey(now = new Date()) {
   const parts = new Intl.DateTimeFormat("en", {

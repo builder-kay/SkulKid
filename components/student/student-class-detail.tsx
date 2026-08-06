@@ -448,13 +448,29 @@ export function StudentClassDetail({ classId }: { classId: string }) {
                   const overdue = quiz.deadline ? new Date(quiz.deadline).getTime() < Date.now() : false;
                   const upcoming = quiz.startAt ? new Date(quiz.startAt).getTime() > Date.now() : false;
                   const timed = isTimedChallengeQuiz({ startAt: quiz.startAt, deadline: quiz.deadline, status: quiz.status });
-                  return (
-                    <article className={cn("overflow-hidden rounded-[1.5rem] border bg-white shadow-sm", timed ? "border-rose-300 ring-2 ring-rose-100" : "border-slate-200")} key={quiz.id}>
+                  const ended = quiz.status === "closed" || overdue;
+                  const quizHref = ended || upcoming ? null : `/classes/${classId}/quizzes/${quiz.id}`;
+                  const actionLabel = !quiz.attemptsUsed
+                    ? timed ? "Beat the clock" : "Take quiz"
+                    : quiz.canRetake
+                      ? "Retake quiz"
+                      : "View result";
+                  const actionClass = !quiz.attemptsUsed
+                    ? cn("inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-5 text-sm font-black text-white", timed ? "bg-rose-600" : "bg-sky-600")
+                    : quiz.canRetake
+                      ? "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-amber-500 px-5 text-sm font-black text-white"
+                      : "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 px-5 text-sm font-black text-slate-700";
+                  const card = (
+                    <article className={cn(
+                      "overflow-hidden rounded-[1.5rem] border bg-white shadow-sm transition",
+                      timed ? "border-rose-300 ring-2 ring-rose-100" : "border-slate-200",
+                      quizHref ? "hover:-translate-y-0.5 hover:shadow-md" : null
+                    )}>
                       <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
                             <h3 className="text-lg font-black text-slate-950">{quiz.title}</h3>
-                            {quiz.status === "closed" || overdue ? (
+                            {ended ? (
                               <span className="rounded-full bg-slate-900 px-2.5 py-0.5 text-[11px] font-black uppercase text-white">Quiz Ended</span>
                             ) : timed ? (
                               <span className="rounded-full bg-rose-100 px-2.5 py-0.5 text-[11px] font-black uppercase text-rose-800">Beat the clock</span>
@@ -481,21 +497,30 @@ export function StudentClassDetail({ classId }: { classId: string }) {
                             </p>
                           ) : null}
                         </div>
-                        {quiz.status === "closed" || overdue ? <span className="rounded-xl bg-slate-100 px-5 py-3 text-sm font-black text-slate-600">Quiz Ended</span> : upcoming ? <span className="rounded-xl bg-blue-50 px-5 py-3 text-sm font-black text-blue-800">Opens {new Date(quiz.startAt!).toLocaleString()}</span> : !quiz.attemptsUsed ? (
-                          <Link className={cn("inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-5 text-sm font-black text-white", timed ? "bg-rose-600 hover:bg-rose-700" : "bg-sky-600 hover:bg-sky-700")} href={`/classes/${classId}/quizzes/${quiz.id}`}>
-                            {timed ? "Beat the clock" : "Take quiz"} <ArrowRight className="size-4" />
-                          </Link>
-                        ) : quiz.canRetake ? (
-                          <Link className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-amber-500 px-5 text-sm font-black text-white hover:bg-amber-600" href={`/classes/${classId}/quizzes/${quiz.id}`}>
-                            Retake quiz <ArrowRight className="size-4" />
-                          </Link>
+                        {ended ? (
+                          <span className="rounded-xl bg-slate-100 px-5 py-3 text-sm font-black text-slate-600">Quiz Ended</span>
+                        ) : upcoming ? (
+                          <span className="rounded-xl bg-blue-50 px-5 py-3 text-sm font-black text-blue-800">Opens {new Date(quiz.startAt!).toLocaleString()}</span>
                         ) : (
-                          <Link className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 px-5 text-sm font-black text-slate-700 hover:bg-slate-50" href={`/classes/${classId}/quizzes/${quiz.id}`}>
-                            View result
-                          </Link>
+                          <span className={actionClass}>
+                            {actionLabel}
+                            {!quiz.attemptsUsed || quiz.canRetake ? <ArrowRight className="size-4" /> : null}
+                          </span>
                         )}
                       </div>
                     </article>
+                  );
+                  return quizHref ? (
+                    <Link
+                      aria-label={`${actionLabel}: ${quiz.title}`}
+                      className="block rounded-[1.5rem] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+                      href={quizHref}
+                      key={quiz.id}
+                    >
+                      {card}
+                    </Link>
+                  ) : (
+                    <div key={quiz.id}>{card}</div>
                   );
                 })}
               </section>

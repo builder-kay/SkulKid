@@ -5,6 +5,7 @@ import { ArrowRight, CheckCircle2, Sparkles, Target } from "lucide-react";
 import { useStudentGame } from "@/lib/gamification/student-game";
 import { CharacterAvatar } from "@/components/student/character-avatar";
 import { useStudentProfile } from "@/lib/student/student-profile";
+import { cn } from "@/lib/utils";
 
 export function DailyQuestCard() {
   const {
@@ -17,12 +18,11 @@ export function DailyQuestCard() {
   const { profile } = useStudentProfile();
   const progress = Math.min(1, state.questProgress ?? 0);
   const celebrationSignal = dailyQuestClaimed ? `quest-${state.questDate}` : undefined;
+  const cardClassName =
+    "relative block overflow-hidden rounded-[2rem] border border-amber-200 bg-gradient-to-br from-amber-50 via-white to-orange-50 p-5 text-left shadow-[var(--shadow-card)] transition hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 sm:p-6";
 
-  return (
-    <section
-      aria-labelledby="daily-quest-heading"
-      className="relative overflow-hidden rounded-[2rem] border border-amber-200 bg-gradient-to-br from-amber-50 via-white to-orange-50 p-5 shadow-[var(--shadow-card)] sm:p-6"
-    >
+  const body = (
+    <>
       <span aria-hidden className="pointer-events-none absolute -right-10 -top-10 size-36 rounded-full bg-amber-200/40 blur-2xl" />
       <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-start gap-3">
@@ -64,24 +64,44 @@ export function DailyQuestCard() {
               <CheckCircle2 className="size-5" />Mission done!
             </p>
           ) : dailyQuestReady ? (
-            <button
-              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-amber-400 px-5 font-black text-slate-950 shadow-md transition hover:bg-amber-300"
-              onClick={() => claimDailyQuest()}
-              type="button"
-            >
+            <span className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-amber-400 px-5 font-black text-slate-950 shadow-md">
               <Sparkles className="size-5" />Claim +{dailyQuest.rewardXp} XP
-            </button>
+            </span>
           ) : (
-            <Link
-              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 font-black text-white transition hover:bg-slate-800"
-              href={dailyQuest.ctaHref}
-            >
+            <span className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 font-black text-white">
               {dailyQuest.ctaLabel}
               <ArrowRight className="size-4" />
-            </Link>
+            </span>
           )}
         </div>
       </div>
-    </section>
+    </>
+  );
+
+  if (dailyQuestClaimed) {
+    return (
+      <section aria-labelledby="daily-quest-heading" className={cn(cardClassName, "hover:translate-y-0 hover:shadow-[var(--shadow-card)]")}>
+        {body}
+      </section>
+    );
+  }
+
+  if (dailyQuestReady) {
+    return (
+      <button
+        aria-labelledby="daily-quest-heading"
+        className={cn(cardClassName, "w-full cursor-pointer")}
+        onClick={() => claimDailyQuest()}
+        type="button"
+      >
+        {body}
+      </button>
+    );
+  }
+
+  return (
+    <Link aria-labelledby="daily-quest-heading" className={cardClassName} href={dailyQuest.ctaHref}>
+      {body}
+    </Link>
   );
 }

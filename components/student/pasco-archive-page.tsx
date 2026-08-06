@@ -72,7 +72,56 @@ export function PascoArchivePage() {
       </section>
 
       {loading ? <div className="grid min-h-64 place-items-center"><Loader2 className="size-7 animate-spin text-orange-600" /></div> : error ? <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5 font-bold text-rose-900">{error}</div> : visible.length === 0 ? <div className="grid min-h-64 place-items-center rounded-[1.5rem] border border-dashed border-slate-300 bg-white p-8 text-center"><div><Sparkles className="mx-auto size-9 text-amber-500" /><h2 className="mt-3 text-xl font-black">{quizzes.length ? "No PASCO quizzes match" : "No past quizzes yet"}</h2><p className="mt-2 text-sm text-slate-600">{quizzes.length ? "Try another search or filter." : "Ended class quizzes and strand quizzes you take will appear here automatically."}</p></div></div> :
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{visible.map((quiz) => <article className="group flex flex-col overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:border-orange-300 hover:shadow-xl" key={quiz.id}><div className="h-2 bg-gradient-to-r from-amber-400 via-orange-500 to-rose-500" /><div className="flex flex-1 flex-col p-5"><div className="flex items-start justify-between gap-3"><span className="rounded-full bg-orange-50 px-3 py-1 text-[11px] font-black uppercase text-orange-800">{quiz.sourceType === "strand" ? `${quiz.className} · Strand quiz` : `${quiz.className} · Basic ${quiz.gradeLevel}`}</span>{quiz.attempted ? <span className="inline-flex items-center gap-1 text-xs font-black text-emerald-700"><CheckCircle2 className="size-4" />Attempted</span> : <span className="text-xs font-black text-slate-500">Missed</span>}</div>{quiz.sourceType === "strand" && (quiz.strand || quiz.subStrand) ? <p className="mt-3 text-xs font-bold text-violet-700">{[quiz.strand, quiz.subStrand].filter(Boolean).join(" → ")}</p> : null}<h2 className="mt-4 text-xl font-black text-slate-950">{quiz.title}</h2><p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-600">{quiz.description || "Review the questions and practise this past challenge."}</p><div className="mt-4 grid grid-cols-3 gap-2 text-center"><CardStat label="Questions" value={quiz.questionCount} /><CardStat label="Best" value={quiz.bestScore == null ? "—" : `${quiz.bestScore}%`} /><CardStat label="Attempts" value={quiz.attemptCount} /></div>{quiz.offPlatformReward ? <p className="mt-4 rounded-xl bg-amber-50 p-3 text-xs font-bold text-amber-900"><Trophy className="mr-1 inline size-4" />Class reward: {quiz.offPlatformReward}</p> : null}<div className="mt-auto pt-5"><p className="flex items-center gap-1 text-xs font-bold text-slate-500">{quiz.sourceType === "strand" ? <History className="size-3.5" /> : <Clock3 className="size-3.5" />}{quiz.sourceType === "strand" ? "Last taken" : "Ended"} {new Date(quiz.endedAt).toLocaleString()}</p><Link className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 font-black text-white group-hover:bg-orange-600" href={quiz.href ?? `/pasco/${quiz.id}`}>{quiz.sourceType === "strand" ? "Review lesson quiz" : "Review and practise"} <ArrowRight className="size-4" /></Link></div></div></article>)}</section>}
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{visible.map((quiz) => {
+        const href = quiz.href ?? `/pasco/${quiz.id}`;
+        const actionLabel = quiz.sourceType === "strand" ? "Review lesson quiz" : "Review and practise";
+        return (
+          <Link
+            aria-label={`${actionLabel}: ${quiz.title}`}
+            className="group flex flex-col overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:border-orange-300 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+            href={href}
+            key={quiz.id}
+          >
+            <span className="h-2 bg-gradient-to-r from-amber-400 via-orange-500 to-rose-500" />
+            <span className="flex flex-1 flex-col p-5">
+              <span className="flex items-start justify-between gap-3">
+                <span className="rounded-full bg-orange-50 px-3 py-1 text-[11px] font-black uppercase text-orange-800">
+                  {quiz.sourceType === "strand" ? `${quiz.className} · Strand quiz` : `${quiz.className} · Basic ${quiz.gradeLevel}`}
+                </span>
+                {quiz.attempted ? (
+                  <span className="inline-flex items-center gap-1 text-xs font-black text-emerald-700"><CheckCircle2 className="size-4" />Attempted</span>
+                ) : (
+                  <span className="text-xs font-black text-slate-500">Missed</span>
+                )}
+              </span>
+              {quiz.sourceType === "strand" && (quiz.strand || quiz.subStrand) ? (
+                <span className="mt-3 text-xs font-bold text-violet-700">{[quiz.strand, quiz.subStrand].filter(Boolean).join(" → ")}</span>
+              ) : null}
+              <span className="mt-4 text-xl font-black text-slate-950">{quiz.title}</span>
+              <span className="mt-2 line-clamp-2 text-sm leading-6 text-slate-600">{quiz.description || "Review the questions and practise this past challenge."}</span>
+              <span className="mt-4 grid grid-cols-3 gap-2 text-center">
+                <CardStat label="Questions" value={quiz.questionCount} />
+                <CardStat label="Best" value={quiz.bestScore == null ? "—" : `${quiz.bestScore}%`} />
+                <CardStat label="Attempts" value={quiz.attemptCount} />
+              </span>
+              {quiz.offPlatformReward ? (
+                <span className="mt-4 rounded-xl bg-amber-50 p-3 text-xs font-bold text-amber-900">
+                  <Trophy className="mr-1 inline size-4" />Class reward: {quiz.offPlatformReward}
+                </span>
+              ) : null}
+              <span className="mt-auto pt-5">
+                <span className="flex items-center gap-1 text-xs font-bold text-slate-500">
+                  {quiz.sourceType === "strand" ? <History className="size-3.5" /> : <Clock3 className="size-3.5" />}
+                  {quiz.sourceType === "strand" ? "Last taken" : "Ended"} {new Date(quiz.endedAt).toLocaleString()}
+                </span>
+                <span className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 font-black text-white group-hover:bg-orange-600">
+                  {actionLabel} <ArrowRight className="size-4" />
+                </span>
+              </span>
+            </span>
+          </Link>
+        );
+      })}</section>}
     </main>
   </StudentShell>;
 }

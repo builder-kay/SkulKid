@@ -25,7 +25,13 @@ import {
 } from "@/lib/network/sync-status";
 
 export const gameChangedEvent = "skulkid:student-game-changed";
+export const streakLostEvent = "skulkid:streak-lost";
 export const DAILY_LEARNING_XP_GOAL = 30;
+
+export type StreakLostDetail = {
+  lastStreakDate: string;
+  lostStreak: number;
+};
 
 export type QuizAnswerResult = { blockId: string; correct: boolean; attempts: number };
 type QuizRecord = {
@@ -113,7 +119,44 @@ function syncQuestProgress(state: GameState): GameState {
     const todayXp = state.dailyLearningDate === today ? state.dailyLearningXp : 0;
     return { ...state, questProgress: todayXp > (state.yesterdayLearningXp ?? 0) ? 1 : 0 };
   }
+  if (state.questId === "keep_streak") {
+    return { ...state, questProgress: state.lastStreakDate === today ? 1 : 0 };
+  }
   return state;
+}
+
+function streakBreakNoticeKey(lastStreakDate: string) {
+  return `skulkid:streak-break-notice:${lastStreakDate}`;
+}
+
+let pendingStreakLost: StreakLostDetail | null = null;
+
+function queueStreakLostNotice(lastStreakDate: string, lostStreak: number) {
+  if (typeof window === "undefined" || lostStreak <= 0) return;
+  try {
+    if (window.localStorage.getItem(streakBreakNoticeKey(lastStreakDate)) === "1") return;
+  } catch {
+    // localStorage may be unavailable; still queue once for this session.
+  }
+  pendingStreakLost = { lastStreakDate, lostStreak };
+  window.dispatchEvent(
+    new CustomEvent<StreakLostDetail>(streakLostEvent, {
+      detail: pendingStreakLost
+    })
+  );
+}
+
+/** Consume a queued streak-loss notice (marks it seen). */
+export function takeStreakLostNotice(): StreakLostDetail | null {
+  const detail = pendingStreakLost;
+  if (!detail) return null;
+  pendingStreakLost = null;
+  try {
+    window.localStorage.setItem(streakBreakNoticeKey(detail.lastStreakDate), "1");
+  } catch {
+    // Ignore storage failures; the notice was still shown.
+  }
+  return detail;
 }
 
 export function ensureDailyQuest(state: GameState): GameState {
@@ -186,13 +229,19 @@ export function applyServerGameState(
       createdAt: new Date().toISOString()
     }];
   }
-  let next = state.lastStreakDate && dayDifference(state.lastStreakDate, localDate()) > 1
-    ? { ...state, streak: 0 }
-    : state;
+  const today = localDate();
+  const streakBroken =
+    Boolean(state.lastStreakDate) && dayDifference(state.lastStreakDate as string, today) > 1;
+  const lostStreak = streakBroken ? state.streak : 0;
+  let next = streakBroken && state.streak > 0 ? { ...state, streak: 0 } : state;
   next = ensureDailyQuest(next);
   currentGameState = next;
   gameStateHydrated = true;
   window.dispatchEvent(new CustomEvent(gameChangedEvent, { detail: currentGameState }));
+  if (streakBroken && lostStreak > 0 && state.lastStreakDate) {
+    queueStreakLostNotice(state.lastStreakDate, lostStreak);
+    if (lostStreak !== next.streak) save(next);
+  }
   if (celebration) {
     dispatchStudentCelebration({
       ...celebration,

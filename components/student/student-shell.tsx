@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, type MutableRefObject } from "react";
-import { Award, BookMarked, BookOpen, ClipboardList, LayoutDashboard, LogOut, Menu, MessageCircle, Trophy, UserRound, Users, X } from "lucide-react";
+import { Award, BookMarked, BookOpen, ClipboardList, Flame, LayoutDashboard, LogOut, Menu, MessageCircle, Trophy, UserRound, Users, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { GamificationArena } from "@/components/gamification/gamification-arena";
 import { CharacterAvatar } from "@/components/student/character-avatar";
@@ -13,8 +13,14 @@ import { SkulKidLogo } from "@/components/shared/skulkid-logo";
 import { SignOutConfirmation } from "@/components/shared/sign-out-confirmation";
 import { getStudentLevel } from "@/lib/gamification/calculate-level";
 import { cn } from "@/lib/utils";
-import { useStudentGame } from "@/lib/gamification/student-game";
+import {
+  streakLostEvent,
+  takeStreakLostNotice,
+  useStudentGame,
+  type StreakLostDetail
+} from "@/lib/gamification/student-game";
 import { useStudentProfile } from "@/lib/student/student-profile";
+
 import {
   BUTTON_SOUND_CHANGE_EVENT,
   installButtonClickSounds,
@@ -60,6 +66,7 @@ export function StudentShell({ activeItem, children, mobileAside }: StudentShell
   const [moreOpen, setMoreOpen] = useState(false);
   const [unreadClassMessages, setUnreadClassMessages] = useState(0);
   const [chatAlert, setChatAlert] = useState<{ classId: string; body: string } | null>(null);
+  const [streakAlert, setStreakAlert] = useState<StreakLostDetail | null>(null);
   const soundEnabledRef = useRef(true);
   const buttonSoundEnabledRef = useRef(true);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -123,6 +130,16 @@ export function StudentShell({ activeItem, children, mobileAside }: StudentShell
       if (channel) void supabase.removeChannel(channel);
     };
   }, [activeItem]);
+
+  useEffect(() => {
+    function showStreakLostNotice() {
+      const detail = takeStreakLostNotice();
+      if (detail) setStreakAlert(detail);
+    }
+    showStreakLostNotice();
+    window.addEventListener(streakLostEvent, showStreakLostNotice);
+    return () => window.removeEventListener(streakLostEvent, showStreakLostNotice);
+  }, []);
 
   useEffect(() => {
     if (!rewardsNavOpen) return;
@@ -292,6 +309,7 @@ export function StudentShell({ activeItem, children, mobileAside }: StudentShell
       </div>
 
       {chatAlert ? <aside aria-live="polite" className="fixed inset-x-3 top-20 z-[60] mx-auto max-w-md rounded-2xl border border-blue-200 bg-white p-3 shadow-2xl sm:right-5 sm:left-auto sm:top-5 sm:w-[25rem]"><div className="flex items-start gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-blue-100 text-blue-700"><MessageCircle className="size-5" /></span><div className="min-w-0 flex-1"><p className="font-black text-slate-950">New class chat!</p><p className="mt-1 line-clamp-2 text-sm text-slate-600">{chatAlert.body}</p><Link className="mt-2 inline-flex min-h-9 items-center rounded-lg bg-blue-700 px-3 text-xs font-black text-white" href={`/messages?classId=${encodeURIComponent(chatAlert.classId)}`} onClick={() => { setChatAlert(null); setUnreadClassMessages(0); }}>Open chat</Link></div><button aria-label="Dismiss class message notification" className="grid size-9 shrink-0 place-items-center rounded-lg text-slate-500 hover:bg-slate-100" onClick={() => setChatAlert(null)} type="button"><X className="size-4" /></button></div></aside> : null}
+      {streakAlert ? <aside aria-live="polite" className="fixed inset-x-3 top-20 z-[60] mx-auto max-w-md rounded-2xl border border-orange-200 bg-white p-3 shadow-2xl sm:right-5 sm:left-auto sm:top-5 sm:w-[25rem]"><div className="flex items-start gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-orange-100 text-orange-700"><Flame className="size-5" /></span><div className="min-w-0 flex-1"><p className="font-black text-slate-950">Streak paused</p><p className="mt-1 text-sm text-slate-600">Your {streakAlert.lostStreak}-day streak cooled off while you were away. Earn today&apos;s learning XP to light a new flame!</p><Link className="mt-2 inline-flex min-h-9 items-center rounded-lg bg-orange-600 px-3 text-xs font-black text-white" href="/courses" onClick={() => setStreakAlert(null)}>Start a new streak</Link></div><button aria-label="Dismiss streak notification" className="grid size-9 shrink-0 place-items-center rounded-lg text-slate-500 hover:bg-slate-100" onClick={() => setStreakAlert(null)} type="button"><X className="size-4" /></button></div></aside> : null}
       <div aria-hidden={!moreOpen} className={cn("fixed inset-0 z-40 bg-slate-950/45 backdrop-blur-[2px] transition lg:hidden", moreOpen ? "opacity-100" : "pointer-events-none opacity-0")} onClick={() => setMoreOpen(false)} />
       <div aria-hidden={!moreOpen} aria-labelledby="student-more-title" aria-modal="true" className={cn("fixed inset-x-3 bottom-[calc(5.7rem+env(safe-area-inset-bottom))] z-50 max-h-[75dvh] overflow-y-auto rounded-[1.75rem] bg-white p-4 shadow-2xl transition duration-200 lg:hidden", moreOpen ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-5 opacity-0")} ref={morePanelRef} role="dialog">
         <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-wider text-violet-700">More fun</p><h2 className="text-xl font-black" id="student-more-title">More</h2></div><button aria-label="Close More menu" className="grid size-10 place-items-center rounded-xl bg-slate-100" onClick={() => { setMoreOpen(false); moreButtonRef.current?.focus(); }} type="button"><X className="size-5" /></button></div>
