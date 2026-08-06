@@ -153,61 +153,97 @@ export function DashboardClassActivity() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <div className="overflow-hidden rounded-[1.75rem] border border-indigo-200 bg-white shadow-[var(--shadow-card)]">
-          <div className="flex items-center justify-between gap-3 border-b border-indigo-100 bg-gradient-to-r from-indigo-50 to-violet-50 px-5 py-4">
-            <div className="flex items-center gap-3">
-              <span className="grid size-10 place-items-center rounded-xl bg-indigo-600 text-white">
-                <ClipboardList aria-hidden="true" className="size-5" />
-              </span>
-              <div>
-                <h3 className="font-black text-text-primary">Class quizzes</h3>
-                <p className="text-xs font-semibold text-text-secondary">Timed challenges and open quizzes</p>
+        {activity.quizzes.length ? (
+          <div className="overflow-hidden rounded-[1.75rem] border border-indigo-200 bg-white shadow-[var(--shadow-card)]">
+            <div className="flex items-center justify-between gap-3 border-b border-indigo-100 bg-gradient-to-r from-indigo-50 to-violet-50 px-5 py-4">
+              <div className="flex items-center gap-3">
+                <span className="grid size-10 place-items-center rounded-xl bg-indigo-600 text-white">
+                  <ClipboardList aria-hidden="true" className="size-5" />
+                </span>
+                <div>
+                  <h3 className="font-black text-text-primary">Class quizzes</h3>
+                  <p className="text-xs font-semibold text-text-secondary">Timed challenges and open quizzes</p>
+                </div>
               </div>
+              <span className="rounded-full bg-white px-2.5 py-1 text-xs font-black text-indigo-700 shadow-sm">{activity.quizzes.length}</span>
             </div>
-            <span className="rounded-full bg-white px-2.5 py-1 text-xs font-black text-indigo-700 shadow-sm">{activity.quizzes.length}</span>
-          </div>
-
-          {activity.quizzes.length ? (
             <ActivityCarousel label="Quiz challenges">
               {activity.quizzes.map((quiz) => <QuizShortcut key={quiz.id} quiz={quiz} />)}
             </ActivityCarousel>
-          ) : (
+          </div>
+        ) : (
+          <Link
+            aria-label="Open my classes to check for quizzes"
+            className="group block overflow-hidden rounded-[1.75rem] border border-indigo-200 bg-white shadow-[var(--shadow-card)] transition hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+            href="/classes"
+          >
+            <div className="flex items-center justify-between gap-3 border-b border-indigo-100 bg-gradient-to-r from-indigo-50 to-violet-50 px-5 py-4">
+              <div className="flex items-center gap-3">
+                <span className="grid size-10 place-items-center rounded-xl bg-indigo-600 text-white">
+                  <ClipboardList aria-hidden="true" className="size-5" />
+                </span>
+                <div>
+                  <h3 className="font-black text-text-primary">Class quizzes</h3>
+                  <p className="text-xs font-semibold text-text-secondary">Timed challenges and open quizzes</p>
+                </div>
+              </div>
+              <span className="rounded-full bg-white px-2.5 py-1 text-xs font-black text-indigo-700 shadow-sm">0</span>
+            </div>
             <ActivityEmpty
+              cta="Open my classes"
+              description="Great job checking! New quiz challenges will appear here."
               icon={CheckCircle2}
               title="No quiz waiting right now"
-              description="Great job checking! New quiz challenges will appear here."
             />
-          )}
-        </div>
+          </Link>
+        )}
 
-        <div className="overflow-hidden rounded-[1.75rem] border border-emerald-200 bg-white shadow-[var(--shadow-card)]">
-          <div className="flex items-center justify-between gap-3 border-b border-emerald-100 bg-gradient-to-r from-emerald-50 to-teal-50 px-5 py-4">
-            <div className="flex items-center gap-3">
-              <span className="grid size-10 place-items-center rounded-xl bg-emerald-600 text-white">
-                <BookOpen aria-hidden="true" className="size-5" />
-              </span>
-              <div>
-                <h3 className="font-black text-text-primary">Class subjects</h3>
-                <p className="text-xs font-semibold text-text-secondary">Learning picked by your teachers</p>
+        {activity.subjects.length ? (
+          <div className="overflow-hidden rounded-[1.75rem] border border-emerald-200 bg-white shadow-[var(--shadow-card)]">
+            <div className="flex items-center justify-between gap-3 border-b border-emerald-100 bg-gradient-to-r from-emerald-50 to-teal-50 px-5 py-4">
+              <div className="flex items-center gap-3">
+                <span className="grid size-10 place-items-center rounded-xl bg-emerald-600 text-white">
+                  <BookOpen aria-hidden="true" className="size-5" />
+                </span>
+                <div>
+                  <h3 className="font-black text-text-primary">Class subjects</h3>
+                  <p className="text-xs font-semibold text-text-secondary">Learning picked by your teachers</p>
+                </div>
               </div>
+              <span className="rounded-full bg-white px-2.5 py-1 text-xs font-black text-emerald-700 shadow-sm">{activity.subjects.length}</span>
             </div>
-            <span className="rounded-full bg-white px-2.5 py-1 text-xs font-black text-emerald-700 shadow-sm">{activity.subjects.length}</span>
-          </div>
-
-          {activity.subjects.length ? (
             <ActivityCarousel label="Class subjects">
               {activity.subjects.map((subject) => (
                 <SubjectShortcut key={subject.id} subject={subject} />
               ))}
             </ActivityCarousel>
-          ) : (
+          </div>
+        ) : (
+          <Link
+            aria-label="Open my classes to find subjects"
+            className="group block overflow-hidden rounded-[1.75rem] border border-emerald-200 bg-white shadow-[var(--shadow-card)] transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+            href="/classes"
+          >
+            <div className="flex items-center justify-between gap-3 border-b border-emerald-100 bg-gradient-to-r from-emerald-50 to-teal-50 px-5 py-4">
+              <div className="flex items-center gap-3">
+                <span className="grid size-10 place-items-center rounded-xl bg-emerald-600 text-white">
+                  <BookOpen aria-hidden="true" className="size-5" />
+                </span>
+                <div>
+                  <h3 className="font-black text-text-primary">Class subjects</h3>
+                  <p className="text-xs font-semibold text-text-secondary">Learning picked by your teachers</p>
+                </div>
+              </div>
+              <span className="rounded-full bg-white px-2.5 py-1 text-xs font-black text-emerald-700 shadow-sm">0</span>
+            </div>
             <ActivityEmpty
+              cta="Open my classes"
+              description="Your teacher's subject shortcuts will appear here."
               icon={BookOpen}
               title="No class subjects yet"
-              description="Your teacher's subject shortcuts will appear here."
             />
-          )}
-        </div>
+          </Link>
+        )}
       </div>
     </section>
   );
@@ -432,11 +468,13 @@ function slidePositionInViewport(viewport: HTMLElement, slide: HTMLElement) {
 function ActivityEmpty({
   icon: Icon,
   title,
-  description
+  description,
+  cta
 }: {
   icon: React.ElementType;
   title: string;
   description: string;
+  cta?: string;
 }) {
   return (
     <div className="grid min-h-48 place-items-center px-5 py-8 text-center">
@@ -446,6 +484,12 @@ function ActivityEmpty({
         </span>
         <p className="mt-3 font-black text-text-primary">{title}</p>
         <p className="mt-1 text-sm text-text-secondary">{description}</p>
+        {cta ? (
+          <span className="mt-4 inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2 text-sm font-black text-white">
+            {cta}
+            <ArrowRight aria-hidden="true" className="size-4 transition group-hover:translate-x-0.5" />
+          </span>
+        ) : null}
       </div>
     </div>
   );
