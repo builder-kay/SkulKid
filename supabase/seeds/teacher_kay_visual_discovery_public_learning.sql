@@ -181,6 +181,8 @@ BEGIN
               'required', true,
               'estimatedSeconds', 40,
               'statement', q ->> 'prompt',
+              'prompt', q ->> 'prompt',
+              'shuffleOptions', false,
               'correctAnswer', ((q ->> 'correctIndex')::int = 0),
               'learningObjectiveIds', jsonb_build_array(lesson_id || '-objective'),
               'difficulty', 'developing',

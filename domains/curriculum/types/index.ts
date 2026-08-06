@@ -214,10 +214,12 @@ export type MultipleSelectBlock = BaseLessonBlock &
   };
 
 export type TrueFalseBlock = BaseLessonBlock &
-  AssessmentFields & {
+  Omit<AssessmentFields, "prompt" | "shuffleOptions"> & {
     type: "true_false";
     statement: string;
     correctAnswer: boolean;
+    prompt?: string;
+    shuffleOptions?: boolean;
   };
 
 export type FillBlankBlank = {

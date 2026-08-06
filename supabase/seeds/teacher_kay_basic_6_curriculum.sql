@@ -235,6 +235,16 @@ BEGIN
   LIMIT 1;
 
   -- Remove dependent teacher content first so no lesson rows become orphaned.
+  -- Break Subject ↔ PublicLearningRevision references before deleting subjects.
+  UPDATE public."Subject"
+  SET "currentPublicRevisionId" = NULL
+  WHERE "createdBy" = teacher_id;
+
+  DELETE FROM public."PublicLearningRevision"
+  WHERE "courseId" IN (
+    SELECT "id" FROM public."Subject" WHERE "createdBy" = teacher_id
+  );
+
   DELETE FROM public."TeacherQuiz" WHERE "createdBy" = teacher_id;
   DELETE FROM public."AdminLessonRecord" WHERE "createdBy" = teacher_id;
   DELETE FROM public."Subject" WHERE "createdBy" = teacher_id;
@@ -472,6 +482,8 @@ BEGIN
                     'required', true,
                     'estimatedSeconds', 45,
                     'statement', q ->> 'prompt',
+                    'prompt', q ->> 'prompt',
+                    'shuffleOptions', false,
                     'correctAnswer', ((q ->> 'correctIndex')::int = 0),
                     'learningObjectiveIds', jsonb_build_array(lesson_id || '-objective-1'),
                     'difficulty', CASE WHEN lesson_variant = 1 THEN 'beginner' ELSE 'developing' END,

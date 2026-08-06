@@ -171,11 +171,16 @@ export const multipleSelectBlockSchema = baseBlockSchema
     }
   });
 
-export const trueFalseBlockSchema = baseBlockSchema.merge(assessmentFieldsSchema).extend({
-  type: z.literal("true_false"),
-  statement: z.string().min(1),
-  correctAnswer: z.boolean()
-});
+export const trueFalseBlockSchema = baseBlockSchema
+  .merge(assessmentFieldsSchema.omit({ prompt: true, shuffleOptions: true }))
+  .extend({
+    type: z.literal("true_false"),
+    statement: z.string().min(1),
+    correctAnswer: z.boolean(),
+    /** Optional mirror of statement for shared assessment tooling. */
+    prompt: z.string().min(1).optional(),
+    shuffleOptions: z.boolean().optional().default(false)
+  });
 
 const fillBlankBlankSchema = z.object({
   id: z.string().min(1),

@@ -206,18 +206,37 @@ BEGIN
     AND lower(coalesce(raw_app_meta_data ->> 'role', raw_user_meta_data ->> 'role', '')) IN ('teacher', 'admin')
   LIMIT 1;
 
+  -- Clear publication pointers first (Subject ↔ PublicLearningRevision FK cycle),
+  -- then remove only the public Teacher Kay subjects this seed owns.
+  UPDATE public."Subject"
+  SET "currentPublicRevisionId" = NULL
+  WHERE "createdBy" = teacher_id
+    AND "slug" LIKE 'teacher-kay-public-%';
+
+  DELETE FROM public."PublicLearningRevision"
+  WHERE "courseId" IN (
+    SELECT "id" FROM public."Subject"
+    WHERE "createdBy" = teacher_id AND "slug" LIKE 'teacher-kay-public-%'
+  );
+
   DELETE FROM public."TeacherQuiz"
   WHERE "createdBy" = teacher_id
-    AND "courseId" IN (
-      SELECT "id" FROM public."Subject"
-      WHERE "createdBy" = teacher_id AND "slug" LIKE 'teacher-kay-public-%'
+    AND (
+      "courseId" IN (
+        SELECT "id" FROM public."Subject"
+        WHERE "createdBy" = teacher_id AND "slug" LIKE 'teacher-kay-public-%'
+      )
+      OR "lessonId" LIKE 'teacher-kay-public-%'
     );
 
   DELETE FROM public."AdminLessonRecord"
   WHERE "createdBy" = teacher_id
-    AND "courseId" IN (
-      SELECT "id" FROM public."Subject"
-      WHERE "createdBy" = teacher_id AND "slug" LIKE 'teacher-kay-public-%'
+    AND (
+      "courseId" IN (
+        SELECT "id" FROM public."Subject"
+        WHERE "createdBy" = teacher_id AND "slug" LIKE 'teacher-kay-public-%'
+      )
+      OR id LIKE 'teacher-kay-public-%'
     );
 
   DELETE FROM public."Subject"
@@ -314,6 +333,8 @@ BEGIN
                   'required', true,
                   'estimatedSeconds', 40,
                   'statement', q ->> 'prompt',
+                  'prompt', q ->> 'prompt',
+                  'shuffleOptions', false,
                   'correctAnswer', ((q ->> 'correctIndex')::int = 0),
                   'learningObjectiveIds', jsonb_build_array(lesson_id || '-objective'),
                   'difficulty', CASE WHEN lesson_index <= 5 THEN 'beginner' ELSE 'developing' END,
